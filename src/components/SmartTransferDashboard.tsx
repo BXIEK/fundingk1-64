@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useOptimizedTransfer } from "@/hooks/useOptimizedTransfer";
-import { RefreshCw, ArrowRightLeft, TrendingUp, Clock, DollarSign, AlertTriangle, Shield, Zap, Globe, Lock } from "lucide-react";
+import { RefreshCw, ArrowRightLeft, TrendingUp, Clock, DollarSign, AlertTriangle, Shield, Zap, Globe, Lock, Save } from "lucide-react";
 
 interface TransferAnalysis {
   symbol: string;
@@ -48,6 +48,12 @@ const SmartTransferDashboard = () => {
     priority: 'medium' as 'low' | 'medium' | 'high',
     auto2FA: false
   });
+  const [securitySettings, setSecuritySettings] = useState({
+    geographicBypass: false,
+    twoFactorAutomation: false,
+    proxyRotation: false,
+    sessionPersistence: false
+  });
   const { toast } = useToast();
   const {
     loading,
@@ -59,6 +65,39 @@ const SmartTransferDashboard = () => {
     deactivateSecurityBypass,
     getOptimizationRecommendations
   } = useOptimizedTransfer();
+
+  // Carregar configurações salvas
+  useEffect(() => {
+    const savedSettings = localStorage.getItem('smart-transfer-settings');
+    if (savedSettings) {
+      try {
+        const parsed = JSON.parse(savedSettings);
+        if (parsed.formData) setFormData(parsed.formData);
+        if (parsed.optimizationSettings) setOptimizationSettings(parsed.optimizationSettings);
+        if (parsed.securitySettings) setSecuritySettings(parsed.securitySettings);
+      } catch (error) {
+        console.error('Erro ao carregar configurações:', error);
+      }
+    }
+  }, []);
+
+  // Salvar configurações
+  const saveSettings = () => {
+    const settingsToSave = {
+      formData,
+      optimizationSettings,
+      securitySettings,
+      savedAt: new Date().toISOString()
+    };
+    
+    localStorage.setItem('smart-transfer-settings', JSON.stringify(settingsToSave));
+    
+    toast({
+      title: "✅ Configurações Salvas",
+      description: "Todas as configurações foram salvas com sucesso",
+      duration: 3000
+    });
+  };
 
   const handleAnalyze = async () => {
     if (formData.requiredAmount <= 0) {
@@ -300,7 +339,7 @@ const SmartTransferDashboard = () => {
                 </Button>
               </div>
 
-              {analysis?.isWorthwhile && (
+                {analysis?.isWorthwhile && (
                 <Button 
                   onClick={handleExecuteTransfer}
                   disabled={loading}
@@ -311,6 +350,16 @@ const SmartTransferDashboard = () => {
                   Executar Transferência
                 </Button>
               )}
+
+              <Separator className="my-4" />
+              <Button 
+                onClick={saveSettings}
+                variant="outline"
+                className="w-full"
+              >
+                <Save className="h-4 w-4 mr-2" />
+                Salvar Configurações de Transferência
+              </Button>
             </TabsContent>
 
             <TabsContent value="optimizations" className="space-y-4">
@@ -431,6 +480,16 @@ const SmartTransferDashboard = () => {
                   </CardContent>
                 </Card>
               )}
+
+              <Separator className="my-4" />
+              <Button 
+                onClick={saveSettings}
+                variant="outline"
+                className="w-full"
+              >
+                <Save className="h-4 w-4 mr-2" />
+                Salvar Configurações de Otimização
+              </Button>
             </TabsContent>
 
             <TabsContent value="security" className="space-y-4">
@@ -443,17 +502,35 @@ const SmartTransferDashboard = () => {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    <div className="text-sm text-muted-foreground">
-                      Contorna restrições geográficas usando proxies rotativos
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="geographicBypass">Ativar Bypass Geográfico</Label>
+                      <Switch
+                        id="geographicBypass"
+                        checked={securitySettings.geographicBypass}
+                        onCheckedChange={(checked) => 
+                          setSecuritySettings(prev => ({...prev, geographicBypass: checked}))
+                        }
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="proxyRotation">Rotação de Proxy</Label>
+                      <Switch
+                        id="proxyRotation"
+                        checked={securitySettings.proxyRotation}
+                        onCheckedChange={(checked) => 
+                          setSecuritySettings(prev => ({...prev, proxyRotation: checked}))
+                        }
+                      />
                     </div>
                     <Button 
                       size="sm" 
                       variant="outline"
                       onClick={() => activateSecurityBypass(formData.fromExchange, 'geographic_bypass', 'geographic')}
                       disabled={loading}
+                      className="w-full"
                     >
                       <Globe className="h-4 w-4 mr-1" />
-                      Ativar Bypass
+                      Testar Bypass Geográfico
                     </Button>
                   </CardContent>
                 </Card>
@@ -466,14 +543,32 @@ const SmartTransferDashboard = () => {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    <div className="text-sm text-muted-foreground">
-                      Automação de códigos 2FA para execução sem intervenção
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="twoFactorAutomation">2FA Automático</Label>
+                      <Switch
+                        id="twoFactorAutomation"
+                        checked={securitySettings.twoFactorAutomation}
+                        onCheckedChange={(checked) => 
+                          setSecuritySettings(prev => ({...prev, twoFactorAutomation: checked}))
+                        }
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="sessionPersistence">Persistir Sessão</Label>
+                      <Switch
+                        id="sessionPersistence"
+                        checked={securitySettings.sessionPersistence}
+                        onCheckedChange={(checked) => 
+                          setSecuritySettings(prev => ({...prev, sessionPersistence: checked}))
+                        }
+                      />
                     </div>
                     <Button 
                       size="sm" 
                       variant="outline"
                       onClick={() => activateSecurityBypass(formData.fromExchange, '2fa_automation', '2fa')}
                       disabled={loading}
+                      className="w-full"
                     >
                       <Lock className="h-4 w-4 mr-1" />
                       Configurar 2FA
@@ -516,6 +611,16 @@ const SmartTransferDashboard = () => {
                   </CardContent>
                 </Card>
               )}
+
+              <Separator className="my-4" />
+              <Button 
+                onClick={saveSettings}
+                variant="outline"
+                className="w-full"
+              >
+                <Save className="h-4 w-4 mr-2" />
+                Salvar Configurações de Segurança
+              </Button>
             </TabsContent>
           </Tabs>
         </CardContent>
