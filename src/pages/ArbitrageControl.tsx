@@ -25,7 +25,8 @@ import {
   Clock,
   Target,
   Shield,
-  Wallet
+  Wallet,
+  Activity
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import ArbitrageExecutionModal from '@/components/ArbitrageExecutionModal';
@@ -843,55 +844,127 @@ const adjustInvestmentForLotSize = (symbol: string, investmentAmount: number, bu
         <CardContent>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Saldos Binance */}
-            <Card className="border-dashed">
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Activity className="h-5 w-5 text-yellow-500" />
                   Binance
                 </CardTitle>
+                <CardDescription>Seus saldos na Binance</CardDescription>
               </CardHeader>
-              <CardContent className="pt-0">
-                {portfolio.filter(asset => asset.exchange === 'Binance').length > 0 ? (
-                  <div className="space-y-2">
-                    {portfolio
-                      .filter(asset => asset.exchange === 'Binance')
-                      .filter(asset => asset.balance > 0.001 || asset.locked_balance > 0.001)
-                      .slice(0, 5)
-                      .map((asset) => (
-                        <div key={`binance-${asset.symbol}`} className="flex justify-between items-center py-1">
-                          <span className="font-medium text-sm">{asset.symbol}</span>
-                          <div className="text-right">
-                            <div className="text-sm font-medium">
-                              {(asset.balance + asset.locked_balance).toFixed(
-                                (asset.balance + asset.locked_balance) < 1 ? 4 : 2
-                              )}
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[100px]">Asset</TableHead>
+                      <TableHead className="text-right w-[80px]">Preço</TableHead>
+                      <TableHead className="text-right w-[100px]">Saldo Livre</TableHead>
+                      <TableHead className="text-right w-[100px]">Bloqueado</TableHead>
+                      <TableHead className="text-right w-[100px]">Total</TableHead>
+                      <TableHead className="text-right w-[100px]">Valor USD</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {portfolio.filter(asset => asset.exchange === 'Binance').length > 0 ? (
+                      portfolio.filter(asset => asset.exchange === 'Binance').map((asset) => (
+                        <TableRow key={`binance-${asset.symbol}`}>
+                          <TableCell className="font-medium">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                              <span className="text-sm font-mono">{asset.symbol}</span>
                             </div>
-                            {asset.value_usd && (
-                              <div className="text-xs text-muted-foreground">
-                                ${asset.value_usd.toFixed(2)}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-4 text-muted-foreground text-sm">
-                    {isRealMode ? 'Configure suas credenciais' : 'Nenhum saldo disponível'}
-                  </div>
-                )}
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-xs">
+                            {asset.price_usd ? `$${asset.price_usd.toFixed(asset.price_usd < 1 ? 4 : 2)}` : '-'}
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-xs">
+                            {asset.balance.toFixed(asset.balance < 1 ? 6 : 2)}
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-xs text-muted-foreground">
+                            {asset.locked_balance.toFixed(asset.locked_balance < 1 ? 6 : 2)}
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-xs font-medium">
+                            {(asset.balance + asset.locked_balance).toFixed((asset.balance + asset.locked_balance) < 1 ? 6 : 2)}
+                          </TableCell>
+                          <TableCell className="text-right text-xs font-medium">
+                            {asset.price_usd ? formatCurrency(asset.price_usd * (asset.balance + asset.locked_balance)) : '-'}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                          {isRealMode ? 'Nenhum saldo encontrado na Binance' : 'Configure a API da Binance no modo real'}
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
               </CardContent>
             </Card>
 
             {/* Carteira Web3 */}
-            <div className="lg:col-span-1">
-              <Web3PortfolioCard />
-            </div>
+            <Web3PortfolioCard />
 
             {/* Saldos OKX */}
-            <div className="lg:col-span-1">
-              <OKXPortfolioCard />
-            </div>
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Activity className="h-5 w-5 text-blue-500" />
+                  OKX
+                </CardTitle>
+                <CardDescription>Seus saldos na OKX</CardDescription>
+              </CardHeader>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[100px]">Asset</TableHead>
+                      <TableHead className="text-right w-[80px]">Preço</TableHead>
+                      <TableHead className="text-right w-[100px]">Saldo Livre</TableHead>
+                      <TableHead className="text-right w-[100px]">Bloqueado</TableHead>
+                      <TableHead className="text-right w-[100px]">Total</TableHead>
+                      <TableHead className="text-right w-[100px]">Valor USD</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {portfolio.filter(asset => asset.exchange === 'OKX').length > 0 ? (
+                      portfolio.filter(asset => asset.exchange === 'OKX').map((asset) => (
+                        <TableRow key={`okx-${asset.symbol}`}>
+                          <TableCell className="font-medium">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                              <span className="text-sm font-mono">{asset.symbol}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-xs">
+                            {asset.price_usd ? `$${asset.price_usd.toFixed(asset.price_usd < 1 ? 4 : 2)}` : '-'}
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-xs">
+                            {asset.balance.toFixed(asset.balance < 1 ? 6 : 2)}
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-xs text-muted-foreground">
+                            {asset.locked_balance.toFixed(asset.locked_balance < 1 ? 6 : 2)}
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-xs font-medium">
+                            {(asset.balance + asset.locked_balance).toFixed((asset.balance + asset.locked_balance) < 1 ? 6 : 2)}
+                          </TableCell>
+                          <TableCell className="text-right text-xs font-medium">
+                            {asset.price_usd ? formatCurrency(asset.price_usd * (asset.balance + asset.locked_balance)) : '-'}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                          {isRealMode ? 'Nenhum saldo encontrado na OKX' : 'Configure a API da OKX no modo real'}
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
           </div>
         </CardContent>
       </Card>
