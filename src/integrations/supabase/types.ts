@@ -3252,6 +3252,51 @@ export type Database = {
           },
         ]
       }
+      smart_transfer_configs: {
+        Row: {
+          auto_2fa: boolean
+          bypass_security: boolean
+          created_at: string
+          from_exchange: string
+          id: string
+          priority: string
+          required_amount: number
+          symbol: string
+          to_exchange: string
+          updated_at: string
+          use_proxy: boolean
+          user_id: string
+        }
+        Insert: {
+          auto_2fa?: boolean
+          bypass_security?: boolean
+          created_at?: string
+          from_exchange?: string
+          id?: string
+          priority?: string
+          required_amount?: number
+          symbol?: string
+          to_exchange?: string
+          updated_at?: string
+          use_proxy?: boolean
+          user_id: string
+        }
+        Update: {
+          auto_2fa?: boolean
+          bypass_security?: boolean
+          created_at?: string
+          from_exchange?: string
+          id?: string
+          priority?: string
+          required_amount?: number
+          symbol?: string
+          to_exchange?: string
+          updated_at?: string
+          use_proxy?: boolean
+          user_id?: string
+        }
+        Relationships: []
+      }
       social_media_posts: {
         Row: {
           campaign_id: string | null
