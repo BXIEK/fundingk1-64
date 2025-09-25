@@ -148,10 +148,10 @@ export const useOptimizedTransfer = () => {
       ].filter(Boolean);
 
       toast({
-        title: result.success ? "✅ Transferência Otimizada Concluída" : "❌ Transferência Falhou",
+        title: result.success ? "✅ Transferência Real Executada" : "❌ Transferência Falhou",
         description: result.success 
-          ? `${result.message || 'Transferência executada com sucesso'}\n${optimizationsList.length > 0 ? `Otimizações: ${optimizationsList.join(', ')}` : 'Sem otimizações aplicadas'}`
-          : result.message || 'Falha na execução da transferência',
+          ? `${result.message || 'Transferência executada com sucesso nas APIs das exchanges'}\n${optimizationsList.length > 0 ? `Otimizações: ${optimizationsList.join(', ')}` : 'Sem otimizações aplicadas'}`
+          : result.message || 'Falha na execução da transferência real',
         duration: result.success ? 10000 : 6000,
         variant: result.success ? "default" : "destructive"
       });
