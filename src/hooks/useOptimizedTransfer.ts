@@ -98,22 +98,48 @@ export const useOptimizedTransfer = () => {
       console.log('🔄 Testando detecção de arbitragem...');
       const opportunities = await supabase.functions.invoke('detect-arbitrage-opportunities');
 
+      // Processar resultados corretamente
+      const processOkxPrices = (pricesData: any) => {
+        if (pricesData?.prices && typeof pricesData.prices === 'object') {
+          return Object.keys(pricesData.prices).length;
+        }
+        if (pricesData && typeof pricesData === 'object' && !pricesData.error) {
+          return Object.keys(pricesData).length;
+        }
+        return 0;
+      };
+
+      const processOkxBalances = (balancesData: any) => {
+        if (balancesData?.balances && Array.isArray(balancesData.balances)) {
+          return balancesData.balances.length;
+        }
+        if (balancesData?.data && Array.isArray(balancesData.data)) {
+          return balancesData.data.length;
+        }
+        return 0;
+      };
+
       const results = {
         binance: binanceTest.data || binanceTest.error,
         okx_balances: okxBalances.data || okxBalances.error, 
         okx_prices: okxPrices.data || okxPrices.error,
         portfolio: portfolio.data || portfolio.error,
-        opportunities: opportunities.data || opportunities.error
+        opportunities: opportunities.data || opportunities.error,
+        // Contadores processados
+        okx_prices_count: processOkxPrices(okxPrices.data),
+        okx_balances_count: processOkxBalances(okxBalances.data)
       };
 
       console.log('📊 Resultados completos dos testes:', results);
+      console.log('🔍 Detalhes OKX Preços:', results.okx_prices_count, 'pares encontrados');
+      console.log('🔍 Detalhes OKX Saldos:', results.okx_balances_count, 'saldos encontrados');
 
       toast({
         title: "🧪 Testes de API Concluídos",
         description: `
           Binance: ${results.binance?.success ? '✅ OK' : '❌ Erro'}
-          OKX Saldos: ${results.okx_balances?.success ? '✅ OK' : '❌ Erro'}  
-          OKX Preços: ${results.okx_prices?.success ? '✅ OK' : '❌ Erro'}
+          OKX Saldos: ${results.okx_balances?.success ? `✅ OK (${results.okx_balances_count} saldos)` : '❌ Erro'}  
+          OKX Preços: ${results.okx_prices?.success ? `✅ OK (${results.okx_prices_count} pares)` : '❌ Erro'}
           Portfolio: ${results.portfolio?.success ? '✅ OK' : '❌ Erro'}
           Arbitragem: ${results.opportunities?.success ? '✅ OK' : '❌ Erro'}
         `,
