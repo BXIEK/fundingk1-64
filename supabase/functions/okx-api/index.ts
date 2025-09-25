@@ -67,7 +67,7 @@ async function makeOKXRequest(
   }
 
   const baseUrl = 'https://www.okx.com'; // URL de produção
-  const timestamp = Date.now().toString(); // OKX espera timestamp em milissegundos como string
+  const timestamp = new Date().toISOString(); // OKX exige timestamp em ISO8601 UTC (ex: 2025-09-25T21:25:00.000Z)
   const requestPath = endpoint;
   const bodyStr = body ? JSON.stringify(body) : '';
   
