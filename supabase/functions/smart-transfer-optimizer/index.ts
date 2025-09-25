@@ -143,17 +143,24 @@ serve(async (req) => {
     return new Response(JSON.stringify({
       success: true,
       transfer_id: transferResult.transfer_id,
-      optimizations_applied: {
-        performance: performanceResult.optimizations,
-        security_bypassed: securityResult.bypassed_restrictions,
-        auth_method: authResult.method_used,
-        proxy_used: securityConfig.use_proxy_rotation,
-        session_cached: securityConfig.use_session_persistence
-      },
       execution_time_ms: transferResult.execution_time,
-      estimated_completion: transferResult.estimated_completion,
       status: transferResult.status,
-      message: transferResult.message
+      message: transferResult.message || `Transferência de ${body.amount} ${body.symbol} concluída com sucesso`,
+      optimizations_applied: {
+        performance: performanceResult.optimizations || {},
+        security_bypassed: securityResult.bypassed_restrictions || [],
+        proxy_used: securityConfig.use_proxy_rotation,
+        session_cached: securityConfig.use_session_persistence,
+        total_optimizations: (securityResult.bypassed_restrictions?.length || 0) + (securityConfig.use_proxy_rotation ? 1 : 0) + 1
+      },
+      transfer_details: {
+        from_exchange: body.from_exchange,
+        to_exchange: body.to_exchange,
+        symbol: body.symbol,
+        amount: body.amount,
+        estimated_fees: body.amount * 0.001,
+        execution_time_ms: transferResult.execution_time
+      }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });

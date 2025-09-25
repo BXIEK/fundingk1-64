@@ -381,13 +381,20 @@ const SmartTransferDashboard = () => {
                   <CardContent className="space-y-3">
                     <div className="flex items-center justify-between">
                       <Label htmlFor="bypassSecurity">Ativar Bypass</Label>
-                      <Switch
-                        id="bypassSecurity"
-                        checked={optimizationSettings.bypassSecurity}
-                        onCheckedChange={(checked) => 
-                          setOptimizationSettings(prev => ({...prev, bypassSecurity: checked}))
-                        }
-                      />
+                      <div className="flex items-center gap-2">
+                        {securityBypassActive && (
+                          <Badge variant="default" className="text-xs">
+                            Ativo
+                          </Badge>
+                        )}
+                        <Switch
+                          id="bypassSecurity"
+                          checked={optimizationSettings.bypassSecurity}
+                          onCheckedChange={(checked) => 
+                            setOptimizationSettings(prev => ({...prev, bypassSecurity: checked}))
+                          }
+                        />
+                      </div>
                     </div>
                     
                     <div className="flex items-center justify-between">
@@ -401,14 +408,17 @@ const SmartTransferDashboard = () => {
                       />
                     </div>
 
-                    {securityBypassActive && (
-                      <Alert>
-                        <Shield className="h-4 w-4" />
-                        <AlertDescription>
-                          Bypass de segurança ativo - Transferências executadas com protocolos otimizados
-                        </AlertDescription>
-                      </Alert>
-                    )}
+              {securityBypassActive && (
+                <Alert>
+                  <Shield className="h-4 w-4" />
+                  <AlertDescription className="space-y-1">
+                    <div className="font-medium">✅ Bypass de Segurança Ativo</div>
+                    <div className="text-xs text-muted-foreground">
+                      Sistema executando com protocolos otimizados para máxima eficiência
+                    </div>
+                  </AlertDescription>
+                </Alert>
+              )}
                   </CardContent>
                 </Card>
               </div>

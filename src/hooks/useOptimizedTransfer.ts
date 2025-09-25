@@ -139,19 +139,19 @@ export const useOptimizedTransfer = () => {
       setLastResult(result);
 
       // Toast com informações das otimizações
-      const optimizations = data.optimizations_applied;
+      const optimizations = data.optimizations_applied || {};
       const optimizationsList = [
-        optimizations.security_bypassed?.length > 0 && `Security: ${optimizations.security_bypassed.join(', ')}`,
-        optimizations.proxy_used && 'Proxy ativo',
-        optimizations.session_cached && 'Sessão cached',
-        optimizations.auth_method && `Auth: ${optimizations.auth_method}`
+        optimizations.security_bypassed?.length > 0 && `Bypass: ${optimizations.security_bypassed.join(', ')}`,
+        optimizations.proxy_used && 'Proxy Ativo',
+        optimizations.session_cached && 'Sessão Otimizada',
+        data.execution_time_ms && `Tempo: ${data.execution_time_ms}ms`
       ].filter(Boolean);
 
       toast({
         title: result.success ? "✅ Transferência Otimizada Concluída" : "❌ Transferência Falhou",
         description: result.success 
-          ? `${result.message}\nOtimizações: ${optimizationsList.join(', ')}`
-          : result.message,
+          ? `${result.message || 'Transferência executada com sucesso'}\n${optimizationsList.length > 0 ? `Otimizações: ${optimizationsList.join(', ')}` : 'Sem otimizações aplicadas'}`
+          : result.message || 'Falha na execução da transferência',
         duration: result.success ? 10000 : 6000,
         variant: result.success ? "default" : "destructive"
       });
