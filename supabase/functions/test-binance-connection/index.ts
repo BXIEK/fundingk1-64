@@ -13,8 +13,17 @@ serve(async (req) => {
   try {
     const { apiKey, secretKey } = await req.json()
 
-    if (!apiKey || !secretKey) {
-      throw new Error('API Key e Secret Key são obrigatórios')
+    if (!apiKey || !secretKey || apiKey === 'null' || secretKey === 'null') {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Credenciais da Binance não configuradas. Vá para "Configuração de APIs" e insira suas chaves da Binance.'
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400,
+        }
+      )
     }
 
     // Criar query string com timestamp
@@ -53,7 +62,7 @@ serve(async (req) => {
 
     if (!response.ok) {
       const errorText = await response.text()
-      let errorMessage = `HTTP ${response.status}: ${response.statusText}`
+      let errorMessage = `Erro HTTP ${response.status}: ${response.statusText}`
       
       try {
         const errorData = JSON.parse(errorText)
@@ -109,15 +118,17 @@ serve(async (req) => {
       errorMessage = error
     }
 
-    // Mapear erros comuns da Binance
-    if (errorMessage.includes('Invalid API-key')) {
-      errorMessage = 'API Key inválida. Verifique se a chave está correta.'
-    } else if (errorMessage.includes('Signature for this request')) {
-      errorMessage = 'Secret Key incorreta. Verifique se a chave secreta está correta.'
-    } else if (errorMessage.includes('IP')) {
-      errorMessage = 'IP não autorizado. Configure o IP na sua API Key da Binance.'
-    } else if (errorMessage.includes('permission')) {
-      errorMessage = 'Permissões insuficientes. Ative "Enable Reading" na sua API Key.'
+    // Mapear erros comuns da Binance para mensagens mais claras
+    if (errorMessage.includes('Invalid API-key') || errorMessage.includes('API-key format invalid')) {
+      errorMessage = '🔑 API Key inválida. Verifique se copiou corretamente sua chave da Binance.'
+    } else if (errorMessage.includes('Signature for this request') || errorMessage.includes('Invalid signature')) {
+      errorMessage = '🔐 Secret Key incorreta. Verifique se copiou corretamente sua chave secreta da Binance.'
+    } else if (errorMessage.includes('IP') || errorMessage.includes('This API key does not have permission')) {
+      errorMessage = '🌐 IP não autorizado ou permissões insuficientes. Configure o IP e ative "Enable Reading" na sua API Key da Binance.'
+    } else if (errorMessage.includes('Timestamp for this request')) {
+      errorMessage = '⏰ Erro de timestamp. Verifique se o horário do seu sistema está correto.'
+    } else if (errorMessage.includes('Permission denied')) {
+      errorMessage = '🚫 Permissões insuficientes. Ative "Enable Reading" na configuração da sua API Key na Binance.'
     }
 
     return new Response(

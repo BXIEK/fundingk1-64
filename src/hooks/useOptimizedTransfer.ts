@@ -66,6 +66,17 @@ export const useOptimizedTransfer = () => {
         apiKeyStart: binanceApiKey?.substring(0, 8) + '...',
         secretStart: binanceSecretKey?.substring(0, 8) + '...'
       });
+
+      // Verificar se credenciais da Binance existem
+      if (!binanceApiKey || !binanceSecretKey) {
+        toast({
+          title: "⚠️ Credenciais Não Configuradas",
+          description: "Configure suas credenciais da Binance e OKX na seção 'Configuração de APIs' antes de testar as conexões.",
+          variant: "destructive",
+          duration: 8000
+        });
+        return null;
+      }
       
       const binanceTest = await supabase.functions.invoke('test-binance-connection', {
         body: { 
@@ -86,15 +97,19 @@ export const useOptimizedTransfer = () => {
         hasPassphrase: !!okxPassphrase,
         apiKeyStart: okxApiKey?.substring(0, 8) + '...'
       });
-      
-      const okxBalances = await supabase.functions.invoke('okx-api', {
-        body: { 
-          action: 'get_balances',
-          api_key: okxApiKey,
-          secret_key: okxSecretKey,
-          passphrase: okxPassphrase
-        }
-      });
+
+      // Verificação opcional para OKX (pode não estar configurada)
+      let okxBalances = { data: { success: false, error: 'Credenciais OKX não configuradas' } };
+      if (okxApiKey && okxSecretKey && okxPassphrase) {
+        okxBalances = await supabase.functions.invoke('okx-api', {
+          body: { 
+            action: 'get_balances',
+            api_key: okxApiKey,
+            secret_key: okxSecretKey,
+            passphrase: okxPassphrase
+          }
+        });
+      }
 
       // Teste 3: Verificar preços OKX
       console.log('🔄 Testando preços OKX...');
@@ -161,7 +176,7 @@ export const useOptimizedTransfer = () => {
 
       const results = {
         binance: processBinanceTest(binanceTest.data || binanceTest.error),
-        okx_balances: okxBalances.data || okxBalances.error, 
+        okx_balances: okxBalances.data || (okxBalances as any).error, 
         okx_prices: okxPrices.data || okxPrices.error,
         portfolio: portfolio.data || portfolio.error,
         opportunities: opportunities.data || opportunities.error,
@@ -170,7 +185,7 @@ export const useOptimizedTransfer = () => {
         okx_balances_count: processOkxBalances(okxBalances.data),
         // Erros específicos
         binance_error: binanceTest.error?.message || (binanceTest.data?.error),
-        okx_balances_error: okxBalances.error?.message,
+        okx_balances_error: (okxBalances as any).error?.message || (okxBalances.data?.error === 'Credenciais OKX não configuradas' ? okxBalances.data.error : undefined),
         okx_prices_error: okxPrices.error?.message
       };
 
@@ -182,9 +197,9 @@ export const useOptimizedTransfer = () => {
       toast({
         title: "🧪 Testes de API Concluídos",
         description: `
-          Binance: ${results.binance?.success ? '✅ OK' : `❌ Erro${results.binance_error ? ': ' + results.binance_error : ''}`}
-          OKX Saldos: ${results.okx_balances?.success ? `✅ OK (${results.okx_balances_count} saldos)` : `❌ Erro${results.okx_balances_error ? ': ' + results.okx_balances_error : ''}`}  
-          OKX Preços: ${results.okx_prices?.success ? `✅ OK (${results.okx_prices_count} pares)` : `❌ Erro${results.okx_prices_error ? ': ' + results.okx_prices_error : ''}`}
+          Binance: ${results.binance?.success ? '✅ OK' : `❌ ${results.binance_error || 'Erro'}`}
+          OKX Saldos: ${results.okx_balances?.success ? `✅ OK (${results.okx_balances_count} saldos)` : `❌ ${results.okx_balances_error || 'Erro'}`}  
+          OKX Preços: ${results.okx_prices?.success ? `✅ OK (${results.okx_prices_count} pares)` : `❌ ${results.okx_prices_error || 'Erro'}`}
           Portfolio: ${results.portfolio?.success ? '✅ OK' : '❌ Erro'}
           Arbitragem: ${results.opportunities?.success ? '✅ OK' : '❌ Erro'}
         `,
