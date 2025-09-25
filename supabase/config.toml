@@ -1,0 +1,68 @@
+project_id = "uxhcsjlfwkhwkvhfacho"
+
+# Disable JWT verification for arbitrage execution functions
+[functions.execute-funding-arbitrage]
+verify_jwt = false
+
+[functions.execute-real-arbitrage]
+verify_jwt = false
+
+[functions.auto-funding-arbitrage]
+verify_jwt = false
+
+[functions.auto-cross-exchange-arbitrage]
+verify_jwt = false
+
+[functions.detect-arbitrage-opportunities]
+verify_jwt = false
+
+[functions.binance-market-data]
+verify_jwt = false
+
+[functions.real-pionex-api]
+verify_jwt = false
+
+[functions.test-binance-connection]
+verify_jwt = false
+
+[functions.get-portfolio]
+verify_jwt = false
+
+[functions.update-portfolio-balance]
+verify_jwt = false
+
+[functions.validate-trading-system]
+verify_jwt = false
+
+[functions.realtime-websocket]
+verify_jwt = false
+
+[functions.spot-futures-arbitrage]
+verify_jwt = false
+
+[functions.smart-cross-exchange-transfer]
+verify_jwt = false
+
+[functions.smart-proxy-service]
+verify_jwt = false
+
+[functions.realtime-arbitrage-processor]
+verify_jwt = false
+
+[functions.hyperliquid-api]
+verify_jwt = false
+
+[functions.okx-api]
+verify_jwt = false
+
+[functions.detect-synthetic-pairs-arbitrage]
+verify_jwt = false
+
+[functions.execute-synthetic-pairs-arbitrage]
+verify_jwt = false
+
+[functions.cex-cex-arbitrage-scanner]
+verify_jwt = false
+
+[functions.credentials-validator]
+verify_jwt = false
