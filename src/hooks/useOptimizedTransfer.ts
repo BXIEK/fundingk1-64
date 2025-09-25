@@ -318,13 +318,19 @@ export const useOptimizedTransfer = () => {
         data.execution_time_ms && `Tempo: ${data.execution_time_ms}ms`
       ].filter(Boolean);
 
+      // Determinar se é realmente uma operação real ou simulação
+      const isRealOperation = data.optimizations_applied?.real_apis_used || false;
+      const isSimulation = data.message?.includes('simulado') || data.message?.includes('simulação') || !isRealOperation;
+      
       toast({
-        title: result.success ? "✅ Transferência Real Executada" : "❌ Transferência Falhou",
+        title: result.success 
+          ? (isSimulation ? "🧪 Transferência Simulada Executada" : "✅ Transferência Real Executada")
+          : "❌ Transferência Falhou",
         description: result.success 
-          ? `${result.message || 'Transferência executada com sucesso nas APIs das exchanges'}\n${optimizationsList.length > 0 ? `Otimizações: ${optimizationsList.join(', ')}` : 'Sem otimizações aplicadas'}`
+          ? `${result.message || (isSimulation ? 'Transferência simulada com sucesso (modo demo)' : 'Transferência executada com sucesso nas APIs das exchanges')}\n${optimizationsList.length > 0 ? `Otimizações: ${optimizationsList.join(', ')}` : 'Sem otimizações aplicadas'}${isSimulation ? '\n⚠️ ATENÇÃO: Nenhum dinheiro real foi movimentado' : ''}`
           : result.message || 'Falha na execução da transferência real',
         duration: result.success ? 10000 : 6000,
-        variant: result.success ? "default" : "destructive"
+        variant: result.success ? (isSimulation ? "default" : "default") : "destructive"
       });
 
       return result;
