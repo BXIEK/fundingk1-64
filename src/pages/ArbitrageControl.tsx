@@ -33,6 +33,7 @@ import ArbitrageExecutionModal from '@/components/ArbitrageExecutionModal';
 import { OKXInstrumentChecker } from '@/components/OKXInstrumentChecker';
 import Web3PortfolioCard from '@/components/Web3PortfolioCard';
 import OKXPortfolioCard from '@/components/OKXPortfolioCard';
+import SmartTransferDashboard from '@/components/SmartTransferDashboard';
 
 import { type ArbitrageOpportunity } from '@/types/arbitrage';
 
@@ -970,8 +971,9 @@ const adjustInvestmentForLotSize = (symbol: string, investmentAmount: number, bu
       </Card>
 
       <Tabs defaultValue="opportunities" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="opportunities">Oportunidades Ativas</TabsTrigger>
+          <TabsTrigger value="transfers">Transferências Inteligentes</TabsTrigger>
           <TabsTrigger value="pairs">Pares Disponíveis</TabsTrigger>
           <TabsTrigger value="settings">Configurações</TabsTrigger>
           <TabsTrigger value="history">Histórico</TabsTrigger>
@@ -1055,6 +1057,10 @@ const adjustInvestmentForLotSize = (symbol: string, investmentAmount: number, bu
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="transfers" className="space-y-4">
+          <SmartTransferDashboard />
         </TabsContent>
 
         <TabsContent value="pairs" className="space-y-4">
