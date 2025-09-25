@@ -55,6 +55,7 @@ const SmartTransferDashboard = () => {
     loading,
     lastResult,
     securityBypassActive,
+    testConnections,
     executeOptimizedTransfer,
     activateSecurityBypass,
     deactivateSecurityBypass,
@@ -307,6 +308,16 @@ const SmartTransferDashboard = () => {
 
               <div className="flex gap-2">
                 <Button 
+                  onClick={testConnections}
+                  disabled={loading}
+                  variant="outline"
+                  className="flex-1"
+                >
+                  {loading ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Shield className="h-4 w-4 mr-2" />}
+                  Testar APIs (Binance + OKX)
+                </Button>
+                
+                <Button 
                   onClick={handleAnalyze} 
                   disabled={loading}
                   className="flex-1"
@@ -314,19 +325,19 @@ const SmartTransferDashboard = () => {
                   {loading ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <TrendingUp className="h-4 w-4 mr-2" />}
                   Analisar com Otimizações
                 </Button>
-                
-                {analysis?.isWorthwhile && (
-                  <Button 
-                    onClick={handleExecuteTransfer}
-                    disabled={loading}
-                    variant="default"
-                    className="flex-1"
-                  >
-                    {loading ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <ArrowRightLeft className="h-4 w-4 mr-2" />}
-                    Executar Transferência
-                  </Button>
-                )}
               </div>
+
+              {analysis?.isWorthwhile && (
+                <Button 
+                  onClick={handleExecuteTransfer}
+                  disabled={loading}
+                  variant="default"
+                  className="w-full"
+                >
+                  {loading ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <ArrowRightLeft className="h-4 w-4 mr-2" />}
+                  Executar Transferência
+                </Button>
+              )}
             </TabsContent>
 
             <TabsContent value="optimizations" className="space-y-4">

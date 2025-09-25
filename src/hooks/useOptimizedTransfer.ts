@@ -50,6 +50,91 @@ export const useOptimizedTransfer = () => {
   const [securityBypassActive, setSecurityBypassActive] = useState(false);
   const { toast } = useToast();
 
+  // Função para testar APIs (Binance + OKX)
+  const testConnections = useCallback(async (): Promise<any> => {
+    setLoading(true);
+    
+    try {
+      // Teste 1: Verificar conexão Binance
+      console.log('🔄 Testando conexão Binance...');
+      const binanceTest = await supabase.functions.invoke('test-binance-connection', {
+        body: { 
+          api_key: localStorage.getItem('binance_api_key'),
+          secret_key: localStorage.getItem('binance_secret_key')
+        }
+      });
+
+      // Teste 2: Verificar saldos OKX  
+      console.log('🔄 Testando saldos OKX...');
+      const okxBalances = await supabase.functions.invoke('okx-api', {
+        body: { 
+          action: 'get_balances',
+          api_key: localStorage.getItem('okx_api_key'),
+          secret_key: localStorage.getItem('okx_secret_key'),
+          passphrase: localStorage.getItem('okx_passphrase')
+        }
+      });
+
+      // Teste 3: Verificar preços OKX
+      console.log('🔄 Testando preços OKX...');
+      const okxPrices = await supabase.functions.invoke('okx-api', {
+        body: { action: 'get_prices' }
+      });
+
+      // Teste 4: Portfolio completo
+      console.log('🔄 Testando portfolio completo...');
+      const portfolio = await supabase.functions.invoke('get-portfolio', {
+        body: {
+          real_mode: true,
+          binance_api_key: localStorage.getItem('binance_api_key'),
+          binance_secret_key: localStorage.getItem('binance_secret_key'),
+          okx_api_key: localStorage.getItem('okx_api_key'),
+          okx_secret_key: localStorage.getItem('okx_secret_key'),
+          okx_passphrase: localStorage.getItem('okx_passphrase')
+        }
+      });
+
+      // Teste 5: Detectar oportunidades
+      console.log('🔄 Testando detecção de arbitragem...');
+      const opportunities = await supabase.functions.invoke('detect-arbitrage-opportunities');
+
+      const results = {
+        binance: binanceTest.data || binanceTest.error,
+        okx_balances: okxBalances.data || okxBalances.error, 
+        okx_prices: okxPrices.data || okxPrices.error,
+        portfolio: portfolio.data || portfolio.error,
+        opportunities: opportunities.data || opportunities.error
+      };
+
+      console.log('📊 Resultados completos dos testes:', results);
+
+      toast({
+        title: "🧪 Testes de API Concluídos",
+        description: `
+          Binance: ${results.binance?.success ? '✅ OK' : '❌ Erro'}
+          OKX Saldos: ${results.okx_balances?.success ? '✅ OK' : '❌ Erro'}  
+          OKX Preços: ${results.okx_prices?.success ? '✅ OK' : '❌ Erro'}
+          Portfolio: ${results.portfolio?.success ? '✅ OK' : '❌ Erro'}
+          Arbitragem: ${results.opportunities?.success ? '✅ OK' : '❌ Erro'}
+        `,
+        duration: 15000
+      });
+
+      return results;
+
+    } catch (error) {
+      console.error('Erro nos testes de API:', error);
+      toast({
+        title: "❌ Erro nos Testes",
+        description: error.message || "Erro ao executar testes das APIs",
+        variant: "destructive"
+      });
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
+
   // Função para ativar bypass de segurança
   const activateSecurityBypass = useCallback(async (
     exchange: string,
@@ -243,6 +328,7 @@ export const useOptimizedTransfer = () => {
     loading,
     lastResult,
     securityBypassActive,
+    testConnections,
     executeOptimizedTransfer,
     activateSecurityBypass,
     deactivateSecurityBypass,
