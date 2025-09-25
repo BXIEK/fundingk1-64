@@ -114,7 +114,12 @@ export const useOptimizedTransfer = () => {
       // Teste 3: Verificar preços OKX
       console.log('🔄 Testando preços OKX...');
       const okxPrices = await supabase.functions.invoke('okx-api', {
-        body: { action: 'get_prices' }
+        body: { 
+          action: 'get_prices',
+          api_key: okxApiKey,
+          secret_key: okxSecretKey,
+          passphrase: okxPassphrase
+        }
       });
 
       // Teste 4: Portfolio completo
