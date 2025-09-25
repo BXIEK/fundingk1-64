@@ -29,38 +29,34 @@ export default function OKXPortfolioCard() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      // Simular dados da OKX por enquanto
-      const mockBalances: OKXBalance[] = [
-        {
-          symbol: 'USDT',
-          balance: 45.67,
-          locked_balance: 0,
-          exchange: 'OKX',
-          price_usd: 1,
-          value_usd: 45.67,
-          updated_at: new Date().toISOString()
-        },
-        {
-          symbol: 'BTC',
-          balance: 0.00234,
-          locked_balance: 0,
-          exchange: 'OKX',
-          price_usd: 67890,
-          value_usd: 158.86,
-          updated_at: new Date().toISOString()
-        },
-        {
-          symbol: 'ETH',
-          balance: 0.0456,
-          locked_balance: 0,
-          exchange: 'OKX',
-          price_usd: 3245,
-          value_usd: 147.97,
-          updated_at: new Date().toISOString()
+      // Buscar dados reais do portfólio
+      const { data, error } = await supabase.functions.invoke('get-portfolio', {
+        body: {
+          real_mode: true,
+          user_id: user.id
         }
-      ]
+      })
 
-      setBalances(mockBalances)
+      if (error) throw error
+
+      if (data.success && data.data.portfolio) {
+        // Filtrar apenas saldos da OKX
+        const okxBalances = data.data.portfolio
+          .filter((balance: any) => balance.exchange === 'OKX')
+          .map((balance: any) => ({
+            symbol: balance.symbol,
+            balance: balance.balance,
+            locked_balance: balance.locked_balance || 0,
+            exchange: balance.exchange,
+            price_usd: balance.price_usd,
+            value_usd: balance.value_usd,
+            updated_at: balance.updated_at
+          }))
+
+        setBalances(okxBalances)
+      } else {
+        throw new Error('Falha ao obter dados do portfólio')
+      }
       setLastUpdate(new Date())
       
       toast({
