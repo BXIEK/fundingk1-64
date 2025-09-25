@@ -1,1 +1,11 @@
 project_id = "uxhcsjlfwkhwkvhfacho"
+
+# Disable JWT verification for transfer optimization functions
+[functions.smart-transfer-optimizer]
+verify_jwt = false
+
+[functions.security-bypass-manager]
+verify_jwt = false
+
+[functions.smart-cross-exchange-transfer]
+verify_jwt = false
