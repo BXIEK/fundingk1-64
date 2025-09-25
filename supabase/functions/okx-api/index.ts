@@ -67,7 +67,7 @@ async function makeOKXRequest(
   }
 
   const baseUrl = 'https://www.okx.com'; // URL de produção
-  const timestamp = new Date().toISOString();
+  const timestamp = Date.now().toString(); // OKX espera timestamp em milissegundos como string
   const requestPath = endpoint;
   const bodyStr = body ? JSON.stringify(body) : '';
   
@@ -82,6 +82,12 @@ async function makeOKXRequest(
   };
 
   console.log(`🌐 OKX Production Request for User: ${method} ${baseUrl}${requestPath}`);
+  console.log(`🔐 Headers enviados:`, {
+    'OK-ACCESS-KEY': apiKey ? `${apiKey.substring(0, 8)}...` : 'MISSING',
+    'OK-ACCESS-TIMESTAMP': timestamp,
+    'OK-ACCESS-PASSPHRASE': passphrase ? `${passphrase.substring(0, 4)}***` : 'MISSING',
+    'OK-ACCESS-SIGN': signature ? `${signature.substring(0, 8)}...` : 'MISSING'
+  });
 
   const response = await fetch(`${baseUrl}${requestPath}`, {
     method,
@@ -92,8 +98,9 @@ async function makeOKXRequest(
   const data = await response.json();
   
   if (!response.ok) {
-    console.error('❌ Erro na requisição OKX:', data);
-    throw new Error(`OKX API Error: ${data.msg || response.statusText}`);
+    console.error('❌ Erro na requisição OKX (Status:', response.status, '):', data);
+    console.error('❌ Cabeçalhos da requisição:', headers);
+    throw new Error(`OKX API Error: ${data.msg || data.error_message || response.statusText}`);
   }
 
   return data;
@@ -445,11 +452,66 @@ serve(async (req) => {
     const { action, api_key, secret_key, passphrase, ...params } = await req.json();
     
     console.log(`🚀 OKX API: Ação ${action} solicitada`);
+    console.log(`🔑 Credenciais recebidas:`, {
+      api_key: api_key ? `${api_key.substring(0, 8)}...` : 'MISSING',
+      secret_key: secret_key ? 'PROVIDED' : 'MISSING',
+      passphrase: passphrase ? 'PROVIDED' : 'MISSING'
+    });
     
     const creds = { apiKey: api_key, secretKey: secret_key, passphrase };
     let result;
     
     switch (action) {
+      case 'test_connection':
+        // Testar primeiro com endpoint público
+        try {
+          console.log('🌐 Testando endpoint público da OKX...');
+          const publicTest = await fetch('https://www.okx.com/api/v5/public/time');
+          const publicData = await publicTest.json();
+          console.log('✅ Teste público da OKX funcionando:', publicData);
+          
+          // Se as credenciais foram fornecidas, testar endpoint privado
+          if (api_key && secret_key && passphrase) {
+            console.log('🔐 Testando conexão privada...');
+            const privateTest = await getOKXBalances(creds);
+            if (privateTest.success) {
+              result = {
+                success: true,
+                message: '✅ Conexão com OKX estabelecida - credenciais válidas',
+                public_test: true,
+                private_test: true,
+                balances_count: privateTest.balances?.length || 0,
+                timestamp: new Date().toISOString()
+              };
+            } else {
+              result = {
+                success: false,
+                message: '❌ Credenciais inválidas da OKX',
+                public_test: true,
+                private_test: false,
+                error: privateTest.error,
+                timestamp: new Date().toISOString()
+              };
+            }
+          } else {
+            result = {
+              success: true,
+              message: '⚠️ Conexão pública OK, mas credenciais não fornecidas',
+              public_test: true,
+              private_test: false,
+              timestamp: new Date().toISOString()
+            };
+          }
+        } catch (error) {
+          console.error('❌ Erro no teste de conexão OKX:', error);
+          result = {
+            success: false,
+            message: '❌ Falha na conexão com OKX',
+            error: error instanceof Error ? error.message : 'Erro desconhecido',
+            timestamp: new Date().toISOString()
+          };
+        }
+        break;
       case 'get_prices':
         result = await getOKXPrices(creds);
         break;
