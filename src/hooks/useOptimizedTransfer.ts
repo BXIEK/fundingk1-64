@@ -117,7 +117,17 @@ export const useOptimizedTransfer = () => {
 
       // Teste 5: Detectar oportunidades
       console.log('🔄 Testando detecção de arbitragem...');
-      const opportunities = await supabase.functions.invoke('detect-arbitrage-opportunities');
+      const opportunities = await supabase.functions.invoke('detect-arbitrage-opportunities', {
+        body: {
+          type: 'cross_exchange',
+          trading_mode: 'real',
+          binance_api_key: binanceApiKey,
+          binance_secret_key: binanceSecretKey,
+          okx_api_key: okxApiKey,
+          okx_secret_key: okxSecretKey,
+          okx_passphrase: okxPassphrase
+        }
+      });
 
       // Processar resultados corretamente
       const processOkxPrices = (pricesData: any) => {
