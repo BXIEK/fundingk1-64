@@ -57,14 +57,17 @@ export const useOptimizedTransfer = () => {
     try {
       // Teste 1: Verificar conexão Binance
       console.log('🔄 Testando conexão Binance...');
-      const binanceApiKey = localStorage.getItem('binance_api_key');
-      const binanceSecretKey = localStorage.getItem('binance_secret_key');
+      // Suporta formatos antigos e novos de armazenamento
+      const binanceCredsStr = localStorage.getItem('binance_credentials');
+      const binanceCreds = binanceCredsStr ? JSON.parse(binanceCredsStr) : null;
+      const binanceApiKey = binanceCreds?.apiKey || localStorage.getItem('binance_api_key');
+      const binanceSecretKey = binanceCreds?.secretKey || localStorage.getItem('binance_secret_key');
       
       console.log('🔍 Credenciais Binance:', { 
         hasApiKey: !!binanceApiKey, 
         hasSecret: !!binanceSecretKey,
-        apiKeyStart: binanceApiKey?.substring(0, 8) + '...',
-        secretStart: binanceSecretKey?.substring(0, 8) + '...'
+        apiKeyStart: binanceApiKey ? binanceApiKey.substring(0, 8) + '...' : '—',
+        secretStart: binanceSecretKey ? binanceSecretKey.substring(0, 8) + '...' : '—'
       });
 
       // Verificar se credenciais da Binance existem
@@ -87,15 +90,18 @@ export const useOptimizedTransfer = () => {
 
       // Teste 2: Verificar saldos OKX  
       console.log('🔄 Testando saldos OKX...');
-      const okxApiKey = localStorage.getItem('okx_api_key');
-      const okxSecretKey = localStorage.getItem('okx_secret_key');
-      const okxPassphrase = localStorage.getItem('okx_passphrase');
+      // Suporta formatos antigos e novos de armazenamento
+      const okxCredsStr = localStorage.getItem('okx_credentials');
+      const okxCreds = okxCredsStr ? JSON.parse(okxCredsStr) : null;
+      const okxApiKey = okxCreds?.apiKey || localStorage.getItem('okx_api_key');
+      const okxSecretKey = okxCreds?.secretKey || localStorage.getItem('okx_secret_key');
+      const okxPassphrase = okxCreds?.passphrase || localStorage.getItem('okx_passphrase');
       
       console.log('🔍 Credenciais OKX:', { 
         hasApiKey: !!okxApiKey, 
         hasSecret: !!okxSecretKey,
         hasPassphrase: !!okxPassphrase,
-        apiKeyStart: okxApiKey?.substring(0, 8) + '...'
+        apiKeyStart: okxApiKey ? okxApiKey.substring(0, 8) + '...' : '—'
       });
 
       // Verificação opcional para OKX (pode não estar configurada)
@@ -127,11 +133,11 @@ export const useOptimizedTransfer = () => {
       const portfolio = await supabase.functions.invoke('get-portfolio', {
         body: {
           real_mode: true,
-          binance_api_key: localStorage.getItem('binance_api_key'),
-          binance_secret_key: localStorage.getItem('binance_secret_key'),
-          okx_api_key: localStorage.getItem('okx_api_key'),
-          okx_secret_key: localStorage.getItem('okx_secret_key'),
-          okx_passphrase: localStorage.getItem('okx_passphrase')
+          binance_api_key: binanceApiKey,
+          binance_secret_key: binanceSecretKey,
+          okx_api_key: okxApiKey,
+          okx_secret_key: okxSecretKey,
+          okx_passphrase: okxPassphrase
         }
       });
 
