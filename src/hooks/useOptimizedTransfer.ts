@@ -57,21 +57,42 @@ export const useOptimizedTransfer = () => {
     try {
       // Teste 1: Verificar conexão Binance
       console.log('🔄 Testando conexão Binance...');
+      const binanceApiKey = localStorage.getItem('binance_api_key');
+      const binanceSecretKey = localStorage.getItem('binance_secret_key');
+      
+      console.log('🔍 Credenciais Binance:', { 
+        hasApiKey: !!binanceApiKey, 
+        hasSecret: !!binanceSecretKey,
+        apiKeyStart: binanceApiKey?.substring(0, 8) + '...',
+        secretStart: binanceSecretKey?.substring(0, 8) + '...'
+      });
+      
       const binanceTest = await supabase.functions.invoke('test-binance-connection', {
         body: { 
-          api_key: localStorage.getItem('binance_api_key'),
-          secret_key: localStorage.getItem('binance_secret_key')
+          apiKey: binanceApiKey,
+          secretKey: binanceSecretKey
         }
       });
 
       // Teste 2: Verificar saldos OKX  
       console.log('🔄 Testando saldos OKX...');
+      const okxApiKey = localStorage.getItem('okx_api_key');
+      const okxSecretKey = localStorage.getItem('okx_secret_key');
+      const okxPassphrase = localStorage.getItem('okx_passphrase');
+      
+      console.log('🔍 Credenciais OKX:', { 
+        hasApiKey: !!okxApiKey, 
+        hasSecret: !!okxSecretKey,
+        hasPassphrase: !!okxPassphrase,
+        apiKeyStart: okxApiKey?.substring(0, 8) + '...'
+      });
+      
       const okxBalances = await supabase.functions.invoke('okx-api', {
         body: { 
           action: 'get_balances',
-          api_key: localStorage.getItem('okx_api_key'),
-          secret_key: localStorage.getItem('okx_secret_key'),
-          passphrase: localStorage.getItem('okx_passphrase')
+          api_key: okxApiKey,
+          secret_key: okxSecretKey,
+          passphrase: okxPassphrase
         }
       });
 
@@ -100,6 +121,7 @@ export const useOptimizedTransfer = () => {
 
       // Processar resultados corretamente
       const processOkxPrices = (pricesData: any) => {
+        console.log('🔍 Processando preços OKX:', pricesData);
         if (pricesData?.prices && typeof pricesData.prices === 'object') {
           return Object.keys(pricesData.prices).length;
         }
@@ -110,40 +132,53 @@ export const useOptimizedTransfer = () => {
       };
 
       const processOkxBalances = (balancesData: any) => {
+        console.log('🔍 Processando saldos OKX:', balancesData);
         if (balancesData?.balances && Array.isArray(balancesData.balances)) {
-          return balancesData.balances.length;
+          return balancesData.balances.filter((b: any) => parseFloat(b.availBal || b.bal || 0) > 0).length;
         }
         if (balancesData?.data && Array.isArray(balancesData.data)) {
-          return balancesData.data.length;
+          return balancesData.data.filter((b: any) => parseFloat(b.availBal || b.bal || 0) > 0).length;
         }
         return 0;
       };
 
+      const processBinanceTest = (binanceData: any) => {
+        console.log('🔍 Processando teste Binance:', binanceData);
+        if (binanceData?.success) return { success: true };
+        if (binanceData?.error) return { success: false, error: binanceData.error };
+        return { success: false, error: 'Erro desconhecido' };
+      };
+
       const results = {
-        binance: binanceTest.data || binanceTest.error,
+        binance: processBinanceTest(binanceTest.data || binanceTest.error),
         okx_balances: okxBalances.data || okxBalances.error, 
         okx_prices: okxPrices.data || okxPrices.error,
         portfolio: portfolio.data || portfolio.error,
         opportunities: opportunities.data || opportunities.error,
         // Contadores processados
         okx_prices_count: processOkxPrices(okxPrices.data),
-        okx_balances_count: processOkxBalances(okxBalances.data)
+        okx_balances_count: processOkxBalances(okxBalances.data),
+        // Erros específicos
+        binance_error: binanceTest.error?.message || (binanceTest.data?.error),
+        okx_balances_error: okxBalances.error?.message,
+        okx_prices_error: okxPrices.error?.message
       };
 
       console.log('📊 Resultados completos dos testes:', results);
       console.log('🔍 Detalhes OKX Preços:', results.okx_prices_count, 'pares encontrados');
       console.log('🔍 Detalhes OKX Saldos:', results.okx_balances_count, 'saldos encontrados');
+      console.log('🔍 Erro Binance:', results.binance_error);
 
       toast({
         title: "🧪 Testes de API Concluídos",
         description: `
-          Binance: ${results.binance?.success ? '✅ OK' : '❌ Erro'}
-          OKX Saldos: ${results.okx_balances?.success ? `✅ OK (${results.okx_balances_count} saldos)` : '❌ Erro'}  
-          OKX Preços: ${results.okx_prices?.success ? `✅ OK (${results.okx_prices_count} pares)` : '❌ Erro'}
+          Binance: ${results.binance?.success ? '✅ OK' : `❌ Erro${results.binance_error ? ': ' + results.binance_error : ''}`}
+          OKX Saldos: ${results.okx_balances?.success ? `✅ OK (${results.okx_balances_count} saldos)` : `❌ Erro${results.okx_balances_error ? ': ' + results.okx_balances_error : ''}`}  
+          OKX Preços: ${results.okx_prices?.success ? `✅ OK (${results.okx_prices_count} pares)` : `❌ Erro${results.okx_prices_error ? ': ' + results.okx_prices_error : ''}`}
           Portfolio: ${results.portfolio?.success ? '✅ OK' : '❌ Erro'}
           Arbitragem: ${results.opportunities?.success ? '✅ OK' : '❌ Erro'}
         `,
-        duration: 15000
+        duration: 20000
       });
 
       return results;
