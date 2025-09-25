@@ -2,6 +2,7 @@ import { useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import SmartBalanceDashboard from "@/components/SmartBalanceDashboard"
 import Web3WalletManager from "@/components/Web3WalletManager"
+import CrossPlatformTransferHub from "@/components/CrossPlatformTransferHub"
 import { supabase } from "@/integrations/supabase/client"
 import { useToast } from "@/hooks/use-toast"
 
@@ -35,6 +36,11 @@ export default function BalanceDashboard() {
           Monitore e gerencie seus saldos através de carteiras Web3 e alertas automatizados
         </p>
       </div>
+
+      {/* Hub de Transferências Cross-Platform */}
+      <section>
+        <CrossPlatformTransferHub />
+      </section>
 
       {/* Carteira Web3 */}
       <section>
