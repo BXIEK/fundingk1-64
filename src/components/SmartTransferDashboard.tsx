@@ -39,8 +39,6 @@ const SmartTransferDashboard = () => {
   const [formData, setFormData] = useState({
     symbol: 'BTC',
     requiredAmount: 0.1,
-    currentPrice: 45000,
-    spreadPercent: 1.5,
     fromExchange: 'binance',
     toExchange: 'okx'
   });
@@ -63,7 +61,7 @@ const SmartTransferDashboard = () => {
   } = useOptimizedTransfer();
 
   const handleAnalyze = async () => {
-    if (formData.requiredAmount <= 0 || formData.currentPrice <= 0 || formData.spreadPercent <= 0) {
+    if (formData.requiredAmount <= 0) {
       toast({
         title: "Dados Inválidos",
         description: "Preencha todos os campos com valores válidos",
@@ -104,7 +102,7 @@ const SmartTransferDashboard = () => {
           amount: formData.requiredAmount,
           sourceExchange: formData.fromExchange,
           targetExchange: formData.toExchange,
-          arbitrageSpread: formData.spreadPercent,
+          arbitrageSpread: 1.5, // Valor padrão
           transferCosts: {
             withdrawalFee: formData.requiredAmount * 0.001,
             depositFee: 0,
@@ -113,7 +111,7 @@ const SmartTransferDashboard = () => {
             totalCosts: formData.requiredAmount * 0.0035,
             totalCostsPercentage: 0.35
           },
-          netProfitAfterTransfer: (formData.requiredAmount * formData.currentPrice * formData.spreadPercent / 100) - (formData.requiredAmount * 0.0035),
+          netProfitAfterTransfer: (formData.requiredAmount * 45000 * 1.5 / 100) - (formData.requiredAmount * 0.0035), // Valores padrão
           isWorthwhile: true,
           estimatedTime: result.execution_time_ms ? Math.ceil(result.execution_time_ms / 60000) : 15
         };
@@ -281,31 +279,6 @@ const SmartTransferDashboard = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="price">Preço Atual ($)</Label>
-                  <Input
-                    id="price"
-                    type="number"
-                    value={formData.currentPrice}
-                    onChange={(e) => setFormData(prev => ({...prev, currentPrice: parseFloat(e.target.value) || 0}))}
-                    placeholder="45000"
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="spread">Spread da Arbitragem (%)</Label>
-                  <Input
-                    id="spread"
-                    type="number"
-                    step="0.01"
-                    value={formData.spreadPercent}
-                    onChange={(e) => setFormData(prev => ({...prev, spreadPercent: parseFloat(e.target.value) || 0}))}
-                    placeholder="1.5"
-                  />
-                </div>
-              </div>
-
               <div className="flex gap-2">
                 <Button 
                   onClick={testConnections}
@@ -445,7 +418,7 @@ const SmartTransferDashboard = () => {
                       {getOptimizationRecommendations(
                         formData.fromExchange,
                         formData.toExchange,
-                        formData.requiredAmount * formData.currentPrice
+                        formData.requiredAmount * 45000 // Valor padrão do preço
                       ).map((recommendation, index) => (
                         <Alert key={index} className="py-2">
                           <TrendingUp className="h-4 w-4" />
