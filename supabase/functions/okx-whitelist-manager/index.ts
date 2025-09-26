@@ -17,9 +17,15 @@ function isValidUuid(id: string) {
 
 // Very simple IPv4/CIDR validation; DB will also enforce inet type
 function isValidIP(ip: string) {
+  const value = ip.trim();
+  // IPv4 e IPv4 em CIDR
   const ipv4 = /^(25[0-5]|2[0-4]\d|1?\d?\d)(\.(25[0-5]|2[0-4]\d|1?\d?\d)){3}$/;
-  const cidr = new RegExp(`^(${ipv4.source})\/(\d|[1-2]\d|3[0-2])$`);
-  return ipv4.test(ip) || cidr.test(ip);
+  const cidr4 = new RegExp(`^(${ipv4.source})\/(\\d|[1-2]\\d|3[0-2])$`);
+  // IPv6/IPv6 CIDR (permissivo; o tipo inet do Postgres fará a validação final)
+  const ipv6Generic = /^([0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}(\/(\d|[1-9]\d|1[01]\d|12[0-8]))?$/;
+  // Curingas usuais
+  if (value === '0.0.0.0/0' || value === '::/0') return true;
+  return ipv4.test(value) || cidr4.test(value) || ipv6Generic.test(value);
 }
 
 serve(async (req) => {
