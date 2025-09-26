@@ -156,19 +156,67 @@ serve(async (req) => {
         console.error('❌ Erro na execução real:', realError);
         status = 'failed';
         
-        // Tratamento específico para diferentes tipos de erro da OKX
-        if (realError instanceof Error) {
-          if (realError.message?.includes('OKX_COMPLIANCE_RESTRICTION')) {
-            error_message = `Par ${symbol} restrito por conformidade na OKX. Tente outro símbolo.`;
-          } else if (realError.message?.includes('OKX_INSUFFICIENT_BALANCE')) {
-            // Extrair mensagem específica da OKX que já contém instruções
-            const specificMsg = realError.message.split('OKX_INSUFFICIENT_BALANCE: ')[1] || 'Saldo insuficiente na OKX';
-            error_message = specificMsg.split(' (sCode=')[0]; // Remove sCode do final
-          } else {
-            error_message = `Falha na execução real: ${realError.message}`;
+        // Tratamento inteligente com sistema adaptativo
+        if (realError instanceof Error && realError.message?.includes('OKX')) {
+          console.log('🤖 Ativando sistema adaptativo para erro OKX...');
+          
+          try {
+            // Chamar sistema adaptativo
+            const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+            const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+            
+            const adaptiveResponse = await fetch(`${supabaseUrl}/functions/v1/okx-adaptive-handler`, {
+              method: 'POST',
+              headers: { 
+                'Content-Type': 'application/json', 
+                'Authorization': `Bearer ${supabaseKey}`
+              },
+              body: JSON.stringify({
+                action: 'adaptive_order',
+                symbol: symbol,
+                side: sellExchange === 'OKX' ? 'sell' : 'buy',
+                quantity: effectiveAmount / buyPrice,
+                price: sellExchange === 'OKX' ? sellPrice : buyPrice,
+                maxRetries: 2,
+                credentials: {
+                  apiKey: okxApiKey,
+                  secretKey: okxSecretKey,
+                  passphrase: okxPassphrase
+                }
+              })
+            });
+            
+            const adaptiveResult = await adaptiveResponse.json();
+            
+            if (adaptiveResult.success) {
+              console.log('✅ Sistema adaptativo resolveu o problema:', adaptiveResult.adaptations_applied);
+              status = 'completed';
+              error_message = `Sucesso com adaptações: ${adaptiveResult.adaptations_applied.join(', ')}`;
+              net_profit = (sellPrice - buyPrice) * (effectiveAmount / buyPrice) - 0.1 - 0.2; // gas_fees + slippage_cost estimados
+            } else {
+              console.log('❌ Sistema adaptativo falhou:', adaptiveResult.error);
+              error_message = `Sistema adaptativo: ${adaptiveResult.error}`;
+            }
+            
+          } catch (adaptiveError) {
+            console.error('❌ Erro no sistema adaptativo:', adaptiveError);
+            error_message = `Falha no sistema adaptativo: ${realError.message}`;
           }
         } else {
-          error_message = `Falha na execução real: ${String(realError)}`;
+          // Tratamento de outros erros não-OKX
+          if (realError instanceof Error) {
+            if (realError.message?.includes('OKX_COMPLIANCE_RESTRICTION')) {
+              error_message = `Par ${symbol} restrito por conformidade na OKX. Tente outro símbolo.`;
+            } else if (realError.message?.includes('OKX_INSUFFICIENT_BALANCE')) {
+              // Extrair mensagem específica da OKX que já contém instruções
+              const specificMsg = realError.message.split('OKX_INSUFFICIENT_BALANCE: ')[1] || 'Saldo insuficiente na OKX';
+              error_message = specificMsg.split(' (sCode=')[0]; // Remove sCode do final
+            } else {
+              error_message = `Falha na execução real: ${realError.message}`;
+            }
+          } else {
+            error_message = `Falha na execução real: ${String(realError)}`;
+          }
         }
         
         net_profit = 0;

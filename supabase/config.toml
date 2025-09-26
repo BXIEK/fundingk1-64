@@ -9,3 +9,6 @@ verify_jwt = false
 
 [functions.smart-cross-exchange-transfer]
 verify_jwt = false
+
+[functions.okx-adaptive-handler]
+verify_jwt = false

@@ -556,6 +556,27 @@ serve(async (req) => {
       case 'get_funding_balances':
         result = await getOKXFundingBalances(creds);
         break;
+      case 'internal_transfer':
+        // Transferência interna entre carteiras
+        console.log(`💸 Executando transferência interna: ${params.amount} ${params.currency} de ${params.from} para ${params.to}`)
+        
+        const transferData = {
+          ccy: params.currency,
+          amt: params.amount.toString(),
+          from: params.from === 'funding' ? '6' : '18', // 6=funding, 18=trading
+          to: params.to === 'trading' ? '18' : '6',
+          type: '0', // Transferência interna
+        }
+        
+        const transferResult = await makeOKXRequest('/api/v5/asset/transfer', 'POST', transferData, creds)
+        
+        result = {
+          success: transferResult.code === '0',
+          transferId: transferResult.data?.[0]?.transId,
+          message: transferResult.msg,
+          details: transferResult.data?.[0]
+        }
+        break;
       case 'get_available_instruments':
         result = await getOKXAvailableInstruments(creds);
         break;
