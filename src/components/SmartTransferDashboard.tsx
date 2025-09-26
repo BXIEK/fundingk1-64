@@ -40,8 +40,7 @@ const SmartTransferDashboard = () => {
     symbol: 'BTC',
     requiredAmount: 0.1,
     fromExchange: 'binance',
-    toExchange: 'okx',
-    network: 'BTC'
+    toExchange: 'okx'
   });
   const [optimizationSettings, setOptimizationSettings] = useState({
     useProxy: false,
@@ -130,7 +129,7 @@ const SmartTransferDashboard = () => {
           amount: formData.requiredAmount,
           from_exchange: formData.fromExchange,
           to_exchange: formData.toExchange,
-          network: formData.network,
+          network: selectedNetwork?.value,
           priority: optimizationSettings.priority,
           bypass_security: optimizationSettings.bypassSecurity,
           use_proxy: optimizationSettings.useProxy
@@ -186,7 +185,7 @@ const SmartTransferDashboard = () => {
         amount: formData.requiredAmount,
         from_exchange: formData.fromExchange,
         to_exchange: formData.toExchange,
-        network: formData.network,
+        network: selectedNetwork?.value,
         priority: optimizationSettings.priority,
         bypass_security: optimizationSettings.bypassSecurity,
         use_proxy: optimizationSettings.useProxy,
@@ -303,12 +302,35 @@ const SmartTransferDashboard = () => {
     }
   };
 
-  const isNetworkCompatible = (fromExchange: string, toExchange: string, network: string) => {
-    const symbol = formData.symbol;
-    const fromSupported = EXCHANGE_NETWORK_SUPPORT[fromExchange]?.[symbol]?.includes(network);
-    const toSupported = EXCHANGE_NETWORK_SUPPORT[toExchange]?.[symbol]?.includes(network);
-    return fromSupported && toSupported;
+  // Função para obter a rede mais barata compatível
+  const getCheapestCompatibleNetwork = (symbol: string, fromExchange: string, toExchange: string) => {
+    const availableNetworks = getAvailableNetworks(symbol);
+    const fromSupported = EXCHANGE_NETWORK_SUPPORT[fromExchange]?.[symbol] || [];
+    const toSupported = EXCHANGE_NETWORK_SUPPORT[toExchange]?.[symbol] || [];
+    
+    // Filtrar apenas redes suportadas por ambas exchanges
+    const compatibleNetworks = availableNetworks.filter(network => 
+      fromSupported.includes(network.value) && toSupported.includes(network.value)
+    );
+    
+    if (compatibleNetworks.length === 0) return null;
+    
+    // Ordenar por custo (convertendo fee para número para comparação)
+    const sortedNetworks = compatibleNetworks.sort((a, b) => {
+      const feeA = parseFloat(a.fee);
+      const feeB = parseFloat(b.fee);
+      return feeA - feeB;
+    });
+    
+    return sortedNetworks[0]; // Retorna a mais barata
   };
+
+  // Obter rede automática baseada nas exchanges e símbolo
+  const getAutoSelectedNetwork = () => {
+    return getCheapestCompatibleNetwork(formData.symbol, formData.fromExchange, formData.toExchange);
+  };
+
+  const selectedNetwork = getAutoSelectedNetwork();
 
   // Helper functions for network display
   const getNetworkDisplayName = (network: string) => {
@@ -389,53 +411,6 @@ const SmartTransferDashboard = () => {
                 </div>
               </div>
 
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Rede Blockchain</Label>
-                  <Select value={formData.network} onValueChange={(value) => setFormData(prev => ({...prev, network: value}))}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecionar rede" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {getAvailableNetworks(formData.symbol).map(network => (
-                        <SelectItem key={network.value} value={network.value}>
-                          <div className="flex items-center justify-between w-full">
-                            <span>{network.label}</span>
-                            <div className="flex items-center gap-2">
-                              <Badge variant="outline" className="text-xs">
-                                {network.fee} {network.feeUnit}
-                              </Badge>
-                              <Badge variant="secondary" className="text-xs">
-                                ~{network.time}
-                              </Badge>
-                            </div>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {!isNetworkCompatible(formData.fromExchange, formData.toExchange, formData.network) && (
-                    <Alert>
-                      <AlertTriangle className="h-4 w-4" />
-                      <AlertDescription className="text-destructive">
-                        <div className="space-y-1">
-                          <div className="font-semibold">⚠️ Rede Incompatível!</div>
-                          <div className="text-sm">
-                            A rede <Badge variant="outline">{getNetworkDisplayName(formData.network)}</Badge> não é suportada entre:
-                          </div>
-                          <div className="text-sm">
-                            • {formData.fromExchange.toUpperCase()}: {EXCHANGE_NETWORK_SUPPORT[formData.fromExchange]?.[formData.symbol]?.includes(formData.network) ? '✅' : '❌'}
-                          </div>
-                          <div className="text-sm">
-                            • {formData.toExchange.toUpperCase()}: {EXCHANGE_NETWORK_SUPPORT[formData.toExchange]?.[formData.symbol]?.includes(formData.network) ? '✅' : '❌'}
-                          </div>
-                        </div>
-                      </AlertDescription>
-                    </Alert>
-                  )}
-                 </div>
-              </div>
-              
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Exchange Origem</Label>
@@ -483,7 +458,7 @@ const SmartTransferDashboard = () => {
                 
                 <Button 
                   onClick={handleAnalyze} 
-                  disabled={loading || !isNetworkCompatible(formData.fromExchange, formData.toExchange, formData.network)}
+                  disabled={loading || !selectedNetwork}
                   className="flex-1"
                 >
                   {loading ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <TrendingUp className="h-4 w-4 mr-2" />}
@@ -495,8 +470,8 @@ const SmartTransferDashboard = () => {
               <div className="bg-muted/30 p-3 rounded-lg border">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-semibold text-primary">Resumo da Configuração</span>
-                  <Badge variant={isNetworkCompatible(formData.fromExchange, formData.toExchange, formData.network) ? "default" : "destructive"} className="text-xs">
-                    {isNetworkCompatible(formData.fromExchange, formData.toExchange, formData.network) ? "✅ Compatível" : "❌ Incompatível"}
+                  <Badge variant={selectedNetwork ? "default" : "destructive"} className="text-xs">
+                    {selectedNetwork ? "✅ Otimizada" : "❌ Incompatível"}
                   </Badge>
                 </div>
                 <div className="grid grid-cols-2 gap-3 text-xs">
@@ -506,15 +481,15 @@ const SmartTransferDashboard = () => {
                   </div>
                   <div>
                     <div className="text-muted-foreground">Token & Rede:</div>
-                    <div className="font-medium">{formData.symbol} ({getNetworkDisplayName(formData.network)})</div>
+                    <div className="font-medium">{formData.symbol} ({selectedNetwork ? selectedNetwork.label : 'N/A'})</div>
                   </div>
                   <div>
                     <div className="text-muted-foreground">Quantidade:</div>
                     <div className="font-medium">{formData.requiredAmount} {formData.symbol}</div>
                   </div>
                   <div>
-                    <div className="text-muted-foreground">Taxa da Rede:</div>
-                    <div className="font-medium text-orange-600">{getNetworkFeeDisplay(formData.symbol, formData.network)}</div>
+                    <div className="text-muted-foreground">Taxa Otimizada:</div>
+                    <div className="font-medium text-green-600">{selectedNetwork ? `${selectedNetwork.fee} ${selectedNetwork.feeUnit}` : 'N/A'}</div>
                   </div>
                 </div>
               </div>
@@ -844,8 +819,8 @@ const SmartTransferDashboard = () => {
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Rede Blockchain:</span>
-                    <Badge variant="secondary" className="text-xs">
-                      {getNetworkDisplayName(formData.network)}
+                    <Badge variant="secondary" className="text-xs bg-green-100 text-green-700">
+                      {selectedNetwork ? selectedNetwork.label : 'N/A'} (Otimizada)
                     </Badge>
                   </div>
                 </div>
@@ -853,15 +828,15 @@ const SmartTransferDashboard = () => {
               
               <div className="pt-2 border-t">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Taxa da Rede {getNetworkDisplayName(formData.network)}:</span>
-                  <span className="font-medium text-orange-600">
-                    {getNetworkFeeDisplay(formData.symbol, formData.network)}
+                  <span className="text-muted-foreground">Taxa da Rede {selectedNetwork ? selectedNetwork.label : 'N/A'}:</span>
+                  <span className="font-medium text-green-600">
+                    {selectedNetwork ? `${selectedNetwork.fee} ${selectedNetwork.feeUnit}` : 'N/A'} (Otimizada)
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Tempo Estimado:</span>
                   <span className="font-medium text-blue-600">
-                    {getNetworkTimeDisplay(formData.symbol, formData.network)}
+                    {selectedNetwork ? selectedNetwork.time : 'N/A'}
                   </span>
                 </div>
               </div>
