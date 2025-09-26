@@ -722,23 +722,34 @@ async function executeOKXOrder(
   
   try {
     // Chamar a edge function da OKX para execução real
-    const { data, error } = await supabase.functions.invoke('okx-api', {
-      body: {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    
+    const response = await fetch(`${supabaseUrl}/functions/v1/okx-api`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseKey}`
+      },
+      body: JSON.stringify({
         action: 'place_order',
         symbol: symbol,
         side: side.toLowerCase(),
         type: 'market',
         quantity: quantity,
-        apiKey: apiKey,
-        secretKey: secretKey,
+        api_key: apiKey,
+        secret_key: secretKey,
         passphrase: passphrase
-      }
+      })
     });
 
-    if (error) {
-      console.error('❌ Erro na edge function OKX:', error);
-      throw new Error(`Erro na API OKX: ${error.message}`);
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ Erro HTTP da OKX API:', response.status, errorText);
+      throw new Error(`Erro HTTP ${response.status}: ${errorText}`);
     }
+
+    const data = await response.json();
 
     if (!data.success) {
       console.error('❌ Ordem OKX falhou:', data.error);

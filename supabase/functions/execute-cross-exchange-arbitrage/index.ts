@@ -269,9 +269,12 @@ async function executeBuyOrder(exchange: string, symbol: string, amountUSD: numb
     try {
       const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
       const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-      const resp = await fetch(`${supabaseUrl}/functions/v1/okx-api`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${supabaseKey}` },
+        const resp = await fetch(`${supabaseUrl}/functions/v1/okx-api`, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json', 
+            'Authorization': `Bearer ${supabaseKey}`
+          },
         body: JSON.stringify({
           action: 'get_balances',
           api_key: credentials?.okxApiKey,
@@ -289,7 +292,10 @@ async function executeBuyOrder(exchange: string, symbol: string, amountUSD: numb
           const [respFunding, respPrices] = await Promise.all([
             fetch(`${supabaseUrl}/functions/v1/okx-api`, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${supabaseKey}` },
+              headers: { 
+                'Content-Type': 'application/json', 
+                'Authorization': `Bearer ${supabaseKey}`
+              },
               body: JSON.stringify({
                 action: 'get_funding_balances',
                 api_key: credentials?.okxApiKey,
@@ -299,7 +305,10 @@ async function executeBuyOrder(exchange: string, symbol: string, amountUSD: numb
             }),
             fetch(`${supabaseUrl}/functions/v1/okx-api`, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${supabaseKey}` },
+              headers: { 
+                'Content-Type': 'application/json', 
+                'Authorization': `Bearer ${supabaseKey}`
+              },
               body: JSON.stringify({
                 action: 'get_prices',
                 api_key: credentials?.okxApiKey,
@@ -386,9 +395,12 @@ async function executeSellOrder(exchange: string, symbol: string, quantity: numb
     try {
       const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
       const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-      const resp = await fetch(`${supabaseUrl}/functions/v1/okx-api`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${supabaseKey}` },
+        const resp = await fetch(`${supabaseUrl}/functions/v1/okx-api`, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json', 
+            'Authorization': `Bearer ${supabaseKey}`
+          },
         body: JSON.stringify({
           action: 'get_balances',
           api_key: credentials?.okxApiKey,
@@ -406,7 +418,10 @@ async function executeSellOrder(exchange: string, symbol: string, quantity: numb
           const [respFunding, respPrices] = await Promise.all([
             fetch(`${supabaseUrl}/functions/v1/okx-api`, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${supabaseKey}` },
+              headers: { 
+                'Content-Type': 'application/json', 
+                'Authorization': `Bearer ${supabaseKey}`
+              },
               body: JSON.stringify({
                 action: 'get_funding_balances',
                 api_key: credentials?.okxApiKey,
@@ -416,7 +431,10 @@ async function executeSellOrder(exchange: string, symbol: string, quantity: numb
             }),
             fetch(`${supabaseUrl}/functions/v1/okx-api`, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${supabaseKey}` },
+              headers: { 
+                'Content-Type': 'application/json', 
+                'Authorization': `Bearer ${supabaseKey}`
+              },
               body: JSON.stringify({
                 action: 'get_prices',
                 api_key: credentials?.okxApiKey,
@@ -698,7 +716,9 @@ async function executeOKXOrder(symbol: string, side: string, quantity: number, p
     console.log(`📊 Quantidade final OKX: ${finalQty} ${symbol}`);
     
     // Chamar a API OKX através da nossa edge function
-    const url = 'https://uxhcsjlfwkhwkvhfacho.supabase.co/functions/v1/okx-api';
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const url = `${supabaseUrl}/functions/v1/okx-api`;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15000);
     
@@ -706,7 +726,10 @@ async function executeOKXOrder(symbol: string, side: string, quantity: number, p
     try {
       response = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseKey}`
+        },
         body: JSON.stringify({
           action: 'place_order',
           api_key: credentials?.okxApiKey || Deno.env.get('OKX_API_KEY'),
