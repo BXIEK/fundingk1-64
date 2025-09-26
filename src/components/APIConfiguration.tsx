@@ -13,6 +13,7 @@ import { useTradingMode } from "@/contexts/TradingModeContext";
 import { useWeb3Wallet } from "@/hooks/useWeb3Wallet";
 import { Eye, EyeOff, Key, Shield, Save, TestTube, Settings2, Wallet, CheckCircle, AlertTriangle } from "lucide-react";
 import OKXWhitelistManager from "@/components/OKXWhitelistManager";
+import AutoIPWhitelistFixer from "@/components/AutoIPWhitelistFixer";
 
 interface APICredentials {
   apiKey: string;
@@ -480,6 +481,9 @@ const APIConfiguration = () => {
           Configure suas credenciais de API para acessar dados em tempo real
         </p>
       </div>
+
+      {/* AutoIPWhitelistFixer - Aparecer sempre que houver problemas de IP */}
+      <AutoIPWhitelistFixer />
 
       <Alert>
         <Shield className="h-4 w-4" />
