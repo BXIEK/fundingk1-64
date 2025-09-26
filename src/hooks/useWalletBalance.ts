@@ -35,7 +35,7 @@ const NETWORKS = {
   ethereum: {
     chainId: 1,
     name: 'Ethereum',
-    rpc: 'https://mainnet.infura.io/v3/YOUR_PROJECT_ID',
+    rpc: 'https://eth.public-rpc.com', // RPC público gratuito
     nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 }
   },
   bsc: {

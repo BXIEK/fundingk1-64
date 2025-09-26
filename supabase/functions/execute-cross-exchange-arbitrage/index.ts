@@ -306,7 +306,7 @@ async function executeBuyOrder(exchange: string, symbol: string, amountUSD: numb
       const data = await resp.json();
       const usdt = (data?.balances || []).find((b: any) => (b.asset || b.ccy) === 'USDT');
       const availableUSDT = Number(usdt?.free || 0);
-      const requiredUSDT = amountUSD; // ordem market usa tgtCcy base_ccy, consumo em USDT
+      const requiredUSDT = amountUSD; // ordem market de compra usa tgtCcy quote_ccy, consumo em USDT
       if (availableUSDT + 1e-8 < requiredUSDT) {
         // Buscar saldos em outras contas e sugerir conversões
         try {
