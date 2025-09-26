@@ -68,13 +68,18 @@ serve(async (req) => {
     }
 
     if (action === "add") {
+      console.log(`[OKX Whitelist Manager] ADD action - ip_address=${ip_address}, user_id=${user_id}`);
+      
       if (!ip_address || typeof ip_address !== "string" || !isValidIP(ip_address.trim())) {
+        console.log(`[OKX Whitelist Manager] Invalid IP validation failed: ${ip_address}`);
         return new Response(JSON.stringify({ success: false, error: "Endereço IP inválido" }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
           status: 400,
         });
       }
 
+      console.log(`[OKX Whitelist Manager] Attempting to insert IP: ${ip_address.trim()} for user: ${user_id}`);
+      
       const { data, error } = await supabaseAdmin
         .from("okx_whitelist_ips")
         .insert({
@@ -86,7 +91,12 @@ serve(async (req) => {
         .select("*")
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error(`[OKX Whitelist Manager] Database error:`, error);
+        throw error;
+      }
+      
+      console.log(`[OKX Whitelist Manager] Successfully inserted IP:`, data);
       return new Response(JSON.stringify({ success: true, item: data }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
