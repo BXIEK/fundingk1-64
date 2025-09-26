@@ -2453,6 +2453,36 @@ export type Database = {
         }
         Relationships: []
       }
+      okx_whitelist_ips: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          ip_address: unknown
+          is_active: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          ip_address: unknown
+          is_active?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          ip_address?: unknown
+          is_active?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       pending_payments: {
         Row: {
           admin_notes: string | null

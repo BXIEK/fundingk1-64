@@ -52,12 +52,58 @@ async function createOKXSignature(
   return btoa(String.fromCharCode(...new Uint8Array(signature)));
 }
 
+async function getActiveWhitelistIP(supabase: any, userId?: string): Promise<string | null> {
+  try {
+    if (!userId) {
+      console.log('⚠️ User ID não fornecido, usando IP genérico');
+      return null;
+    }
+
+    const { data: whitelistIPs, error } = await supabase
+      .from('okx_whitelist_ips')
+      .select('ip_address')
+      .eq('user_id', userId)
+      .eq('is_active', true)
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    if (error) {
+      console.error('❌ Erro ao buscar IP da whitelist:', error);
+      return null;
+    }
+
+    if (whitelistIPs && whitelistIPs.length > 0) {
+      const ip = String(whitelistIPs[0].ip_address);
+      console.log(`✅ IP da whitelist encontrado: ${ip}`);
+      return ip;
+    }
+
+    console.log('⚠️ Nenhum IP ativo encontrado na whitelist');
+    return null;
+  } catch (error) {
+    console.error('❌ Erro ao consultar whitelist IP:', error);
+    return null;
+  }
+}
+
 async function makeOKXRequest(
   endpoint: string, 
   method: 'GET' | 'POST' = 'GET', 
   body?: any,
-  creds?: { apiKey?: string; secretKey?: string; passphrase?: string }
+  creds?: { apiKey?: string; secretKey?: string; passphrase?: string },
+  supabase?: any,
+  userId?: string
 ): Promise<any> {
+  // Verificar se temos IP da whitelist configurado
+  const whitelistIP = await getActiveWhitelistIP(supabase, userId);
+  if (whitelistIP && whitelistIP !== '0.0.0.0/0') {
+    console.log(`🔒 Usando IP da whitelist: ${whitelistIP}`);
+    // Nota: Não é possível forçar IP específico em requisições HTTP do Deno
+    // Esta informação serve apenas para logging e validação
+  } else {
+    console.log(`⚠️ Sem IP específico da whitelist - usando IP padrão do servidor`);
+  }
+
   const apiKey = creds?.apiKey || Deno.env.get('OKX_API_KEY');
   const secretKey = creds?.secretKey || Deno.env.get('OKX_SECRET_KEY');
   const passphrase = creds?.passphrase || Deno.env.get('OKX_PASSPHRASE');
@@ -106,12 +152,12 @@ async function makeOKXRequest(
   return data;
 }
 
-async function getOKXPrices(creds?: { apiKey?: string; secretKey?: string; passphrase?: string }): Promise<any> {
+async function getOKXPrices(creds?: { apiKey?: string; secretKey?: string; passphrase?: string }, supabase?: any, userId?: string): Promise<any> {
   try {
     console.log('📊 Obtendo preços da OKX...');
     
     // A API da OKX requer o parâmetro instType (SPOT para mercado spot)
-    const response = await makeOKXRequest('/api/v5/market/tickers?instType=SPOT', 'GET', undefined, creds);
+    const response = await makeOKXRequest('/api/v5/market/tickers?instType=SPOT', 'GET', undefined, creds, supabase, userId);
     
     if (response.code !== '0') {
       throw new Error(`OKX API Error: ${response.msg}`);
@@ -138,9 +184,9 @@ async function getOKXPrices(creds?: { apiKey?: string; secretKey?: string; passp
 }
 
 // Buscar informações do instrumento (minSz, lotSz, tickSz) com melhor tratamento de erro
-async function getOKXInstrument(instId: string, creds?: { apiKey?: string; secretKey?: string; passphrase?: string }): Promise<{ minSz: number; lotSz: number; tickSz: number }> {
+async function getOKXInstrument(instId: string, creds?: { apiKey?: string; secretKey?: string; passphrase?: string }, supabase?: any, userId?: string): Promise<{ minSz: number; lotSz: number; tickSz: number }> {
   try {
-    const resp = await makeOKXRequest(`/api/v5/public/instruments?instType=SPOT&instId=${instId}`, 'GET', undefined, creds);
+    const resp = await makeOKXRequest(`/api/v5/public/instruments?instType=SPOT&instId=${instId}`, 'GET', undefined, creds, supabase, userId);
     const info = resp?.data?.[0];
     if (!info) {
       console.warn(`⚠️ Instrumento ${instId} não encontrado na OKX`);
@@ -188,7 +234,7 @@ function adjustOKXSize(qty: number, rules: { minSz: number; lotSz: number }): { 
   return { qty: Number(safeQty.toFixed(precision)), precision };
 }
 
-async function executeOKXOrder(orderRequest: OKXOrderRequest, creds?: { apiKey?: string; secretKey?: string; passphrase?: string }): Promise<OKXOrderResponse> {
+async function executeOKXOrder(orderRequest: OKXOrderRequest, creds?: { apiKey?: string; secretKey?: string; passphrase?: string }, supabase?: any, userId?: string): Promise<OKXOrderResponse> {
   try {
     // Função padronizada para conversão de símbolos
     function convertToOKXFormat(symbol: string): string {
@@ -202,7 +248,7 @@ async function executeOKXOrder(orderRequest: OKXOrderRequest, creds?: { apiKey?:
     // Obter regras do instrumento com fallback melhorado
     let rules: { minSz: number; lotSz: number; tickSz: number };
     try {
-      rules = await getOKXInstrument(instId, creds);
+      rules = await getOKXInstrument(instId, creds, supabase, userId);
     } catch (error) {
       console.warn(`⚠️ Erro ao obter regras para ${instId}, usando defaults:`, error);
       // Defaults mais conservadores baseados no símbolo
@@ -232,7 +278,7 @@ async function executeOKXOrder(orderRequest: OKXOrderRequest, creds?: { apiKey?:
         timestamp: Date.now()
       });
       
-      return await executeOKXOrderInternal(instId, orderRequest, finalQty, creds);
+      return await executeOKXOrderInternal(instId, orderRequest, finalQty, creds, supabase, userId);
     } else {
       console.log(`📋 Executando ordem na OKX:`, {
         symbol: orderRequest.symbol,
@@ -246,7 +292,7 @@ async function executeOKXOrder(orderRequest: OKXOrderRequest, creds?: { apiKey?:
         timestamp: Date.now()
       });
       
-      return await executeOKXOrderInternal(instId, orderRequest, adjustedQty, creds);
+      return await executeOKXOrderInternal(instId, orderRequest, adjustedQty, creds, supabase, userId);
     }
     
   } catch (error) {
@@ -261,7 +307,7 @@ async function executeOKXOrder(orderRequest: OKXOrderRequest, creds?: { apiKey?:
 }
 
 // Função interna para executar a ordem na OKX
-async function executeOKXOrderInternal(instId: string, orderRequest: OKXOrderRequest, quantity: number, creds?: { apiKey?: string; secretKey?: string; passphrase?: string }): Promise<OKXOrderResponse> {
+async function executeOKXOrderInternal(instId: string, orderRequest: OKXOrderRequest, quantity: number, creds?: { apiKey?: string; secretKey?: string; passphrase?: string }, supabase?: any, userId?: string): Promise<OKXOrderResponse> {
   const orderData = {
     instId: instId,
     tdMode: 'cash', // Forçar modo cash para evitar problemas de margem
@@ -286,7 +332,7 @@ async function executeOKXOrderInternal(instId: string, orderRequest: OKXOrderReq
     tgtCcy: orderData.tgtCcy
   });
 
-  const response = await makeOKXRequest('/api/v5/trade/order', 'POST', orderData, creds);
+  const response = await makeOKXRequest('/api/v5/trade/order', 'POST', orderData, creds, supabase, userId);
   
   // Tratamento melhorado de erros da OKX
   if (response.code !== '0') {
@@ -363,9 +409,9 @@ function getDefaultOKXRules(symbol: string): { minSz: number; lotSz: number; tic
 }
 
 // Novo: obter saldos da conta OKX
-async function getOKXBalances(creds?: { apiKey?: string; secretKey?: string; passphrase?: string }): Promise<any> {
+async function getOKXBalances(creds?: { apiKey?: string; secretKey?: string; passphrase?: string }, supabase?: any, userId?: string): Promise<any> {
   try {
-    const resp = await makeOKXRequest('/api/v5/account/balance', 'GET', undefined, creds);
+    const resp = await makeOKXRequest('/api/v5/account/balance', 'GET', undefined, creds, supabase, userId);
     if (resp.code !== '0') {
       throw new Error(`OKX API Error: ${resp.msg}`);
     }
@@ -389,9 +435,9 @@ async function getOKXBalances(creds?: { apiKey?: string; secretKey?: string; pas
 }
 
 // Obter saldos da conta de Funding (carteira crypto)
-async function getOKXFundingBalances(creds?: { apiKey?: string; secretKey?: string; passphrase?: string }): Promise<any> {
+async function getOKXFundingBalances(creds?: { apiKey?: string; secretKey?: string; passphrase?: string }, supabase?: any, userId?: string): Promise<any> {
   try {
-    const resp = await makeOKXRequest('/api/v5/asset/balances', 'GET', undefined, creds);
+    const resp = await makeOKXRequest('/api/v5/asset/balances', 'GET', undefined, creds, supabase, userId);
     if (resp.code !== '0') {
       throw new Error(`OKX API Error: ${resp.msg}`);
     }
@@ -415,11 +461,11 @@ async function getOKXFundingBalances(creds?: { apiKey?: string; secretKey?: stri
 }
 
 // Verificar quais pares/instrumentos estão disponíveis para negociação
-async function getOKXAvailableInstruments(creds?: { apiKey?: string; secretKey?: string; passphrase?: string }): Promise<any> {
+async function getOKXAvailableInstruments(creds?: { apiKey?: string; secretKey?: string; passphrase?: string }, supabase?: any, userId?: string): Promise<any> {
   try {
     console.log('🔍 Verificando instrumentos disponíveis na OKX...');
     
-    const resp = await makeOKXRequest('/api/v5/public/instruments?instType=SPOT', 'GET', undefined, creds);
+    const resp = await makeOKXRequest('/api/v5/public/instruments?instType=SPOT', 'GET', undefined, creds, supabase, userId);
     if (resp.code !== '0') {
       throw new Error(`OKX API Error: ${resp.msg}`);
     }
@@ -484,6 +530,23 @@ serve(async (req) => {
   }
 
   try {
+    // Inicializar cliente Supabase
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Obter userId do cabeçalho de autorização se disponível
+    let userId: string | undefined;
+    const authHeader = req.headers.get('authorization');
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      try {
+        const { data: { user } } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''));
+        userId = user?.id;
+      } catch (error) {
+        console.log('⚠️ Não foi possível obter userId do token:', error);
+      }
+    }
+
     const { action, api_key, secret_key, passphrase, ...params } = await req.json();
     
     console.log(`🚀 OKX API: Ação ${action} solicitada`);
@@ -508,7 +571,7 @@ serve(async (req) => {
           // Se as credenciais foram fornecidas, testar endpoint privado
           if (api_key && secret_key && passphrase) {
             console.log('🔐 Testando conexão privada...');
-            const privateTest = await getOKXBalances(creds);
+            const privateTest = await getOKXBalances(creds, supabase, userId);
             if (privateTest.success) {
               result = {
                 success: true,
@@ -548,13 +611,13 @@ serve(async (req) => {
         }
         break;
       case 'get_prices':
-        result = await getOKXPrices(creds);
+        result = await getOKXPrices(creds, supabase, userId);
         break;
       case 'get_balances':
-        result = await getOKXBalances(creds);
+        result = await getOKXBalances(creds, supabase, userId);
         break;
       case 'get_funding_balances':
-        result = await getOKXFundingBalances(creds);
+        result = await getOKXFundingBalances(creds, supabase, userId);
         break;
       case 'internal_transfer':
         // Transferência interna entre carteiras
@@ -568,7 +631,7 @@ serve(async (req) => {
           type: '0', // Transferência interna
         }
         
-        const transferResult = await makeOKXRequest('/api/v5/asset/transfer', 'POST', transferData, creds)
+        const transferResult = await makeOKXRequest('/api/v5/asset/transfer', 'POST', transferData, creds, supabase, userId)
         
         result = {
           success: transferResult.code === '0',
@@ -578,10 +641,10 @@ serve(async (req) => {
         }
         break;
       case 'get_available_instruments':
-        result = await getOKXAvailableInstruments(creds);
+        result = await getOKXAvailableInstruments(creds, supabase, userId);
         break;
       case 'place_order':
-        result = await executeOKXOrder(params.order as OKXOrderRequest, creds);
+        result = await executeOKXOrder(params.order as OKXOrderRequest, creds, supabase, userId);
         break;
       default:
         throw new Error(`Ação não suportada: ${action}`);

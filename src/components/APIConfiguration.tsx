@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useTradingMode } from "@/contexts/TradingModeContext";
 import { useWeb3Wallet } from "@/hooks/useWeb3Wallet";
 import { Eye, EyeOff, Key, Shield, Save, TestTube, Settings2, Wallet, CheckCircle, AlertTriangle } from "lucide-react";
+import OKXWhitelistManager from "@/components/OKXWhitelistManager";
 
 interface APICredentials {
   apiKey: string;
@@ -478,7 +479,7 @@ const APIConfiguration = () => {
       </Alert>
 
       <Tabs defaultValue="binance" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="binance" className="flex items-center gap-2">
             <Key className="h-4 w-4" />
             Binance API
@@ -486,6 +487,10 @@ const APIConfiguration = () => {
           <TabsTrigger value="okx" className="flex items-center gap-2">
             <Key className="h-4 w-4" />
             OKX API
+          </TabsTrigger>
+          <TabsTrigger value="okx-whitelist" className="flex items-center gap-2">
+            <Shield className="h-4 w-4" />
+            OKX Whitelist
           </TabsTrigger>
           <TabsTrigger value="hyperliquid" className="flex items-center gap-2">
             <Key className="h-4 w-4" />
@@ -766,6 +771,10 @@ const APIConfiguration = () => {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="okx-whitelist">
+          <OKXWhitelistManager />
         </TabsContent>
 
         <TabsContent value="trading">
