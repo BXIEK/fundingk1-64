@@ -48,7 +48,7 @@ export const BinanceFundingArbitrage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [selectedOpportunity, setSelectedOpportunity] = useState<FundingArbitrageOpportunity | null>(null);
-  const [investmentAmount, setInvestmentAmount] = useState<number>(1000);
+  const [investmentAmount, setInvestmentAmount] = useState<number>(1000); // USDT
   const [isExecuting, setIsExecuting] = useState(false);
   const [executionResults, setExecutionResults] = useState<any>(null);
 
@@ -390,7 +390,7 @@ export const BinanceFundingArbitrage = () => {
         <div className="space-y-6">
           <div className="grid gap-4">
             <div>
-              <Label htmlFor="investment-amount">Valor do Investimento (USD)</Label>
+              <Label htmlFor="investment-amount">Investimento Base em USDT</Label>
               <Input
                 id="investment-amount"
                 type="number"
@@ -458,7 +458,7 @@ export const BinanceFundingArbitrage = () => {
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div className="space-y-2">
                 <div className="flex justify-between">
-                  <span>Investimento Total:</span>
+                  <span>Investimento Base (USDT):</span>
                   <span className="font-medium">{formatCurrency(calculations.investmentAmount)}</span>
                 </div>
                 <div className="flex justify-between">

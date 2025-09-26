@@ -37,8 +37,8 @@ interface TransferAnalysis {
 const SmartTransferDashboard = () => {
   const [analysis, setAnalysis] = useState<TransferAnalysis | null>(null);
   const [formData, setFormData] = useState({
-    symbol: 'BTC',
-    requiredAmount: 0.1,
+    symbol: 'USDT',
+    requiredAmount: 100,
     fromExchange: 'binance',
     toExchange: 'okx'
   });
@@ -390,16 +390,15 @@ const SmartTransferDashboard = () => {
             <TabsContent value="transfer" className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="symbol">Token/Símbolo</Label>
+                  <Label htmlFor="symbol">Token de Destino</Label>
                   <Select value={formData.symbol} onValueChange={(value) => setFormData(prev => ({...prev, symbol: value}))}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Selecionar token" />
+                      <SelectValue placeholder="Token que será comprado" />
                     </SelectTrigger>
                      <SelectContent>
                        <SelectItem value="BTC">Bitcoin (BTC)</SelectItem>
                        <SelectItem value="ETH">Ethereum (ETH)</SelectItem>
                        <SelectItem value="BNB">Binance Coin (BNB)</SelectItem>
-                       <SelectItem value="USDT">Tether (USDT)</SelectItem>
                        <SelectItem value="SOL">Solana (SOL)</SelectItem>
                        <SelectItem value="XRP">Ripple (XRP)</SelectItem>
                      </SelectContent>
@@ -407,15 +406,18 @@ const SmartTransferDashboard = () => {
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="amount">Quantidade</Label>
+                  <Label htmlFor="amount">Investimento em USDT</Label>
                   <Input
                     id="amount"
                     type="number"
-                    step="0.0001"
+                    step="1"
                     value={formData.requiredAmount}
                     onChange={(e) => setFormData(prev => ({...prev, requiredAmount: parseFloat(e.target.value) || 0}))}
-                    placeholder="0.1"
+                    placeholder="100"
                   />
+                  <div className="text-xs text-muted-foreground mt-1">
+                    💡 Valor em USDT que será usado para comprar {formData.symbol}
+                  </div>
                 </div>
               </div>
 
@@ -492,8 +494,8 @@ const SmartTransferDashboard = () => {
                     <div className="font-medium">{formData.symbol} ({selectedNetwork ? selectedNetwork.label : 'N/A'})</div>
                   </div>
                   <div>
-                    <div className="text-muted-foreground">Quantidade:</div>
-                    <div className="font-medium">{formData.requiredAmount} {formData.symbol}</div>
+                    <div className="text-muted-foreground">Investimento:</div>
+                    <div className="font-medium">{formData.requiredAmount} USDT → {formData.symbol}</div>
                   </div>
                   <div>
                     <div className="text-muted-foreground">Taxa Otimizada:</div>

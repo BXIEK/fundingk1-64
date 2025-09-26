@@ -58,7 +58,7 @@ const ArbitrageExecutionModal: React.FC<ArbitrageExecutionModalProps> = ({
   isExecuting
 }) => {
   const [config, setConfig] = useState<ArbitrageConfig>({
-    investmentAmount: 100,
+    investmentAmount: 100, // USDT
     maxSlippage: 0.5,
     customFeeRate: 0.2,
     stopLossPercentage: 2.0,
@@ -179,7 +179,7 @@ const ArbitrageExecutionModal: React.FC<ArbitrageExecutionModalProps> = ({
             <div className="space-y-2">
               <Label htmlFor="investment" className="flex items-center gap-2">
                 <DollarSign className="h-4 w-4" />
-                Valor do Investimento
+                Investimento em USDT
               </Label>
               <Input
                 id="investment"
@@ -193,7 +193,7 @@ const ArbitrageExecutionModal: React.FC<ArbitrageExecutionModalProps> = ({
                 <p className="text-sm text-red-500">{errors.investmentAmount}</p>
               )}
               <p className="text-xs text-muted-foreground">
-                Valor em USD para investir na operação
+                💰 Valor em USDT - moeda base universal das exchanges
               </p>
             </div>
 
