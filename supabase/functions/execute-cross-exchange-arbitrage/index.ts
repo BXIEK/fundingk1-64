@@ -156,11 +156,17 @@ serve(async (req) => {
         console.error('❌ Erro na execução real:', realError);
         status = 'failed';
         
-        // Tratamento específico para restrições de conformidade da OKX
-        if (realError instanceof Error && realError.message?.includes('OKX_COMPLIANCE_RESTRICTION')) {
-          error_message = `Par ${symbol} restrito por conformidade na OKX. Tente outro símbolo.`;
+        // Tratamento específico para diferentes tipos de erro da OKX
+        if (realError instanceof Error) {
+          if (realError.message?.includes('OKX_COMPLIANCE_RESTRICTION')) {
+            error_message = `Par ${symbol} restrito por conformidade na OKX. Tente outro símbolo.`;
+          } else if (realError.message?.includes('OKX_INSUFFICIENT_BALANCE')) {
+            error_message = `Saldo insuficiente na OKX. Verifique se há USDT suficiente na carteira Spot.`;
+          } else {
+            error_message = `Falha na execução real: ${realError.message}`;
+          }
         } else {
-          error_message = `Falha na execução real: ${realError instanceof Error ? realError.message : String(realError)}`;
+          error_message = `Falha na execução real: ${String(realError)}`;
         }
         
         net_profit = 0;

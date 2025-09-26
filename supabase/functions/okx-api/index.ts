@@ -270,8 +270,12 @@ async function executeOKXOrderInternal(instId: string, orderRequest: OKXOrderReq
     sz: quantity.toString(),
     // px só em ordens limit
     ...(orderRequest.type === 'limit' && orderRequest.price ? { px: orderRequest.price.toString() } : {}),
-    // Para ordens de compra market, especificar que quantidade é em moeda base
-    ...(orderRequest.type === 'market' && orderRequest.side === 'buy' ? { tgtCcy: 'base_ccy' } : {})
+    // Para ordens market, ajustar parâmetro tgtCcy baseado no lado
+    // BUY: usar quote_ccy (especificar quanto USDT gastar)  
+    // SELL: usar base_ccy (especificar quanto da moeda base vender)
+    ...(orderRequest.type === 'market' ? { 
+      tgtCcy: orderRequest.side === 'buy' ? 'quote_ccy' : 'base_ccy' 
+    } : {})
   };
 
   const response = await makeOKXRequest('/api/v5/trade/order', 'POST', orderData, creds);
@@ -294,6 +298,12 @@ async function executeOKXOrderInternal(instId: string, orderRequest: OKXOrderReq
   
   if (sCode && sCode !== '0') {
     console.error(`❌ Erro na ordem OKX (sCode ${sCode}):`, sMsg);
+    
+    // Tratamento específico para sCode 51008 - saldo insuficiente
+    if (sCode === '51008') {
+      console.warn(`🚫 Saldo insuficiente na OKX para ${instId}: ${sMsg}`);
+      throw new Error(`OKX_INSUFFICIENT_BALANCE: ${sMsg || 'Saldo insuficiente da moeda de cotação'} (sCode=${sCode})`);
+    }
     
     // Tratamento específico para restrições de conformidade
     if (sCode === '51155') {
