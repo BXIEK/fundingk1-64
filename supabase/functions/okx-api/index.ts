@@ -171,6 +171,11 @@ async function getOKXInstrument(instId: string, creds?: { apiKey?: string; secre
 
 function decimalPlacesFromStep(step: number): number {
   const s = step.toString();
+  // Handle scientific notation like 1e-8
+  const sci = s.match(/^\d+(?:\.\d+)?e-(\d+)$/i);
+  if (sci) {
+    return parseInt(sci[1], 10);
+  }
   const i = s.indexOf('.');
   return i === -1 ? 0 : (s.length - i - 1);
 }
