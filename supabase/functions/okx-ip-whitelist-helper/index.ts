@@ -24,14 +24,15 @@ serve(async (req) => {
     const instructions = {
       problem: "🚫 OKX IP Whitelist Error (Código 50110)",
       current_ip: currentIP,
+      disclaimer: "⚠️ IMPORTANTE: A OKX pode não ter a opção 'IP Restriction' disponível para todas as contas ou pode ter mudado a interface. Se não encontrar esta opção, isso é normal.",
       solution: {
-        step1: "🔑 Acesse OKX → Security → API Management",
-        step2: "✏️ Encontre sua API Key e clique em 'Edit'",
-        step3: "🌐 Na seção 'IP Restriction':",
+        step1: "🔑 Acesse OKX → Account → API → API Management",
+        step2: "✏️ Encontre sua API Key e clique em 'Edit' ou 'Manage'",
+        step3: "🔍 Procure por 'IP Restriction', 'IP Whitelist' ou 'Allowed IPs':",
         options: [
           {
             recommended: true,
-            title: "OPÇÃO 1 - Permitir todos os IPs (Recomendado para Edge Functions)",
+            title: "SE ENCONTRAR A OPÇÃO - Permitir todos os IPs",
             steps: [
               "Digite: 0.0.0.0/0",
               "Isso permite qualquer IP acessar a API",
@@ -40,38 +41,39 @@ serve(async (req) => {
           },
           {
             recommended: false,
-            title: "OPÇÃO 2 - Desabilitar restrição de IP", 
+            title: "SE ENCONTRAR A OPÇÃO - Desabilitar restrição",
             steps: [
-              "Deixe o campo em branco",
+              "Deixe o campo em branco ou desmarque",
               "Remove completamente a restrição de IP",
-              "Menos seguro mas funciona"
+              "Pode estar em configurações avançadas"
             ]
           },
           {
-            recommended: false,
-            title: "OPÇÃO 3 - IPs específicos (Não recomendado)",
+            recommended: true,
+            title: "SE NÃO ENCONTRAR A OPÇÃO (Comum atualmente)",
             steps: [
-              `Adicionar IP atual: ${currentIP}`,
-              "⚠️ PROBLEMA: Edge Functions mudam IP constantemente",
-              "Você teria que atualizar sempre que o IP mudar"
+              "Isso é normal - muitas contas OKX não têm IP Restriction",
+              "Verifique se 'Trading' e 'Reading' estão habilitados",
+              "O problema pode ser temporário ou de conectividade",
+              "Considere usar apenas Binance para arbitragem"
             ]
           }
         ],
-        step4: "💾 Save / Salvar as mudanças",
-        step5: "⏱️ Aguarde alguns minutos para a mudança ser aplicada",
+        step4: "💾 Se encontrou a opção, salve as mudanças",
+        step5: "⏱️ Aguarde alguns minutos se fez alterações",
         step6: "🔄 Teste novamente o sistema de arbitragem"
       },
       important_notes: [
-        "🔒 SEGURANÇA: Permitir todos os IPs (0.0.0.0/0) pode ser menos seguro",
-        "🏢 ALTERNATIVA: Use apenas em contas de teste ou com valores baixos",
-        "🔐 RECOMENDAÇÃO: Configure sempre uma senha forte e 2FA na OKX",
-        "⚡ SOLUÇÃO DEFINITIVA: Edge Functions precisam desta configuração para funcionar",
-        "🚨 SEM ESTA CONFIGURAÇÃO: Sistema adaptativo sempre falhará"
+        "🔒 REALIDADE: Muitas contas OKX não têm configuração de IP Restriction disponível",
+        "🏢 ALTERNATIVA: Se não conseguir configurar, use apenas Binance",
+        "🔐 VERIFICAÇÃO: Certifique-se que API Key tem permissões de Trading habilitadas",
+        "⚡ SUPORTE: Se necessário, contate o suporte da OKX sobre IP restrictions",
+        "🚨 IMPORTANTE: Este erro pode indicar que sua conta não suporta esta função"
       ],
       troubleshooting: {
-        "still_not_working": "Se ainda não funcionar após 10 minutos, tente deletar e recriar a API Key",
-        "multiple_apis": "Se tem múltiplas API Keys, configure TODAS com 0.0.0.0/0",
-        "trading_restrictions": "Certifique-se que 'Enable Reading' e 'Enable Trading' estão marcados"
+        "no_ip_option": "Se não encontrar opção de IP: isso é normal para muitas contas OKX",
+        "still_not_working": "Se ainda não funcionar: pode ser limitação da conta ou região",
+        "alternative_solution": "Use apenas Binance para arbitragem como alternativa segura"
       }
     }
     

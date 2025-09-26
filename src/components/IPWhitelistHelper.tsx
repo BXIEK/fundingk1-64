@@ -10,6 +10,7 @@ import { useState } from "react"
 interface IPInstructions {
   problem: string
   current_ip: string
+  disclaimer?: string
   solution: {
     step1: string
     step2: string
@@ -56,9 +57,62 @@ export default function IPWhitelistHelper() {
             O sistema adaptativo está falhando devido a restrições de IP na OKX
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+            <div className="flex items-center space-x-2">
+              <AlertTriangle className="h-5 w-5 text-amber-600" />
+              <h4 className="font-medium text-amber-800">Importante: Limitação da OKX</h4>
+            </div>
+            <p className="text-sm text-amber-700 mt-2">
+              A OKX pode não ter a opção "IP Restriction" disponível para todas as contas ou pode ter mudado a interface recentemente.
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            <div className="flex items-start space-x-3">
+              <div className="flex-shrink-0 w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
+                <span className="text-blue-600 text-sm font-semibold">1</span>
+              </div>
+              <div>
+                <h4 className="font-medium text-foreground">Acesse o OKX API Management</h4>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Faça login → Account → API → API Management
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start space-x-3">
+              <div className="flex-shrink-0 w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
+                <span className="text-blue-600 text-sm font-semibold">2</span>
+              </div>
+              <div>
+                <h4 className="font-medium text-foreground">Procure por IP Restriction</h4>
+                <div className="text-sm text-muted-foreground mt-1 space-y-1">
+                  <p>• Clique em "Edit" na sua API key</p>
+                  <p>• Procure por "IP Restriction", "IP Whitelist" ou "Allowed IPs"</p>
+                  <p>• Se encontrar, configure como: <code className="bg-muted px-2 py-1 rounded text-xs">0.0.0.0/0</code></p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-start space-x-3">
+              <div className="flex-shrink-0 w-6 h-6 bg-orange-100 rounded-full flex items-center justify-center">
+                <span className="text-orange-600 text-sm font-semibold">⚠</span>
+              </div>
+              <div>
+                <h4 className="font-medium text-foreground">Se não encontrar a opção</h4>
+                <div className="text-sm text-muted-foreground mt-1 space-y-1">
+                  <p>• A OKX pode não ter essa funcionalidade na sua conta</p>
+                  <p>• Ou pode estar em uma seção diferente da interface</p>
+                  <p>• Tente contatar o suporte da OKX para mais informações</p>
+                  <p>• Como alternativa, use apenas a Binance para arbitragem</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <Button onClick={getIPInstructions} disabled={loading} className="w-full">
-            {loading ? 'Analisando...' : 'Ver Instruções de Correção'}
+            {loading ? 'Analisando...' : 'Ver Instruções Detalhadas'}
           </Button>
         </CardContent>
       </Card>
@@ -74,6 +128,16 @@ export default function IPWhitelistHelper() {
           {instructions.problem}
         </AlertDescription>
       </Alert>
+
+      {/* Aviso sobre disponibilidade da opção */}
+      {instructions.disclaimer && (
+        <Alert variant="default" className="border-amber-200 bg-amber-50">
+          <AlertTriangle className="h-4 w-4 text-amber-600" />
+          <AlertDescription className="text-amber-800">
+            {instructions.disclaimer}
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* IP Atual */}
       <Card>

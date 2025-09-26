@@ -1184,16 +1184,18 @@ const adjustInvestmentForLotSize = (symbol: string, investmentAmount: number, bu
                                     trade.error_message.includes('whitelist') ||
                                     trade.error_message.includes('Sistema adaptativo: undefined') ||
                                     trade.error_message.includes('Sistema adaptativo OKX: undefined')) ? (
-                                    <div className="text-xs text-blue-600 max-w-xs">
-                                      <strong>🔧 Erro de Configuração:</strong> 
-                                      <br />
-                                      <span className="text-red-600">Problema de IP whitelist detectado</span>
-                                      <br />
-                                      <span className="text-blue-600 cursor-pointer underline" 
-                                            onClick={() => setShowIPHelper(true)}>
-                                        📋 Clique aqui para ver instruções de correção
-                                      </span>
-                                    </div>
+                                     <div className="text-xs text-blue-600 max-w-xs">
+                                       <strong>🔧 Configuração OKX:</strong> 
+                                       <br />
+                                       <span className="text-red-600">Problema de IP whitelist</span>
+                                       <br />
+                                       <span className="text-amber-600">A OKX pode não ter a opção IP Restriction</span>
+                                       <br />
+                                       <span className="text-blue-600 cursor-pointer underline" 
+                                             onClick={() => setShowIPHelper(true)}>
+                                         📋 Ver instruções completas
+                                       </span>
+                                     </div>
                                   ) : (
                                     <div className="text-xs text-red-600 max-w-xs">
                                       <strong>Erro:</strong> {trade.error_message}

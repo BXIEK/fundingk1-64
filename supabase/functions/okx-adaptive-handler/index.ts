@@ -217,7 +217,7 @@ async function analyzeErrorAndAdapt(
     console.log('💡 SOLUÇÃO: Configure a API OKX para permitir todos os IPs (0.0.0.0/0)')
     return { 
       canRetry: false, 
-      reason: '🚫 IP não autorizado na OKX. SOLUÇÃO: Vá para OKX → API Management → Edit API → IP Restriction → Digite "0.0.0.0/0" para permitir todos os IPs'
+      reason: '🚫 IP não autorizado na OKX. A OKX pode não ter a opção de IP Restriction disponível para sua conta. Tente: 1) Acessar OKX → API Management → Edit API, procurar por configurações de IP. 2) Se não encontrar esta opção, contate o suporte da OKX. 3) Como alternativa, considere usar apenas a Binance para arbitragem.'
     }
   }
   
