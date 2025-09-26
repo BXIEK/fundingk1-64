@@ -105,6 +105,14 @@ async function handleBinanceAdaptiveRequest(request: BinanceAdaptiveRequest): Pr
 async function executeAdaptiveOrder(request: BinanceAdaptiveRequest, adaptations: string[], attempt: number): Promise<BinanceAdaptiveResponse> {
   console.log(`📋 Executando ordem adaptativa Binance: ${request.side} ${request.quantity} ${request.symbol}`)
   
+  // Obter regras de precisão do símbolo
+  const symbolInfo = await getBinanceSymbolInfo(request.symbol, request.credentials.apiKey)
+  if (symbolInfo && request.quantity) {
+    request.quantity = adjustQuantityPrecision(request.quantity, symbolInfo)
+    console.log(`🔧 Quantidade ajustada para precisão: ${request.quantity}`)
+    adaptations.push(`Ajuste de precisão aplicado: ${request.quantity}`)
+  }
+  
   const timestamp = Date.now()
   let queryString = `symbol=${request.symbol}&side=${request.side}&type=MARKET&quantity=${request.quantity}&timestamp=${timestamp}`
   
@@ -297,6 +305,13 @@ async function analyzeAndAdaptBinanceError(error: string, adaptations: string[],
     return false
   }
   
+  // Erro de precisão da quantidade
+  if (error.includes('precision') || error.includes('too much precision') || error.includes('stepSize')) {
+    adaptations.push(`Tentativa ${attempt}: Erro de precisão - ajustando quantidade`)
+    console.log('🔢 Erro de precisão de quantidade detectado - ajustando automaticamente')
+    return attempt < maxRetries
+  }
+  
   // Saldo insuficiente
   if (error.includes('insufficient') || error.includes('balance')) {
     adaptations.push(`Tentativa ${attempt}: Saldo insuficiente - erro permanente`)
@@ -343,4 +358,52 @@ async function createBinanceSignature(queryString: string, secretKey: string): P
     .join('')
 
   return signatureHex
+}
+
+// Obter informações de precisão do símbolo da Binance
+async function getBinanceSymbolInfo(symbol: string, apiKey: string): Promise<any> {
+  try {
+    const response = await fetch('https://api.binance.com/api/v3/exchangeInfo', {
+      headers: {
+        'X-MBX-APIKEY': apiKey
+      }
+    })
+    
+    if (!response.ok) {
+      console.log('⚠️ Falha ao obter info do símbolo, usando valores padrão')
+      return null
+    }
+    
+    const data = await response.json()
+    const symbolInfo = data.symbols.find((s: any) => s.symbol === symbol)
+    
+    if (symbolInfo) {
+      const lotSizeFilter = symbolInfo.filters.find((f: any) => f.filterType === 'LOT_SIZE')
+      console.log(`📊 Info do símbolo ${symbol}:`, { stepSize: lotSizeFilter?.stepSize })
+      return lotSizeFilter
+    }
+    
+    return null
+  } catch (error) {
+    console.log('⚠️ Erro ao obter info do símbolo:', error)
+    return null
+  }
+}
+
+// Ajustar quantidade para a precisão correta
+function adjustQuantityPrecision(quantity: number, symbolInfo: any): number {
+  if (!symbolInfo || !symbolInfo.stepSize) {
+    // Valores padrão para a maioria das moedas
+    return Math.floor(quantity * 100000) / 100000 // 5 casas decimais
+  }
+  
+  const stepSize = parseFloat(symbolInfo.stepSize)
+  const precision = stepSize.toString().split('.')[1]?.length || 0
+  
+  // Arredondar para baixo na precisão correta
+  const factor = Math.pow(10, precision)
+  const adjustedQuantity = Math.floor(quantity * factor) / factor
+  
+  console.log(`🔧 Ajustando quantidade: ${quantity} → ${adjustedQuantity} (precisão: ${precision})`)
+  return adjustedQuantity
 }
