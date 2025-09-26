@@ -1094,16 +1094,6 @@ const adjustInvestmentForLotSize = (symbol: string, investmentAmount: number, bu
         </TabsContent>
 
         <TabsContent value="history" className="space-y-4">
-                    ⚠️ Este valor é controlado pelas "Configurações de Trading" na página inicial. 
-                    <br />Valor atual: ${tradingConfig.maxTradeSize}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="history" className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle>Histórico de Operações</CardTitle>
