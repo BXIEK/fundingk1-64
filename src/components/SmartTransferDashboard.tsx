@@ -310,6 +310,33 @@ const SmartTransferDashboard = () => {
     return fromSupported && toSupported;
   };
 
+  // Helper functions for network display
+  const getNetworkDisplayName = (network: string) => {
+    const networkNames = {
+      'BTC': 'Bitcoin Network',
+      'ERC20': 'Ethereum (ERC-20)',
+      'BEP20': 'BNB Smart Chain (BEP-20)',
+      'BEP2': 'Binance Chain (BEP-2)',
+      'TRC20': 'TRON (TRC-20)',
+      'POLYGON': 'Polygon (MATIC)',
+      'SOL': 'Solana Network',
+      'XRP': 'XRP Ledger'
+    };
+    return networkNames[network] || network;
+  };
+
+  const getNetworkFeeDisplay = (symbol: string, network: string) => {
+    const networks = getAvailableNetworks(symbol);
+    const networkInfo = networks.find(n => n.value === network);
+    return networkInfo ? `${networkInfo.fee} ${networkInfo.feeUnit}` : 'N/A';
+  };
+
+  const getNetworkTimeDisplay = (symbol: string, network: string) => {
+    const networks = getAvailableNetworks(symbol);
+    const networkInfo = networks.find(n => n.value === network);
+    return networkInfo ? networkInfo.time : 'N/A';
+  };
+
   return (
     <div className="space-y-6">
       <Card>
@@ -391,7 +418,18 @@ const SmartTransferDashboard = () => {
                     <Alert>
                       <AlertTriangle className="h-4 w-4" />
                       <AlertDescription className="text-destructive">
-                        ⚠️ Rede incompatível entre exchanges selecionadas! Verifique se ambas suportam {formData.network}.
+                        <div className="space-y-1">
+                          <div className="font-semibold">⚠️ Rede Incompatível!</div>
+                          <div className="text-sm">
+                            A rede <Badge variant="outline">{getNetworkDisplayName(formData.network)}</Badge> não é suportada entre:
+                          </div>
+                          <div className="text-sm">
+                            • {formData.fromExchange.toUpperCase()}: {EXCHANGE_NETWORK_SUPPORT[formData.fromExchange]?.[formData.symbol]?.includes(formData.network) ? '✅' : '❌'}
+                          </div>
+                          <div className="text-sm">
+                            • {formData.toExchange.toUpperCase()}: {EXCHANGE_NETWORK_SUPPORT[formData.toExchange]?.[formData.symbol]?.includes(formData.network) ? '✅' : '❌'}
+                          </div>
+                        </div>
                       </AlertDescription>
                     </Alert>
                   )}
@@ -443,15 +481,43 @@ const SmartTransferDashboard = () => {
                   Testar APIs (Binance + OKX)
                 </Button>
                 
-                 <Button 
-                   onClick={handleAnalyze} 
-                   disabled={loading || !isNetworkCompatible(formData.fromExchange, formData.toExchange, formData.network)}
-                   className="flex-1"
-                 >
-                   {loading ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <TrendingUp className="h-4 w-4 mr-2" />}
-                   Analisar com Otimizações
-                 </Button>
-               </div>
+                <Button 
+                  onClick={handleAnalyze} 
+                  disabled={loading || !isNetworkCompatible(formData.fromExchange, formData.toExchange, formData.network)}
+                  className="flex-1"
+                >
+                  {loading ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <TrendingUp className="h-4 w-4 mr-2" />}
+                  Analisar com Otimizações
+                </Button>
+              </div>
+              
+              {/* Configuration Summary */}
+              <div className="bg-muted/30 p-3 rounded-lg border">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-semibold text-primary">Resumo da Configuração</span>
+                  <Badge variant={isNetworkCompatible(formData.fromExchange, formData.toExchange, formData.network) ? "default" : "destructive"} className="text-xs">
+                    {isNetworkCompatible(formData.fromExchange, formData.toExchange, formData.network) ? "✅ Compatível" : "❌ Incompatível"}
+                  </Badge>
+                </div>
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <div className="text-muted-foreground">Transferência:</div>
+                    <div className="font-medium">{formData.fromExchange.toUpperCase()} → {formData.toExchange.toUpperCase()}</div>
+                  </div>
+                  <div>
+                    <div className="text-muted-foreground">Token & Rede:</div>
+                    <div className="font-medium">{formData.symbol} ({getNetworkDisplayName(formData.network)})</div>
+                  </div>
+                  <div>
+                    <div className="text-muted-foreground">Quantidade:</div>
+                    <div className="font-medium">{formData.requiredAmount} {formData.symbol}</div>
+                  </div>
+                  <div>
+                    <div className="text-muted-foreground">Taxa da Rede:</div>
+                    <div className="font-medium text-orange-600">{getNetworkFeeDisplay(formData.symbol, formData.network)}</div>
+                  </div>
+                </div>
+              </div>
 
                 {analysis?.isWorthwhile && (
                 <Button 
@@ -749,6 +815,58 @@ const SmartTransferDashboard = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Network and Exchange Information */}
+            <div className="bg-muted/50 p-4 rounded-lg space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-primary">Configuração da Transferência</span>
+                <Badge variant="outline" className="flex items-center gap-1">
+                  <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                  Rede Compatível
+                </Badge>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Origem:</span>
+                    <span className="font-medium">{analysis.sourceExchange.toUpperCase()}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Destino:</span>
+                    <span className="font-medium">{analysis.targetExchange.toUpperCase()}</span>
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Token:</span>
+                    <span className="font-medium">{analysis.symbol}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Rede Blockchain:</span>
+                    <Badge variant="secondary" className="text-xs">
+                      {getNetworkDisplayName(formData.network)}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="pt-2 border-t">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Taxa da Rede {getNetworkDisplayName(formData.network)}:</span>
+                  <span className="font-medium text-orange-600">
+                    {getNetworkFeeDisplay(formData.symbol, formData.network)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Tempo Estimado:</span>
+                  <span className="font-medium text-blue-600">
+                    {getNetworkTimeDisplay(formData.symbol, formData.network)}
+                  </span>
+                </div>
+              </div>
+            </div>
+            
             {/* Existing analysis display code remains the same */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="text-center p-3 bg-background rounded-lg border">
