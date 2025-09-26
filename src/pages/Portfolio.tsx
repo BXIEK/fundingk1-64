@@ -91,6 +91,7 @@ export default function Portfolio() {
         const binanceCredentials = localStorage.getItem('binance_credentials');
         const pionexCredentials = localStorage.getItem('pionex_credentials');
         const hyperliquidCredentials = localStorage.getItem('hyperliquid_credentials');
+        const okxCredentials = localStorage.getItem('okx_credentials');
         
         if (binanceCredentials) {
           const binanceCreds = JSON.parse(binanceCredentials);
@@ -119,12 +120,23 @@ export default function Portfolio() {
             hyperliquid_private_key: hyperliquidCreds.privateKey
           };
         }
+
+        if (okxCredentials) {
+          const okxCreds = JSON.parse(okxCredentials);
+          requestBody = {
+            ...requestBody,
+            okx_api_key: okxCreds.apiKey,
+            okx_secret_key: okxCreds.secretKey,
+            okx_passphrase: okxCreds.passphrase
+          };
+        }
         
         // Log para debug
         console.log('Credenciais enviadas:', {
           hasBinance: !!binanceCredentials,
           hasPionex: !!pionexCredentials,
           hasHyperliquid: !!hyperliquidCredentials,
+          hasOKX: !!okxCredentials,
           realMode: isRealMode
         });
       }
