@@ -161,7 +161,9 @@ serve(async (req) => {
           if (realError.message?.includes('OKX_COMPLIANCE_RESTRICTION')) {
             error_message = `Par ${symbol} restrito por conformidade na OKX. Tente outro símbolo.`;
           } else if (realError.message?.includes('OKX_INSUFFICIENT_BALANCE')) {
-            error_message = `Saldo insuficiente na OKX. Verifique se há USDT suficiente na carteira Spot.`;
+            // Extrair mensagem específica da OKX que já contém instruções
+            const specificMsg = realError.message.split('OKX_INSUFFICIENT_BALANCE: ')[1] || 'Saldo insuficiente na OKX';
+            error_message = specificMsg.split(' (sCode=')[0]; // Remove sCode do final
           } else {
             error_message = `Falha na execução real: ${realError.message}`;
           }

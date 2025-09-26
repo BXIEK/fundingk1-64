@@ -264,7 +264,7 @@ async function executeOKXOrder(orderRequest: OKXOrderRequest, creds?: { apiKey?:
 async function executeOKXOrderInternal(instId: string, orderRequest: OKXOrderRequest, quantity: number, creds?: { apiKey?: string; secretKey?: string; passphrase?: string }): Promise<OKXOrderResponse> {
   const orderData = {
     instId: instId,
-    tdMode: 'cash',
+    tdMode: 'cash', // Forçar modo cash para evitar problemas de margem
     side: orderRequest.side.toLowerCase(),
     ordType: orderRequest.type.toLowerCase(),
     sz: quantity.toString(),
@@ -277,6 +277,14 @@ async function executeOKXOrderInternal(instId: string, orderRequest: OKXOrderReq
       tgtCcy: orderRequest.side === 'buy' ? 'quote_ccy' : 'base_ccy' 
     } : {})
   };
+
+  console.log(`🔧 Dados da ordem OKX (modo=${orderData.tdMode}):`, {
+    instId: orderData.instId,
+    side: orderData.side,
+    ordType: orderData.ordType,
+    sz: orderData.sz,
+    tgtCcy: orderData.tgtCcy
+  });
 
   const response = await makeOKXRequest('/api/v5/trade/order', 'POST', orderData, creds);
   
@@ -299,10 +307,15 @@ async function executeOKXOrderInternal(instId: string, orderRequest: OKXOrderReq
   if (sCode && sCode !== '0') {
     console.error(`❌ Erro na ordem OKX (sCode ${sCode}):`, sMsg);
     
-    // Tratamento específico para sCode 51008 - saldo insuficiente
+    // Tratamento específico para sCode 51008 - saldo insuficiente ou margem baixa
     if (sCode === '51008') {
-      console.warn(`🚫 Saldo insuficiente na OKX para ${instId}: ${sMsg}`);
-      throw new Error(`OKX_INSUFFICIENT_BALANCE: ${sMsg || 'Saldo insuficiente da moeda de cotação'} (sCode=${sCode})`);
+      console.warn(`🚫 sCode=51008 - Saldo ou margem insuficiente na OKX para ${instId}: ${sMsg}`);
+      // Erro específico com guia claro sobre soluções
+      const baseSymbol = instId.split('-')[0];
+      const errorMsg = sMsg?.includes('margin') 
+        ? `Saldo de ${baseSymbol} insuficiente e margem baixa. Deposite mais ${baseSymbol} na carteira Spot ou transfira da carteira Funding.`
+        : `Saldo de ${baseSymbol} insuficiente na carteira Spot. Transfira da carteira Funding ou deposite mais.`;
+      throw new Error(`OKX_INSUFFICIENT_BALANCE: ${errorMsg} (sCode=${sCode})`);
     }
     
     // Tratamento específico para restrições de conformidade
