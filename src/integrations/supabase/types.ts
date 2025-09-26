@@ -989,6 +989,57 @@ export type Database = {
         }
         Relationships: []
       }
+      cross_exchange_configs: {
+        Row: {
+          created_at: string
+          daily_limit_usd: number
+          enabled_symbols: Json
+          id: string
+          is_enabled: boolean
+          max_concurrent_operations: number
+          max_investment_per_trade: number
+          min_spread_percentage: number
+          risk_level: string
+          stop_loss_percentage: number
+          target_exchanges: Json
+          trading_mode: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          daily_limit_usd?: number
+          enabled_symbols?: Json
+          id?: string
+          is_enabled?: boolean
+          max_concurrent_operations?: number
+          max_investment_per_trade?: number
+          min_spread_percentage?: number
+          risk_level?: string
+          stop_loss_percentage?: number
+          target_exchanges?: Json
+          trading_mode?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          daily_limit_usd?: number
+          enabled_symbols?: Json
+          id?: string
+          is_enabled?: boolean
+          max_concurrent_operations?: number
+          max_investment_per_trade?: number
+          min_spread_percentage?: number
+          risk_level?: string
+          stop_loss_percentage?: number
+          target_exchanges?: Json
+          trading_mode?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       data_quality_logs: {
         Row: {
           created_at: string

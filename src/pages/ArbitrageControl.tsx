@@ -12,6 +12,9 @@ import { useToast } from '@/hooks/use-toast';
 import { getUserId } from '@/lib/userUtils';
 import { useTradingMode } from '@/contexts/TradingModeContext';
 import { CredentialsValidator } from '@/components/CredentialsValidator';
+import APIConfiguration from '@/components/APIConfiguration';
+import AutoArbitrageConfig from '@/components/AutoArbitrageConfig';
+import RealModeActivator from '@/components/RealModeActivator';
 import { 
   ArrowLeft, 
   Play, 
@@ -27,7 +30,9 @@ import {
   Shield,
   Wallet,
   Activity,
-  XCircle
+  XCircle,
+  Power,
+  Bot
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import ArbitrageExecutionModal from '@/components/ArbitrageExecutionModal';
@@ -973,15 +978,29 @@ const adjustInvestmentForLotSize = (symbol: string, investmentAmount: number, bu
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="opportunities" className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
+      <Tabs defaultValue="real-mode" className="w-full">
+        <TabsList className="grid w-full grid-cols-6">
+          <TabsTrigger value="real-mode">
+            <Power className="h-4 w-4 mr-2" />
+            Modo Real
+          </TabsTrigger>
           <TabsTrigger value="opportunities">Oportunidades Ativas</TabsTrigger>
-          <TabsTrigger value="transfers">Transferências Inteligentes</TabsTrigger>
-          <TabsTrigger value="pairs">Pares Disponíveis</TabsTrigger>
-          <TabsTrigger value="settings">Configurações</TabsTrigger>
+          <TabsTrigger value="auto-config">
+            <Bot className="h-4 w-4 mr-2" />
+            Config Auto
+          </TabsTrigger>
+          <TabsTrigger value="api-config">
+            <Settings className="h-4 w-4 mr-2" />
+            APIs
+          </TabsTrigger>
+          <TabsTrigger value="transfers">Transferências</TabsTrigger>
           <TabsTrigger value="history">Histórico</TabsTrigger>
         </TabsList>
         
+        <TabsContent value="real-mode" className="space-y-4">
+          <RealModeActivator />
+        </TabsContent>
+
         <TabsContent value="opportunities" className="space-y-4">
           <Card>
             <CardHeader>
@@ -1062,73 +1081,19 @@ const adjustInvestmentForLotSize = (symbol: string, investmentAmount: number, bu
           </Card>
         </TabsContent>
 
+        <TabsContent value="auto-config" className="space-y-4">
+          <AutoArbitrageConfig />
+        </TabsContent>
+
+        <TabsContent value="api-config" className="space-y-4">
+          <APIConfiguration />
+        </TabsContent>
+
         <TabsContent value="transfers" className="space-y-4">
           <SmartTransferDashboard />
         </TabsContent>
 
-        <TabsContent value="pairs" className="space-y-4">
-          <OKXInstrumentChecker />
-        </TabsContent>
-
-        <TabsContent value="settings" className="space-y-4">
-          <CredentialsValidator />
-          
-          <Card>
-            <CardHeader>
-              <CardTitle>Configurações de Trading</CardTitle>
-              <CardDescription>Configure os parâmetros para execução automática</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label htmlFor="auto-trading">Trading Automático</Label>
-                  <div className="text-sm text-muted-foreground">
-                    Executar operações automaticamente quando critérios forem atendidos
-                  </div>
-                </div>
-                <Switch
-                  id="auto-trading"
-                  checked={isAutoTrading}
-                  onCheckedChange={toggleAutoTrading}
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="min-spread">Spread Mínimo (%)</Label>
-                  <Input
-                    id="min-spread"
-                    type="number"
-                    value={settings.min_spread}
-                    onChange={(e) => setSettings(prev => ({...prev, min_spread: Number(e.target.value)}))}
-                    step="0.1"
-                    min="0.1"
-      />
-      
-      {/* IP Helper Modal */}
-      {showIPHelper && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-background p-6 rounded-lg max-w-2xl">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold">Erro de IP Whitelist</h2>
-              <Button variant="ghost" onClick={() => setShowIPHelper(false)}>✕</Button>
-            </div>
-            <IPWhitelistHelper />
-          </div>
-        </div>
-      )}
-    </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="max-investment">Investimento Máximo (USD)</Label>
-                  <Input
-                    id="max-investment"
-                    type="number"
-                    value={tradingConfig.maxTradeSize}
-                    disabled
-                    min="10"
-                  />
-                  <p className="text-xs text-muted-foreground">
+        <TabsContent value="history" className="space-y-4">
                     ⚠️ Este valor é controlado pelas "Configurações de Trading" na página inicial. 
                     <br />Valor atual: ${tradingConfig.maxTradeSize}
                   </p>
@@ -1171,42 +1136,42 @@ const adjustInvestmentForLotSize = (symbol: string, investmentAmount: number, bu
                         <TableCell className={trade.net_profit > 0 ? "text-green-600" : "text-red-600"}>
                           {formatCurrency(trade.net_profit)}
                         </TableCell>
-                          <TableCell>
-                            <div className="space-y-1">
-                              <Badge variant={trade.status === 'completed' ? 'default' : 'destructive'}>
-                                {trade.status}
-                              </Badge>
-                              {trade.status === 'failed' && trade.error_message && (
-                                <>
-                                  {/* Verificar se é erro de IP whitelist */}
-                                  {(trade.error_message.includes('IP não autorizado') || 
-                                    trade.error_message.includes('50110') || 
-                                    trade.error_message.includes('whitelist') ||
-                                    trade.error_message.includes('Sistema adaptativo: undefined') ||
-                                    trade.error_message.includes('Sistema adaptativo OKX: undefined')) ? (
-                                     <div className="text-xs text-blue-600 max-w-xs">
-                                       <strong>🔧 Configuração OKX:</strong> 
-                                       <br />
-                                       <span className="text-red-600">Problema de IP whitelist</span>
-                                       <br />
-                                       <span className="text-amber-600">A OKX pode não ter a opção IP Restriction</span>
-                                       <br />
-                                       <span className="text-blue-600 cursor-pointer underline" 
-                                             onClick={() => setShowIPHelper(true)}>
-                                         📋 Ver instruções completas
-                                       </span>
-                                     </div>
-                                  ) : (
-                                    <div className="text-xs text-red-600 max-w-xs">
-                                      <strong>Erro:</strong> {trade.error_message}
-                                    </div>
-                                  )}
-                                </>
-                              )}
-                            </div>
-                          </TableCell>
+                        <TableCell>
+                          <div className="space-y-1">
+                            <Badge variant={trade.status === 'completed' ? 'default' : 'destructive'}>
+                              {trade.status}
+                            </Badge>
+                            {trade.status === 'failed' && trade.error_message && (
+                              <>
+                                {(trade.error_message.includes('IP não autorizado') || 
+                                  trade.error_message.includes('50110') || 
+                                  trade.error_message.includes('whitelist') ||
+                                  trade.error_message.includes('Sistema adaptativo: undefined') ||
+                                  trade.error_message.includes('Sistema adaptativo OKX: undefined')) ? (
+                                   <div className="text-xs text-blue-600 max-w-xs">
+                                     <strong>🔧 Configuração OKX:</strong> 
+                                     <br />
+                                     <span className="text-red-600">Problema de IP whitelist</span>
+                                     <br />
+                                     <span className="text-amber-600">A OKX pode não ter a opção IP Restriction</span>
+                                     <br />
+                                     <span className="text-blue-600 cursor-pointer underline" 
+                                           onClick={() => setShowIPHelper(true)}>
+                                       📋 Ver instruções completas
+                                     </span>
+                                   </div>
+                                ) : (
+                                  <div className="text-xs text-red-600 max-w-xs">
+                                    <strong>Erro:</strong> {trade.error_message}
+                                  </div>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </TableCell>
                       </TableRow>
-                    ))}</TableBody>
+                    ))}
+                  </TableBody>
                 </Table>
               ) : (
                 <div className="p-8 text-center text-muted-foreground">
