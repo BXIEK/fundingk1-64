@@ -27,7 +27,7 @@ export const AutoFundingConfig = () => {
   const [config, setConfig] = useState<AutoFundingConfig>({
     is_enabled: false,
     min_funding_rate: 0.01,
-    max_investment_amount: 1000,
+    max_investment_amount: 10,
     min_profit_threshold: 0.5,
     symbols_filter: ["BTCUSDT", "ETHUSDT", "BNBUSDT"],
     auto_close_after_funding: true

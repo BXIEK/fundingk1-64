@@ -67,7 +67,7 @@ export const AutoCrossExchangeConfig = () => {
   const [config, setConfig] = useState<AutoCrossExchangeConfig>({
     is_enabled: false,
     min_spread_percentage: 0.5,
-    max_investment_amount: 1000,
+    max_investment_amount: 10,
     min_profit_threshold: 1.0,
     symbols_filter: ["BTCUSDT", "ETHUSDT", "BNBUSDT"],
     exchanges_enabled: ["binance", "pionex"],
