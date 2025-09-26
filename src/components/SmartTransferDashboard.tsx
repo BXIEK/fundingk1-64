@@ -40,7 +40,8 @@ const SmartTransferDashboard = () => {
     symbol: 'BTC',
     requiredAmount: 0.1,
     fromExchange: 'binance',
-    toExchange: 'okx'
+    toExchange: 'okx',
+    network: 'BTC'
   });
   const [optimizationSettings, setOptimizationSettings] = useState({
     useProxy: false,
@@ -124,15 +125,16 @@ const SmartTransferDashboard = () => {
 
     try {
       // Usar o sistema otimizado de transferência
-      const result = await executeOptimizedTransfer({
-        symbol: formData.symbol,
-        amount: formData.requiredAmount,
-        from_exchange: formData.fromExchange,
-        to_exchange: formData.toExchange,
-        priority: optimizationSettings.priority,
-        bypass_security: optimizationSettings.bypassSecurity,
-        use_proxy: optimizationSettings.useProxy
-      });
+        const result = await executeOptimizedTransfer({
+          symbol: formData.symbol,
+          amount: formData.requiredAmount,
+          from_exchange: formData.fromExchange,
+          to_exchange: formData.toExchange,
+          network: formData.network,
+          priority: optimizationSettings.priority,
+          bypass_security: optimizationSettings.bypassSecurity,
+          use_proxy: optimizationSettings.useProxy
+        });
 
       if (result && result.success) {
         // Simular dados de análise para compatibilidade
@@ -184,6 +186,7 @@ const SmartTransferDashboard = () => {
         amount: formData.requiredAmount,
         from_exchange: formData.fromExchange,
         to_exchange: formData.toExchange,
+        network: formData.network,
         priority: optimizationSettings.priority,
         bypass_security: optimizationSettings.bypassSecurity,
         use_proxy: optimizationSettings.useProxy,
@@ -232,6 +235,81 @@ const SmartTransferDashboard = () => {
     );
   };
 
+  // Redes disponíveis por token
+  const getAvailableNetworks = (symbol: string) => {
+    const networks = {
+      'BTC': [
+        { value: 'BTC', label: 'Bitcoin Network', fee: '0.0005', feeUnit: 'BTC', time: '30-60min' }
+      ],
+      'ETH': [
+        { value: 'ERC20', label: 'Ethereum (ERC-20)', fee: '0.005', feeUnit: 'ETH', time: '5-15min' }
+      ],
+      'BNB': [
+        { value: 'BEP20', label: 'BNB Smart Chain (BEP-20)', fee: '0.0005', feeUnit: 'BNB', time: '1-3min' },
+        { value: 'BEP2', label: 'Binance Chain (BEP-2)', fee: '0.000075', feeUnit: 'BNB', time: '1min' }
+      ],
+      'USDT': [
+        { value: 'ERC20', label: 'Ethereum (ERC-20)', fee: '10', feeUnit: 'USDT', time: '5-15min' },
+        { value: 'TRC20', label: 'TRON (TRC-20)', fee: '1', feeUnit: 'USDT', time: '1-3min' },
+        { value: 'BEP20', label: 'BNB Smart Chain (BEP-20)', fee: '0.8', feeUnit: 'USDT', time: '1-3min' },
+        { value: 'POLYGON', label: 'Polygon (MATIC)', fee: '0.1', feeUnit: 'USDT', time: '1-2min' }
+      ],
+      'SOL': [
+        { value: 'SOL', label: 'Solana Network', fee: '0.01', feeUnit: 'SOL', time: '30sec-1min' }
+      ],
+      'XRP': [
+        { value: 'XRP', label: 'XRP Ledger', fee: '0.25', feeUnit: 'XRP', time: '1-3min' }
+      ]
+    };
+    return networks[symbol] || [];
+  };
+
+  // Compatibilidade de redes por exchange
+  const EXCHANGE_NETWORK_SUPPORT = {
+    'binance': {
+      'BTC': ['BTC'],
+      'ETH': ['ERC20'],
+      'BNB': ['BEP20', 'BEP2'],
+      'USDT': ['ERC20', 'TRC20', 'BEP20', 'POLYGON'],
+      'SOL': ['SOL'],
+      'XRP': ['XRP']
+    },
+    'okx': {
+      'BTC': ['BTC'],
+      'ETH': ['ERC20'],
+      'BNB': ['BEP20'],
+      'USDT': ['ERC20', 'TRC20', 'BEP20', 'POLYGON'],
+      'SOL': ['SOL'],
+      'XRP': ['XRP']
+    },
+    'pionex': {
+      'BTC': ['BTC'],
+      'ETH': ['ERC20'],
+      'BNB': ['BEP20'],
+      'USDT': ['ERC20', 'TRC20'],
+      'SOL': ['SOL'],
+      'XRP': ['XRP']
+    },
+    'hyperliquid': {
+      'ETH': ['ERC20'],
+      'USDT': ['ERC20']
+    },
+    'web3': {
+      'BTC': ['BTC'],
+      'ETH': ['ERC20'],
+      'BNB': ['BEP20'],
+      'USDT': ['ERC20', 'BEP20', 'POLYGON'],
+      'SOL': ['SOL']
+    }
+  };
+
+  const isNetworkCompatible = (fromExchange: string, toExchange: string, network: string) => {
+    const symbol = formData.symbol;
+    const fromSupported = EXCHANGE_NETWORK_SUPPORT[fromExchange]?.[symbol]?.includes(network);
+    const toSupported = EXCHANGE_NETWORK_SUPPORT[toExchange]?.[symbol]?.includes(network);
+    return fromSupported && toSupported;
+  };
+
   return (
     <div className="space-y-6">
       <Card>
@@ -260,14 +338,14 @@ const SmartTransferDashboard = () => {
                     <SelectTrigger>
                       <SelectValue placeholder="Selecionar token" />
                     </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="BTC">Bitcoin (BTC)</SelectItem>
-                      <SelectItem value="ETH">Ethereum (ETH)</SelectItem>
-                      <SelectItem value="BNB">Binance Coin (BNB)</SelectItem>
-                      <SelectItem value="USDT">Tether (USDT)</SelectItem>
-                      <SelectItem value="SOL">Solana (SOL)</SelectItem>
-                      <SelectItem value="XRP">Ripple (XRP)</SelectItem>
-                    </SelectContent>
+                     <SelectContent>
+                       <SelectItem value="BTC">Bitcoin (BTC)</SelectItem>
+                       <SelectItem value="ETH">Ethereum (ETH)</SelectItem>
+                       <SelectItem value="BNB">Binance Coin (BNB)</SelectItem>
+                       <SelectItem value="USDT">Tether (USDT)</SelectItem>
+                       <SelectItem value="SOL">Solana (SOL)</SelectItem>
+                       <SelectItem value="XRP">Ripple (XRP)</SelectItem>
+                     </SelectContent>
                   </Select>
                 </div>
                 
@@ -284,6 +362,42 @@ const SmartTransferDashboard = () => {
                 </div>
               </div>
 
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Rede Blockchain</Label>
+                  <Select value={formData.network} onValueChange={(value) => setFormData(prev => ({...prev, network: value}))}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecionar rede" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {getAvailableNetworks(formData.symbol).map(network => (
+                        <SelectItem key={network.value} value={network.value}>
+                          <div className="flex items-center justify-between w-full">
+                            <span>{network.label}</span>
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="text-xs">
+                                {network.fee} {network.feeUnit}
+                              </Badge>
+                              <Badge variant="secondary" className="text-xs">
+                                ~{network.time}
+                              </Badge>
+                            </div>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {!isNetworkCompatible(formData.fromExchange, formData.toExchange, formData.network) && (
+                    <Alert>
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertDescription className="text-destructive">
+                        ⚠️ Rede incompatível entre exchanges selecionadas! Verifique se ambas suportam {formData.network}.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                 </div>
+              </div>
+              
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Exchange Origem</Label>
@@ -329,15 +443,15 @@ const SmartTransferDashboard = () => {
                   Testar APIs (Binance + OKX)
                 </Button>
                 
-                <Button 
-                  onClick={handleAnalyze} 
-                  disabled={loading}
-                  className="flex-1"
-                >
-                  {loading ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <TrendingUp className="h-4 w-4 mr-2" />}
-                  Analisar com Otimizações
-                </Button>
-              </div>
+                 <Button 
+                   onClick={handleAnalyze} 
+                   disabled={loading || !isNetworkCompatible(formData.fromExchange, formData.toExchange, formData.network)}
+                   className="flex-1"
+                 >
+                   {loading ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <TrendingUp className="h-4 w-4 mr-2" />}
+                   Analisar com Otimizações
+                 </Button>
+               </div>
 
                 {analysis?.isWorthwhile && (
                 <Button 

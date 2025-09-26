@@ -37,55 +37,95 @@ interface ExchangeBalance {
   exchange: string;
 }
 
-// Tabela de custos de transferência por símbolo e rede
+// Tabela de custos de transferência por símbolo e rede blockchain
 const TRANSFER_COSTS = {
   'BTC': {
-    withdrawal_fee: 0.0005, // Taxa fixa de saque da Binance
-    network_fee: 0.0001,    // Taxa de rede Bitcoin
-    deposit_fee: 0,         // Pionex não cobra depósito
-    min_withdrawal: 0.001,
-    estimated_time: 30      // minutos
+    'BTC': {
+      withdrawal_fee: 0.0005,
+      network_fee: 0.0001,
+      deposit_fee: 0,
+      min_withdrawal: 0.001,
+      estimated_time: 30
+    }
   },
   'ETH': {
-    withdrawal_fee: 0.005,
-    network_fee: 0.002,
-    deposit_fee: 0,
-    min_withdrawal: 0.01,
-    estimated_time: 15
+    'ERC20': {
+      withdrawal_fee: 0.005,
+      network_fee: 0.002,
+      deposit_fee: 0,
+      min_withdrawal: 0.01,
+      estimated_time: 15
+    }
   },
   'BNB': {
-    withdrawal_fee: 0.005,
-    network_fee: 0.0005,
-    deposit_fee: 0,
-    min_withdrawal: 0.01,
-    estimated_time: 5
+    'BEP20': {
+      withdrawal_fee: 0.0005,
+      network_fee: 0.0001,
+      deposit_fee: 0,
+      min_withdrawal: 0.01,
+      estimated_time: 3
+    },
+    'BEP2': {
+      withdrawal_fee: 0.000075,
+      network_fee: 0.000005,
+      deposit_fee: 0,
+      min_withdrawal: 0.01,
+      estimated_time: 1
+    }
   },
   'USDT': {
-    withdrawal_fee: 1.0,    // USDT tem taxa fixa
-    network_fee: 0.1,
-    deposit_fee: 0,
-    min_withdrawal: 10,
-    estimated_time: 10
+    'ERC20': {
+      withdrawal_fee: 10.0,
+      network_fee: 2.0,
+      deposit_fee: 0,
+      min_withdrawal: 20,
+      estimated_time: 15
+    },
+    'TRC20': {
+      withdrawal_fee: 1.0,
+      network_fee: 0.1,
+      deposit_fee: 0,
+      min_withdrawal: 10,
+      estimated_time: 3
+    },
+    'BEP20': {
+      withdrawal_fee: 0.8,
+      network_fee: 0.1,
+      deposit_fee: 0,
+      min_withdrawal: 10,
+      estimated_time: 3
+    },
+    'POLYGON': {
+      withdrawal_fee: 0.1,
+      network_fee: 0.05,
+      deposit_fee: 0,
+      min_withdrawal: 5,
+      estimated_time: 2
+    }
   },
   'SOL': {
-    withdrawal_fee: 0.01,
-    network_fee: 0.000005,
-    deposit_fee: 0,
-    min_withdrawal: 0.01,
-    estimated_time: 2
+    'SOL': {
+      withdrawal_fee: 0.01,
+      network_fee: 0.000005,
+      deposit_fee: 0,
+      min_withdrawal: 0.01,
+      estimated_time: 1
+    }
   },
   'XRP': {
-    withdrawal_fee: 0.25,
-    network_fee: 0.00001,
-    deposit_fee: 0,
-    min_withdrawal: 20,
-    estimated_time: 3
+    'XRP': {
+      withdrawal_fee: 0.25,
+      network_fee: 0.00001,
+      deposit_fee: 0,
+      min_withdrawal: 20,
+      estimated_time: 3
+    }
   }
 };
 
-// Calcular custos de transferência
-function calculateTransferCosts(symbol: string, amount: number, currentPrice: number): TransferCosts {
-  const costs = TRANSFER_COSTS[symbol] || {
+// Calcular custos de transferência baseado na rede
+function calculateTransferCosts(symbol: string, network: string, amount: number, currentPrice: number): TransferCosts {
+  const costs = TRANSFER_COSTS[symbol]?.[network] || {
     withdrawal_fee: currentPrice * 0.001, // 0.1% como fallback
     network_fee: currentPrice * 0.0001,
     deposit_fee: 0,
@@ -234,6 +274,7 @@ async function executeBinanceToPionexTransfer(
 // Analisar se vale a pena fazer transferência para arbitragem
 async function analyzeTransferWorthiness(
   symbol: string,
+  network: string,
   requiredAmount: number,
   currentPrice: number,
   arbitrageSpreadPercent: number,
@@ -279,7 +320,7 @@ async function analyzeTransferWorthiness(
   }
 
   // Calcular custos de transferência
-  const transferCosts = calculateTransferCosts(symbol, shortfall, currentPrice);
+  const transferCosts = calculateTransferCosts(symbol, network, shortfall, currentPrice);
   
   // Calcular lucro bruto da arbitragem
   const grossProfitUsd = (requiredAmount * currentPrice * arbitrageSpreadPercent) / 100;
@@ -290,7 +331,7 @@ async function analyzeTransferWorthiness(
   // Vale a pena se o lucro líquido for positivo e maior que $2
   const isWorthwhile = netProfitAfterTransfer > 2.0;
   
-  const costs = TRANSFER_COSTS[symbol];
+  const costs = TRANSFER_COSTS[symbol]?.[network];
   const estimatedTime = costs?.estimated_time || 15;
   
   console.log(`📊 Análise de transferência:`);
@@ -333,6 +374,7 @@ serve(async (req) => {
     const {
       user_id,
       symbol,
+      network,
       required_amount,
       current_price,
       arbitrage_spread_percent,
@@ -343,10 +385,10 @@ serve(async (req) => {
     } = body;
 
     // Validar dados obrigatórios
-    if (!user_id || !symbol || !required_amount || !current_price || !arbitrage_spread_percent) {
+    if (!user_id || !symbol || !network || !required_amount || !current_price || !arbitrage_spread_percent) {
       return new Response(JSON.stringify({
         success: false,
-        error: 'Dados obrigatórios: user_id, symbol, required_amount, current_price, arbitrage_spread_percent'
+        error: 'Dados obrigatórios: user_id, symbol, network, required_amount, current_price, arbitrage_spread_percent'
       }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -359,6 +401,7 @@ serve(async (req) => {
     // Analisar viabilidade da transferência
     const analysis = await analyzeTransferWorthiness(
       symbol,
+      network,
       required_amount,
       current_price,
       arbitrage_spread_percent,

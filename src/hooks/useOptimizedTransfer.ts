@@ -7,6 +7,7 @@ interface OptimizedTransferRequest {
   amount: number;
   from_exchange: string;
   to_exchange: string;
+  network?: string;
   priority?: 'low' | 'medium' | 'high';
   bypass_security?: boolean;
   use_proxy?: boolean;

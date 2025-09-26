@@ -23,6 +23,7 @@ interface TransferAnalysis {
 
 interface SmartTransferOptions {
   symbol: string;
+  network?: string;
   requiredAmount: number;
   currentPrice: number;
   arbitrageSpreadPercent: number;
@@ -66,6 +67,7 @@ export const useSmartTransfer = () => {
         body: {
           user_id: userId,
           symbol: options.symbol,
+          network: options.network || 'BTC', // Default network
           required_amount: options.requiredAmount,
           current_price: options.currentPrice,
           arbitrage_spread_percent: options.arbitrageSpreadPercent,
@@ -118,6 +120,7 @@ export const useSmartTransfer = () => {
         body: {
           user_id: userId,
           symbol: options.symbol,
+          network: options.network || 'BTC', // Default network
           required_amount: options.requiredAmount,
           current_price: options.currentPrice,
           arbitrage_spread_percent: options.arbitrageSpreadPercent,

@@ -14,6 +14,7 @@ interface OptimizedTransferRequest {
   amount: number;
   from_exchange: string;
   to_exchange: string;
+  network?: string;
   api_keys: {
     [exchange: string]: {
       api_key: string;
