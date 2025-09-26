@@ -248,10 +248,11 @@ const SmartTransferDashboard = () => {
         { value: 'BEP2', label: 'Binance Chain (BEP-2)', fee: '0.000075', feeUnit: 'BNB', time: '1min' }
       ],
       'USDT': [
-        { value: 'ERC20', label: 'Ethereum (ERC-20)', fee: '10', feeUnit: 'USDT', time: '5-15min' },
+        { value: 'ARBITRUM', label: 'Arbitrum One', fee: '0.01', feeUnit: 'USDT', time: '1-2min' },
         { value: 'TRC20', label: 'TRON (TRC-20)', fee: '1', feeUnit: 'USDT', time: '1-3min' },
         { value: 'BEP20', label: 'BNB Smart Chain (BEP-20)', fee: '0.8', feeUnit: 'USDT', time: '1-3min' },
-        { value: 'POLYGON', label: 'Polygon (MATIC)', fee: '0.1', feeUnit: 'USDT', time: '1-2min' }
+        { value: 'POLYGON', label: 'Polygon (MATIC)', fee: '0.1', feeUnit: 'USDT', time: '1-2min' },
+        { value: 'ERC20', label: 'Ethereum (ERC-20)', fee: '10', feeUnit: 'USDT', time: '5-15min' }
       ],
       'SOL': [
         { value: 'SOL', label: 'Solana Network', fee: '0.01', feeUnit: 'SOL', time: '30sec-1min' }
@@ -269,7 +270,7 @@ const SmartTransferDashboard = () => {
       'BTC': ['BTC'],
       'ETH': ['ERC20'],
       'BNB': ['BEP20', 'BEP2'],
-      'USDT': ['ERC20', 'TRC20', 'BEP20', 'POLYGON'],
+      'USDT': ['ARBITRUM', 'ERC20', 'TRC20', 'BEP20', 'POLYGON'],
       'SOL': ['SOL'],
       'XRP': ['XRP']
     },
@@ -277,7 +278,7 @@ const SmartTransferDashboard = () => {
       'BTC': ['BTC'],
       'ETH': ['ERC20'],
       'BNB': ['BEP20'],
-      'USDT': ['ERC20', 'TRC20', 'BEP20', 'POLYGON'],
+      'USDT': ['ARBITRUM', 'ERC20', 'TRC20', 'BEP20', 'POLYGON'],
       'SOL': ['SOL'],
       'XRP': ['XRP']
     },
@@ -302,7 +303,7 @@ const SmartTransferDashboard = () => {
     }
   };
 
-  // Função para obter a rede mais barata compatível
+  // Função para obter a rede mais barata compatível (priorizando Arbitrum)
   const getCheapestCompatibleNetwork = (symbol: string, fromExchange: string, toExchange: string) => {
     const availableNetworks = getAvailableNetworks(symbol);
     const fromSupported = EXCHANGE_NETWORK_SUPPORT[fromExchange]?.[symbol] || [];
@@ -315,7 +316,13 @@ const SmartTransferDashboard = () => {
     
     if (compatibleNetworks.length === 0) return null;
     
-    // Ordenar por custo (convertendo fee para número para comparação)
+    // Priorizar Arbitrum se disponível
+    const arbitrumNetwork = compatibleNetworks.find(network => network.value === 'ARBITRUM');
+    if (arbitrumNetwork) {
+      return arbitrumNetwork;
+    }
+    
+    // Se Arbitrum não disponível, ordenar por custo (convertendo fee para número para comparação)
     const sortedNetworks = compatibleNetworks.sort((a, b) => {
       const feeA = parseFloat(a.fee);
       const feeB = parseFloat(b.fee);
@@ -340,6 +347,7 @@ const SmartTransferDashboard = () => {
       'BEP20': 'BNB Smart Chain (BEP-20)',
       'BEP2': 'Binance Chain (BEP-2)',
       'TRC20': 'TRON (TRC-20)',
+      'ARBITRUM': 'Arbitrum One',
       'POLYGON': 'Polygon (MATIC)',
       'SOL': 'Solana Network',
       'XRP': 'XRP Ledger'
