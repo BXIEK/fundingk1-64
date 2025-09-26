@@ -438,13 +438,18 @@ function getDefaultOKXRules(symbol: string): { minSz: number; lotSz: number; tic
 // Novo: obter saldos da conta OKX
 async function getOKXBalances(creds?: { apiKey?: string; secretKey?: string; passphrase?: string }, supabase?: any, userId?: string): Promise<any> {
   try {
+    console.log('🔍 Obtendo saldos da conta de trading OKX...');
     const resp = await makeOKXRequest('/api/v5/account/balance', 'GET', undefined, creds, supabase, userId);
     if (resp.code !== '0') {
-      throw new Error(`OKX API Error: ${resp.msg}`);
+      const errorMsg = `OKX API Error: ${resp.msg}`;
+      console.error('❌ Erro na resposta da OKX:', errorMsg);
+      throw new Error(errorMsg);
     }
 
     const balances: Array<{ asset: string; free: number; locked: number } | any> = [];
     const details = resp?.data?.[0]?.details || [];
+    console.log(`📊 Processando ${details.length} detalhes de saldo da OKX`);
+    
     for (const d of details) {
       const ccy = d.ccy;
       const avail = Number(d.availBal || d.cashBal || '0');
@@ -454,10 +459,22 @@ async function getOKXBalances(creds?: { apiKey?: string; secretKey?: string; pas
       }
     }
 
+    console.log(`✅ ${balances.length} saldos obtidos da conta de trading OKX`);
     return { success: true, balances };
   } catch (error) {
     console.error('❌ Erro ao obter saldos da OKX:', error);
-    return { success: false, error: error instanceof Error ? error.message : 'Erro desconhecido' };
+    
+    // Verificar se é erro específico de IP whitelist
+    const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+    if (errorMessage.includes('whitelist') || errorMessage.includes('50110')) {
+      return { 
+        success: false, 
+        error: 'IP não autorizado na whitelist da OKX. Configure a whitelist com 0.0.0.0/0 ou adicione os IPs dinâmicos do servidor.',
+        errorCode: '50110'
+      };
+    }
+    
+    return { success: false, error: errorMessage };
   }
 }
 
@@ -667,7 +684,30 @@ serve(async (req) => {
         }
         break;
       case 'get_balances':
-        result = await getOKXBalances(creds, supabase, normalizedUserId);
+        try {
+          result = await getOKXBalances(creds, supabase, normalizedUserId);
+          
+          // Se falhar devido a IP whitelist, tentar funding balances como alternativa
+          if (!result.success && result.error && result.error.includes('whitelist')) {
+            console.log('🔄 Tentando saldos de funding como alternativa ao erro de whitelist...');
+            try {
+              const fundingResult = await getOKXFundingBalances(creds, supabase, normalizedUserId);
+              if (fundingResult.success) {
+                result = fundingResult;
+                console.log('✅ Saldos de funding obtidos como alternativa');
+              }
+            } catch (fundingError) {
+              console.log('❌ Funding balances também falharam:', fundingError);
+            }
+          }
+        } catch (error) {
+          console.error('❌ Erro ao obter saldos da OKX:', error);
+          result = {
+            success: false,
+            error: error instanceof Error ? error.message : 'Erro ao obter saldos da OKX',
+            balances: []
+          };
+        }
         break;
       case 'get_funding_balances':
         result = await getOKXFundingBalances(creds, supabase, normalizedUserId);
