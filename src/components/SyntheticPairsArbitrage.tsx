@@ -113,7 +113,7 @@ const SyntheticPairsArbitrage = () => {
       
       // Usar configuração personalizada ou valores padrão
       const executionConfig = config || {
-        investmentAmount: 100, // USDT
+        investmentAmount: 10, // USDT
         maxSlippage: 0.5,
         customFeeRate: 0.2, // Taxa realística para cross-exchange
         stopLossPercentage: 2.0,

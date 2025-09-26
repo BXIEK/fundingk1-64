@@ -38,7 +38,7 @@ const SmartTransferDashboard = () => {
   const [analysis, setAnalysis] = useState<TransferAnalysis | null>(null);
   const [formData, setFormData] = useState({
     symbol: 'USDT',
-    requiredAmount: 100,
+    requiredAmount: 10,
     fromExchange: 'binance',
     toExchange: 'okx'
   });

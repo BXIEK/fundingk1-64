@@ -58,7 +58,7 @@ const ArbitrageExecutionModal: React.FC<ArbitrageExecutionModalProps> = ({
   isExecuting
 }) => {
   const [config, setConfig] = useState<ArbitrageConfig>({
-    investmentAmount: 100, // USDT
+    investmentAmount: 10, // USDT
     maxSlippage: 0.5,
     customFeeRate: 0.2,
     stopLossPercentage: 2.0,
