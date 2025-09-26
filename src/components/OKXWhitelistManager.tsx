@@ -9,6 +9,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Trash2, Plus, Globe, Shield } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { getUserId } from "@/lib/userUtils";
 import { toast } from "sonner";
 
 interface WhitelistIP {
@@ -33,9 +34,13 @@ const OKXWhitelistManager: React.FC = () => {
 
   const loadWhitelistIPs = async () => {
     try {
+      // Usar a função getUserId que funciona mesmo sem autenticação
+      const userId = await getUserId();
+      
       const { data, error } = await supabase
         .from('okx_whitelist_ips')
         .select('*')
+        .eq('user_id', userId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -56,13 +61,13 @@ const OKXWhitelistManager: React.FC = () => {
 
     setSaving(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Usuário não autenticado');
+      // Usar a função getUserId que funciona mesmo sem autenticação
+      const userId = await getUserId();
 
       const { error } = await supabase
         .from('okx_whitelist_ips')
         .insert({
-          user_id: user.id,
+          user_id: userId,
           ip_address: newIP.ip_address.trim() as any,
           description: newIP.description.trim() || 'IP da whitelist OKX',
           is_active: true
