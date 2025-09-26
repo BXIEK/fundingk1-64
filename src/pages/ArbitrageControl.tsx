@@ -95,7 +95,7 @@ export default function ArbitrageControl() {
     maxSlippage: 0.5,
     mevProtection: false,
     walletType: 'phantom',
-    maxTradeSize: 500,
+    maxTradeSize: 10,
     dailyLimit: 1000,
     maxConcurrentTrades: 3
   });
