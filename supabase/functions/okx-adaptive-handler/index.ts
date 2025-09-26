@@ -209,6 +209,18 @@ async function analyzeErrorAndAdapt(
   const errorMsg = error instanceof Error ? error.message : String(error)
   console.log(`🔍 Analisando erro: ${errorMsg}`)
   
+  // IP Whitelist - erro mais crítico que impede tudo (código 50110)
+  if (errorMsg.includes('50110') || (errorMsg.includes('IP') && errorMsg.includes('whitelist'))) {
+    adaptiveResponse.adaptations_applied.push('ip_whitelist_error_detected')
+    adaptiveResponse.final_strategy = 'ip_configuration_required'
+    console.log('🚫 IP não está na whitelist da OKX - erro não recuperável')
+    console.log('💡 SOLUÇÃO: Configure a API OKX para permitir todos os IPs (0.0.0.0/0)')
+    return { 
+      canRetry: false, 
+      reason: '🚫 IP não autorizado na OKX. SOLUÇÃO: Vá para OKX → API Management → Edit API → IP Restriction → Digite "0.0.0.0/0" para permitir todos os IPs'
+    }
+  }
+  
   // Extrair sCode se disponível
   const sCodeMatch = errorMsg.match(/sCode=(\d+)/)
   const sCode = sCodeMatch ? sCodeMatch[1] : null

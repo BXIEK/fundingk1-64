@@ -10,6 +10,9 @@ verify_jwt = false
 [functions.smart-cross-exchange-transfer]
 verify_jwt = false
 
+[functions.okx-ip-whitelist-helper]
+verify_jwt = false
+
 [functions.okx-adaptive-handler]
 verify_jwt = false
 

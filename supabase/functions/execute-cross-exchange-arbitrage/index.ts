@@ -260,7 +260,16 @@ serve(async (req) => {
               net_profit = (sellPrice - buyPrice) * (effectiveAmount / buyPrice) - 0.1 - 0.2; // gas_fees + slippage_cost estimados
             } else {
               console.log('❌ Sistema adaptativo falhou:', adaptiveResult.error);
-              error_message = `Sistema adaptativo: ${adaptiveResult.error}`;
+              
+              // Tratar erro undefined e dar mensagem específica
+              let adaptiveErrorMsg = adaptiveResult.error || 'Erro desconhecido no sistema adaptativo';
+              
+              // Se é erro de IP whitelist da OKX, dar instruções específicas
+              if (realError.message?.includes('50110') || realError.message?.includes('IP') || realError.message?.includes('whitelist')) {
+                adaptiveErrorMsg = '🚫 IP não autorizado na OKX. SOLUÇÃO: Vá para OKX → API Management → Edit API → IP Restriction → Digite "0.0.0.0/0" para permitir todos os IPs (recomendado para Edge Functions)';
+              }
+              
+              error_message = `Sistema adaptativo OKX: ${adaptiveErrorMsg}`;
             }
             
           } catch (adaptiveError) {
@@ -304,7 +313,16 @@ serve(async (req) => {
               net_profit = (sellPrice - buyPrice) * (effectiveAmount / buyPrice) - 0.1 - 0.2; // gas_fees + slippage_cost estimados
             } else {
               console.log('❌ Sistema adaptativo Binance falhou:', adaptiveResult.error);
-              error_message = `Sistema adaptativo Binance: ${adaptiveResult.error}`;
+              
+              // Tratar erro undefined e dar mensagem específica  
+              let adaptiveErrorMsg = adaptiveResult.error || 'Erro desconhecido no sistema adaptativo';
+              
+              // Se é erro de IP ou permissão da Binance, dar instruções específicas
+              if (realError.message?.includes('IP') || realError.message?.includes('not authorized') || realError.message?.includes('whitelist')) {
+                adaptiveErrorMsg = '🚫 IP não autorizado na Binance. SOLUÇÃO: Vá para Binance → API Management → Edit API → API restrictions → "Restrict access to trusted IPs only" → Deixe em branco ou adicione "0.0.0.0/0"';
+              }
+              
+              error_message = `Sistema adaptativo Binance: ${adaptiveErrorMsg}`;
             }
             
           } catch (adaptiveError) {

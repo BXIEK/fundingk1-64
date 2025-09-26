@@ -86,6 +86,7 @@ export default function ArbitrageControl() {
     risk_tolerance: 'MEDIUM',
     selected_symbols: ['BTC', 'ETH', 'BNB', 'SOL']
   });
+  const [showIPHelper, setShowIPHelper] = useState(false);
 
   const [tradingConfig, setTradingConfig] = useState<TradingConfig>({
     minSlippage: 0.1,
@@ -1100,8 +1101,21 @@ const adjustInvestmentForLotSize = (symbol: string, investmentAmount: number, bu
                     onChange={(e) => setSettings(prev => ({...prev, min_spread: Number(e.target.value)}))}
                     step="0.1"
                     min="0.1"
-                  />
-                </div>
+      />
+      
+      {/* IP Helper Modal */}
+      {showIPHelper && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-background p-6 rounded-lg max-w-2xl">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold">Erro de IP Whitelist</h2>
+              <Button variant="ghost" onClick={() => setShowIPHelper(false)}>✕</Button>
+            </div>
+            <IPWhitelistHelper />
+          </div>
+        </div>
+      )}
+    </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="max-investment">Investimento Máximo (USD)</Label>
@@ -1155,18 +1169,38 @@ const adjustInvestmentForLotSize = (symbol: string, investmentAmount: number, bu
                         <TableCell className={trade.net_profit > 0 ? "text-green-600" : "text-red-600"}>
                           {formatCurrency(trade.net_profit)}
                         </TableCell>
-                         <TableCell>
-                           <div className="space-y-1">
-                             <Badge variant={trade.status === 'completed' ? 'default' : 'destructive'}>
-                               {trade.status}
-                             </Badge>
-                             {trade.status === 'failed' && trade.error_message && (
-                               <div className="text-xs text-red-600 max-w-xs">
-                                 <strong>Erro:</strong> {trade.error_message}
-                               </div>
-                             )}
-                           </div>
-                         </TableCell>
+                          <TableCell>
+                            <div className="space-y-1">
+                              <Badge variant={trade.status === 'completed' ? 'default' : 'destructive'}>
+                                {trade.status}
+                              </Badge>
+                              {trade.status === 'failed' && trade.error_message && (
+                                <>
+                                  {/* Verificar se é erro de IP whitelist */}
+                                  {(trade.error_message.includes('IP não autorizado') || 
+                                    trade.error_message.includes('50110') || 
+                                    trade.error_message.includes('whitelist') ||
+                                    trade.error_message.includes('Sistema adaptativo: undefined') ||
+                                    trade.error_message.includes('Sistema adaptativo OKX: undefined')) ? (
+                                    <div className="text-xs text-blue-600 max-w-xs">
+                                      <strong>🔧 Erro de Configuração:</strong> 
+                                      <br />
+                                      <span className="text-red-600">Problema de IP whitelist detectado</span>
+                                      <br />
+                                      <span className="text-blue-600 cursor-pointer underline" 
+                                            onClick={() => setShowIPHelper(true)}>
+                                        📋 Clique aqui para ver instruções de correção
+                                      </span>
+                                    </div>
+                                  ) : (
+                                    <div className="text-xs text-red-600 max-w-xs">
+                                      <strong>Erro:</strong> {trade.error_message}
+                                    </div>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          </TableCell>
                       </TableRow>
                     ))}</TableBody>
                 </Table>
@@ -1189,6 +1223,27 @@ const adjustInvestmentForLotSize = (symbol: string, investmentAmount: number, bu
         onExecute={executeArbitrage}
         isExecuting={selectedOpportunity ? executingIds.has(selectedOpportunity.id) : false}
       />
+      
+      {/* IP Whitelist Helper Modal */}
+      {showIPHelper && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-background rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold">Configuração de IP Whitelist</h2>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => setShowIPHelper(false)}
+                >
+                  <XCircle className="h-4 w-4" />
+                </Button>
+              </div>
+              <IPWhitelistHelper />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
