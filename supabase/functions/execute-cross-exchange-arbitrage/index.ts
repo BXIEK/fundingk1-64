@@ -85,16 +85,20 @@ serve(async (req) => {
     let net_profit = Math.max(0, gross_profit - total_fees);
     const roi_percentage = effectiveAmount > 0 ? (net_profit / effectiveAmount) * 100 : 0;
 
-    // Verificar se é viável
+    // Verificar se é viável baseado no lucro líquido real
     let status = 'completed';
     let error_message = null;
     
-    // Spread mínimo necessário para cobrir custos
-    const breakEvenSpread = (config.customFeeRate + config.maxSlippage + 0.1); // +0.1% margem
-    
-    if (spread_percentage < breakEvenSpread) {
+    // Verificar se há lucro líquido após todos os custos
+    if (net_profit <= 0) {
       status = 'failed';
-      error_message = `Spread insuficiente após slippage. Necessário: ${breakEvenSpread.toFixed(2)}%, Atual: ${spread_percentage.toFixed(2)}%`;
+      error_message = `Operação não lucrativa. Spread: ${spread_percentage.toFixed(3)}%, Custos: ${((total_fees / effectiveAmount) * 100).toFixed(3)}%`;
+    }
+    
+    // Verificar spread mínimo muito baixo (abaixo de 0.1% é suspeito)
+    if (spread_percentage < 0.1) {
+      status = 'failed';
+      error_message = `Spread muito baixo para ser confiável: ${spread_percentage.toFixed(3)}%`;
     }
     
     // Simular algumas falhas ocasionais (2% de chance se lucrativo)
@@ -225,7 +229,7 @@ serve(async (req) => {
         status: status,
         error_message: error_message,
         mode: mode,
-        break_even_spread: breakEvenSpread.toFixed(2),
+        cost_percentage: parseFloat(((total_fees / effectiveAmount) * 100).toFixed(3)),
         real_operation: realOperationResults
       },
       strategy: 'cross_exchange_arbitrage',
