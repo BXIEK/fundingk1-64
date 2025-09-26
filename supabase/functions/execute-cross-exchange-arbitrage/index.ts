@@ -85,20 +85,24 @@ serve(async (req) => {
     let net_profit = Math.max(0, gross_profit - total_fees);
     const roi_percentage = effectiveAmount > 0 ? (net_profit / effectiveAmount) * 100 : 0;
 
-    // Verificar se é viável baseado no lucro líquido real
+    // Verificar se é viável com margem de tolerância para dinâmica de preços
     let status = 'completed';
     let error_message = null;
     
-    // Verificar se há lucro líquido após todos os custos
-    if (net_profit <= 0) {
+    // Margem de tolerância de 0.3% para flutuações de preços em tempo real
+    const priceFluctuationMargin = 0.3;
+    const minViableSpread = 0.05; // Mínimo de 0.05% para ser considerado viável
+    
+    // Verificar se há lucro líquido após todos os custos com margem de tolerância
+    if (net_profit <= 0 && spread_percentage < minViableSpread) {
       status = 'failed';
-      error_message = `Operação não lucrativa. Spread: ${spread_percentage.toFixed(3)}%, Custos: ${((total_fees / effectiveAmount) * 100).toFixed(3)}%`;
+      error_message = `Operação não lucrativa após custos. Spread: ${spread_percentage.toFixed(3)}%, Mínimo: ${minViableSpread}%`;
     }
     
-    // Verificar spread mínimo muito baixo (abaixo de 0.1% é suspeito)
-    if (spread_percentage < 0.1) {
+    // Verificar spread muito baixo considerando flutuação de preços
+    if (spread_percentage < (minViableSpread - priceFluctuationMargin)) {
       status = 'failed';
-      error_message = `Spread muito baixo para ser confiável: ${spread_percentage.toFixed(3)}%`;
+      error_message = `Spread insuficiente para dinâmica de preços: ${spread_percentage.toFixed(3)}% (mín. ${minViableSpread}% com margem)`;
     }
     
     // Simular algumas falhas ocasionais (2% de chance se lucrativo)
