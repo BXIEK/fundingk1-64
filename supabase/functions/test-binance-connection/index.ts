@@ -10,8 +10,13 @@ serve(async (req) => {
     return new Response('ok', { headers: corsHeaders })
   }
 
+  let apiKey = ''
+  let secretKey = ''
+  
   try {
-    const { apiKey, secretKey } = await req.json()
+    const requestData = await req.json()
+    apiKey = requestData.apiKey
+    secretKey = requestData.secretKey
 
     if (!apiKey || !secretKey || apiKey === 'null' || secretKey === 'null') {
       return new Response(
@@ -153,6 +158,78 @@ serve(async (req) => {
       errorMessage = error
     }
 
+    // Se for erro temporário, tentar sistema adaptativo
+    if (errorMessage.includes('temporário da API Binance') || 
+        errorMessage.includes('Try again') ||
+        errorMessage.includes('ETIMEDOUT') ||
+        errorMessage.includes('Request timeout') ||
+        errorMessage.includes('fetch failed')) {
+      
+      console.log('🤖 Tentando sistema adaptativo Binance para erro temporário...')
+      
+      try {
+        const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+        const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+        
+        const adaptiveResponse = await fetch(`${supabaseUrl}/functions/v1/binance-adaptive-handler`, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json', 
+            'Authorization': `Bearer ${supabaseKey}`
+          },
+          body: JSON.stringify({
+            action: 'test_connection',
+            symbol: 'BTC',
+            maxRetries: 2,
+            credentials: {
+              apiKey,
+              secretKey
+            }
+          })
+        })
+        
+        const adaptiveResult = await adaptiveResponse.json()
+        
+        if (adaptiveResult.success) {
+          console.log('✅ Sistema adaptativo Binance resolveu conexão!')
+          
+          // Extrair dados da conta do resultado adaptativo
+          const accountData = adaptiveResult.result
+          const totalBalances = accountData.balances?.filter((b: any) => parseFloat(b.free) > 0 || parseFloat(b.locked) > 0) || []
+          const usdtBalance = accountData.balances?.find((b: any) => b.asset === 'USDT')
+          const btcBalance = accountData.balances?.find((b: any) => b.asset === 'BTC')
+
+          return new Response(
+            JSON.stringify({
+              success: true,
+              message: `Conexão Binance estabelecida via sistema adaptativo! Adaptações: ${adaptiveResult.adaptations_applied?.join(', ')}`,
+              accountInfo: {
+                totalAssets: totalBalances.length,
+                usdtBalance: {
+                  free: usdtBalance?.free || '0',
+                  locked: usdtBalance?.locked || '0'
+                },
+                btcBalance: {
+                  free: btcBalance?.free || '0',
+                  locked: btcBalance?.locked || '0'
+                },
+                canTrade: accountData.canTrade || false,
+                canWithdraw: accountData.canWithdraw || false,
+                canDeposit: accountData.canDeposit || false,
+                adaptationsApplied: adaptiveResult.adaptations_applied
+              }
+            }),
+            {
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              status: 200,
+            }
+          )
+        }
+      } catch (adaptiveError) {
+        console.error('❌ Falha no sistema adaptativo:', adaptiveError)
+      }
+    }
+
     // Mapear erros comuns da Binance para mensagens mais claras
     if (errorMessage.includes('Invalid API-key') || errorMessage.includes('API-key format invalid')) {
       errorMessage = '🔑 API Key inválida. Verifique se copiou corretamente sua chave da Binance.'
@@ -164,6 +241,8 @@ serve(async (req) => {
       errorMessage = '⏰ Erro de timestamp. Verifique se o horário do seu sistema está correto.'
     } else if (errorMessage.includes('Permission denied')) {
       errorMessage = '🚫 Permissões insuficientes. Ative "Enable Reading" na configuração da sua API Key na Binance.'
+    } else if (errorMessage.includes('temporário da API Binance')) {
+      errorMessage = '⏳ API Binance temporariamente indisponível. Sistema adaptativo tentou resolver automaticamente.'
     }
 
     return new Response(

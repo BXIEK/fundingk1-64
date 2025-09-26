@@ -267,6 +267,50 @@ serve(async (req) => {
             console.error('❌ Erro no sistema adaptativo:', adaptiveError);
             error_message = `Falha no sistema adaptativo: ${realError.message}`;
           }
+        } else if (realError instanceof Error && realError.message?.includes('Binance')) {
+          console.log('🤖 Ativando sistema adaptativo para erro Binance...');
+          
+          try {
+            // Chamar sistema adaptativo da Binance
+            const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+            const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+            
+            const adaptiveResponse = await fetch(`${supabaseUrl}/functions/v1/binance-adaptive-handler`, {
+              method: 'POST',
+              headers: { 
+                'Content-Type': 'application/json', 
+                'Authorization': `Bearer ${supabaseKey}`
+              },
+              body: JSON.stringify({
+                action: 'adaptive_order',
+                symbol: symbol + 'USDT',
+                side: buyExchange === 'Binance' ? 'BUY' : 'SELL',
+                quantity: buyExchange === 'Binance' ? effectiveAmount / buyPrice : effectiveAmount,
+                price: buyExchange === 'Binance' ? buyPrice : sellPrice,
+                maxRetries: 3,
+                credentials: {
+                  apiKey: binanceApiKey,
+                  secretKey: binanceSecretKey
+                }
+              })
+            });
+            
+            const adaptiveResult = await adaptiveResponse.json();
+            
+            if (adaptiveResult.success) {
+              console.log('✅ Sistema adaptativo Binance resolveu o problema:', adaptiveResult.adaptations_applied);
+              status = 'completed';
+              error_message = `Sucesso com adaptações Binance: ${adaptiveResult.adaptations_applied.join(', ')}`;
+              net_profit = (sellPrice - buyPrice) * (effectiveAmount / buyPrice) - 0.1 - 0.2; // gas_fees + slippage_cost estimados
+            } else {
+              console.log('❌ Sistema adaptativo Binance falhou:', adaptiveResult.error);
+              error_message = `Sistema adaptativo Binance: ${adaptiveResult.error}`;
+            }
+            
+          } catch (adaptiveError) {
+            console.error('❌ Erro no sistema adaptativo Binance:', adaptiveError);
+            error_message = `Falha no sistema adaptativo Binance: ${realError.message}`;
+          }
         } else {
           // Tratamento de outros erros não-OKX
           if (realError instanceof Error) {

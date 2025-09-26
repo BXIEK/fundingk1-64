@@ -12,3 +12,6 @@ verify_jwt = false
 
 [functions.okx-adaptive-handler]
 verify_jwt = false
+
+[functions.binance-adaptive-handler]
+verify_jwt = false
