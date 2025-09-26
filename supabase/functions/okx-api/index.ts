@@ -524,30 +524,47 @@ async function getOKXAvailableInstruments(creds?: { apiKey?: string; secretKey?:
   }
 }
 
+async function normalizeUserId(id: string) {
+  try {
+    const generic = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+    if (id === '00000000-0000-0000-0000-000000000000' || generic.test(id)) {
+      return id.toLowerCase();
+    }
+    const encoder = new TextEncoder();
+    const hashBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(id));
+    const bytes = Array.from(new Uint8Array(hashBuffer)).slice(0, 16);
+    // Set version (4) and variant bits
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    const hex = bytes.map(b => b.toString(16).padStart(2, '0')).join('');
+    return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20,32)}`;
+  } catch (_) {
+    return '00000000-0000-0000-0000-000000000000';
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    const body = await req.json();
+    const { action, api_key, secret_key, passphrase, user_id, ...params } = body;
+    
     // Inicializar cliente Supabase
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    // Obter userId do cabeçalho de autorização se disponível
-    let userId: string | undefined;
-    const authHeader = req.headers.get('authorization');
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      try {
-        const { data: { user } } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''));
-        userId = user?.id;
-      } catch (error) {
-        console.log('⚠️ Não foi possível obter userId do token:', error);
-      }
+    
+    // Normalizar user_id se fornecido
+    let normalizedUserId: string | undefined;
+    if (user_id && typeof user_id === "string") {
+      normalizedUserId = await normalizeUserId(user_id);
+      console.log(`🔐 User ID normalizado: ${normalizedUserId} (original: ${user_id})`);
+    } else {
+      console.log(`⚠️ User ID não fornecido ou inválido: ${user_id}`);
     }
-
-    const { action, api_key, secret_key, passphrase, ...params } = await req.json();
     
     console.log(`🚀 OKX API: Ação ${action} solicitada`);
     console.log(`🔑 Credenciais recebidas:`, {
@@ -571,7 +588,7 @@ serve(async (req) => {
           // Se as credenciais foram fornecidas, testar endpoint privado
           if (api_key && secret_key && passphrase) {
             console.log('🔐 Testando conexão privada...');
-            const privateTest = await getOKXBalances(creds, supabase, userId);
+            const privateTest = await getOKXBalances(creds, supabase, normalizedUserId);
             if (privateTest.success) {
               result = {
                 success: true,
@@ -611,13 +628,13 @@ serve(async (req) => {
         }
         break;
       case 'get_prices':
-        result = await getOKXPrices(creds, supabase, userId);
+        result = await getOKXPrices(creds, supabase, normalizedUserId);
         break;
       case 'get_balances':
-        result = await getOKXBalances(creds, supabase, userId);
+        result = await getOKXBalances(creds, supabase, normalizedUserId);
         break;
       case 'get_funding_balances':
-        result = await getOKXFundingBalances(creds, supabase, userId);
+        result = await getOKXFundingBalances(creds, supabase, normalizedUserId);
         break;
       case 'internal_transfer':
         // Transferência interna entre carteiras
@@ -631,7 +648,7 @@ serve(async (req) => {
           type: '0', // Transferência interna
         }
         
-        const transferResult = await makeOKXRequest('/api/v5/asset/transfer', 'POST', transferData, creds, supabase, userId)
+        const transferResult = await makeOKXRequest('/api/v5/asset/transfer', 'POST', transferData, creds, supabase, normalizedUserId)
         
         result = {
           success: transferResult.code === '0',
@@ -641,10 +658,10 @@ serve(async (req) => {
         }
         break;
       case 'get_available_instruments':
-        result = await getOKXAvailableInstruments(creds, supabase, userId);
+        result = await getOKXAvailableInstruments(creds, supabase, normalizedUserId);
         break;
       case 'place_order':
-        result = await executeOKXOrder(params.order as OKXOrderRequest, creds, supabase, userId);
+        result = await executeOKXOrder(params.order as OKXOrderRequest, creds, supabase, normalizedUserId);
         break;
       default:
         throw new Error(`Ação não suportada: ${action}`);

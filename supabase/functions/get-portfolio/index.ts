@@ -418,7 +418,13 @@ serve(async (req) => {
             const okxResp = await fetch(`${supabaseUrl}/functions/v1/okx-api`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${supabaseKey}` },
-              body: JSON.stringify({ action: 'get_balances', api_key: okxApiKey, secret_key: okxSecretKey, passphrase: okxPassphrase })
+              body: JSON.stringify({ 
+                action: 'get_balances', 
+                api_key: okxApiKey, 
+                secret_key: okxSecretKey, 
+                passphrase: okxPassphrase,
+                user_id: userId 
+              })
             });
             const okxJson = await okxResp.json();
             if (okxJson.success) {

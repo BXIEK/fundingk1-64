@@ -222,13 +222,16 @@ async function getBinancePrices() {
 }
 
 // Buscar preços da OKX
-async function getOKXPrices() {
+async function getOKXPrices(userId?: string) {
   try {
     console.log('📡 Buscando preços reais da OKX...');
     const response = await fetch('https://uxhcsjlfwkhwkvhfacho.supabase.co/functions/v1/okx-api', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'get_prices' })
+      body: JSON.stringify({ 
+        action: 'get_prices',
+        user_id: userId
+      })
     });
     
     if (!response.ok) {
@@ -449,6 +452,11 @@ function calculateCrossExchangeOpportunities(binancePrices: any, okxPrices: any,
   return opportunities.sort((a, b) => b.potential_profit - a.potential_profit);
 }
 
+// Função auxiliar para extrair user_id
+function getUserIdFromBody(body: any): string | undefined {
+  return body?.user_id || body?.binance_api_key || body?.okx_api_key;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -468,6 +476,9 @@ serve(async (req) => {
     } catch {
       body = {};
     }
+    
+    // Extrair user_id do request
+    const userId = getUserIdFromBody(body);
     
     const requestType = body.type || 'cross_exchange'; // 'funding' ou 'cross_exchange'
     
@@ -544,7 +555,7 @@ serve(async (req) => {
       // Tentar buscar preços reais da OKX, senão simular
       let okxPrices: any = {};
       try {
-        okxPrices = await getOKXPrices();
+        okxPrices = await getOKXPrices(userId);
       } catch (okxError) {
         // @ts-ignore - Type error suppression
         console.log(`⚠️ API OKX indisponível, simulando preços: ${okxError instanceof Error ? okxError.message : String(okxError)}`);
