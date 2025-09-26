@@ -48,32 +48,67 @@ serve(async (req) => {
       .map(b => b.toString(16).padStart(2, '0'))
       .join('')
 
-    // Fazer requisição para API da Binance
-    const response = await fetch(
-      `https://api.binance.com/api/v3/account?${queryString}&signature=${signatureHex}`,
-      {
-        method: 'GET',
-        headers: {
-          'X-MBX-APIKEY': apiKey,
-          'Content-Type': 'application/json',
-        },
-      }
-    )
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      let errorMessage = `Erro HTTP ${response.status}: ${response.statusText}`
-      
+    // Fazer requisição para API da Binance com retry
+    let response: Response | undefined;
+    let lastError: string = '';
+    
+    for (let attempt = 1; attempt <= 3; attempt++) {
       try {
-        const errorData = JSON.parse(errorText)
-        if (errorData.msg) {
-          errorMessage = errorData.msg
+        console.log(`🔄 Tentativa ${attempt}/3 de conexão com Binance...`);
+        
+        response = await fetch(
+          `https://api.binance.com/api/v3/account?${queryString}&signature=${signatureHex}`,
+          {
+            method: 'GET',
+            headers: {
+              'X-MBX-APIKEY': apiKey,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+        
+        if (response.ok) {
+          console.log(`✅ Conexão Binance bem-sucedida na tentativa ${attempt}`);
+          break;
+        } else {
+          lastError = `HTTP ${response.status}: ${response.statusText}`;
+          console.warn(`⚠️ Tentativa ${attempt} falhou: ${lastError}`);
+          
+          if (attempt < 3) {
+            const delay = attempt * 2000; // 2s, 4s
+            console.log(`⏳ Aguardando ${delay}ms antes da próxima tentativa...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+          }
         }
-      } catch {
-        // Se não conseguir parsear, usa a mensagem padrão
+      } catch (error) {
+        lastError = error instanceof Error ? error.message : String(error);
+        console.error(`❌ Tentativa ${attempt} com erro: ${lastError}`);
+        
+        if (attempt < 3) {
+          const delay = attempt * 2000;
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
       }
-      
-      throw new Error(errorMessage)
+    }
+
+    if (!response || !response.ok) {
+      if (response) {
+        const errorText = await response.text()
+        let errorMessage = `Erro HTTP ${response.status}: ${response.statusText}`
+        
+        try {
+          const errorData = JSON.parse(errorText)
+          if (errorData.msg) {
+            errorMessage = errorData.msg
+          }
+        } catch {
+          // Se não conseguir parsear, usa a mensagem padrão
+        }
+        
+        throw new Error(errorMessage)
+      } else {
+        throw new Error(lastError || 'Falha na conexão com Binance após múltiplas tentativas')
+      }
     }
 
     const accountData = await response.json()

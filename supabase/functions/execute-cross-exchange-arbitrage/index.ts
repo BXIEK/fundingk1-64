@@ -138,13 +138,78 @@ serve(async (req) => {
       try {
         console.log('💰 Executando operação real cross-exchange...');
         
-        // Step 1: Executar compra na exchange de compra
-        const buyResult = await executeBuyOrder(buyExchange, symbol, effectiveAmount, buyPrice, { binanceApiKey, binanceSecretKey, okxApiKey, okxSecretKey, okxPassphrase });
-        console.log('✅ Compra executada:', buyResult);
+        // Step 1: Executar compra na exchange de compra com retry para erros temporários
+        let buyResult;
+        let attempts = 0;
+        const maxAttempts = 3;
         
-        // Step 2: Executar venda na exchange de venda
-        const sellResult = await executeSellOrder(sellExchange, symbol, effectiveAmount / buyPrice, sellPrice, { binanceApiKey, binanceSecretKey, okxApiKey, okxSecretKey, okxPassphrase });
-        console.log('✅ Venda executada:', sellResult);
+        while (attempts < maxAttempts) {
+          attempts++;
+          console.log(`🔄 Tentativa ${attempts}/${maxAttempts} de compra em ${buyExchange}...`);
+          
+          try {
+            buyResult = await executeBuyOrder(buyExchange, symbol, effectiveAmount, buyPrice, { binanceApiKey, binanceSecretKey, okxApiKey, okxSecretKey, okxPassphrase });
+            console.log('✅ Compra executada:', buyResult);
+            break;
+            
+          } catch (buyError) {
+            console.error(`❌ Erro na tentativa ${attempts} de compra:`, buyError);
+            
+            // Se é erro temporário da Binance, tentar novamente
+            if (buyError instanceof Error && 
+                (buyError.message?.includes('temporário da API Binance') || 
+                 buyError.message?.includes('ETIMEDOUT') ||
+                 buyError.message?.includes('ECONNRESET') ||
+                 buyError.message?.includes('Request timeout'))) {
+              
+              if (attempts < maxAttempts) {
+                const delay = attempts * 3000; // 3s, 6s
+                console.log(`⏳ Erro temporário detectado na compra. Aguardando ${delay}ms antes de tentar novamente...`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+                continue;
+              }
+            }
+            
+            // Se não é erro temporário ou esgotaram as tentativas, relançar o erro
+            throw buyError;
+          }
+        }
+        
+        // Step 2: Executar venda na exchange de venda com retry para erros temporários
+        let sellResult;
+        attempts = 0;
+        
+        while (attempts < maxAttempts) {
+          attempts++;
+          console.log(`🔄 Tentativa ${attempts}/${maxAttempts} de venda em ${sellExchange}...`);
+          
+          try {
+            sellResult = await executeSellOrder(sellExchange, symbol, effectiveAmount / buyPrice, sellPrice, { binanceApiKey, binanceSecretKey, okxApiKey, okxSecretKey, okxPassphrase });
+            console.log('✅ Venda executada:', sellResult);
+            break;
+            
+          } catch (sellError) {
+            console.error(`❌ Erro na tentativa ${attempts} de venda:`, sellError);
+            
+            // Se é erro temporário da Binance, tentar novamente
+            if (sellError instanceof Error && 
+                (sellError.message?.includes('temporário da API Binance') || 
+                 sellError.message?.includes('ETIMEDOUT') ||
+                 sellError.message?.includes('ECONNRESET') ||
+                 sellError.message?.includes('Request timeout'))) {
+              
+              if (attempts < maxAttempts) {
+                const delay = attempts * 3000; // 3s, 6s
+                console.log(`⏳ Erro temporário detectado na venda. Aguardando ${delay}ms antes de tentar novamente...`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+                continue;
+              }
+            }
+            
+            // Se não é erro temporário ou esgotaram as tentativas, relançar o erro
+            throw sellError;
+          }
+        }
         
         realOperationResults = {
           buyOrder: buyResult,
