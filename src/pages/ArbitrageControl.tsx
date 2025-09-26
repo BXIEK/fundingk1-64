@@ -26,7 +26,8 @@ import {
   Target,
   Shield,
   Wallet,
-  Activity
+  Activity,
+  XCircle
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import ArbitrageExecutionModal from '@/components/ArbitrageExecutionModal';
@@ -34,6 +35,7 @@ import { OKXInstrumentChecker } from '@/components/OKXInstrumentChecker';
 import Web3PortfolioCard from '@/components/Web3PortfolioCard';
 import OKXPortfolioCard from '@/components/OKXPortfolioCard';
 import SmartTransferDashboard from '@/components/SmartTransferDashboard';
+import IPWhitelistHelper from '@/components/IPWhitelistHelper';
 
 import { type ArbitrageOpportunity } from '@/types/arbitrage';
 
