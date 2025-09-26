@@ -34,17 +34,14 @@ const OKXWhitelistManager: React.FC = () => {
 
   const loadWhitelistIPs = async () => {
     try {
-      // Usar a função getUserId que funciona mesmo sem autenticação
       const userId = await getUserId();
-      
-      const { data, error } = await supabase
-        .from('okx_whitelist_ips')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
+
+      const { data, error } = await supabase.functions.invoke('okx-whitelist-manager', {
+        body: { action: 'list', user_id: userId },
+      });
 
       if (error) throw error;
-      setIps(data || []);
+      setIps((data?.items as WhitelistIP[]) || []);
     } catch (error) {
       console.error('Erro ao carregar IPs da whitelist:', error);
       toast.error('Erro ao carregar IPs da whitelist');
@@ -61,23 +58,22 @@ const OKXWhitelistManager: React.FC = () => {
 
     setSaving(true);
     try {
-      // Usar a função getUserId que funciona mesmo sem autenticação
       const userId = await getUserId();
 
-      const { error } = await supabase
-        .from('okx_whitelist_ips')
-        .insert({
+      const { data, error } = await supabase.functions.invoke('okx-whitelist-manager', {
+        body: {
+          action: 'add',
           user_id: userId,
-          ip_address: newIP.ip_address.trim() as any,
-          description: newIP.description.trim() || 'IP da whitelist OKX',
-          is_active: true
-        });
+          ip_address: newIP.ip_address.trim(),
+          description: newIP.description.trim(),
+        },
+      });
 
-      if (error) throw error;
+      if (error || !data?.success) throw new Error((error as any)?.message || data?.error || 'Falha ao adicionar');
 
       toast.success('IP adicionado com sucesso!');
       setNewIP({ ip_address: '', description: '' });
-      loadWhitelistIPs();
+      await loadWhitelistIPs();
     } catch (error: any) {
       console.error('Erro ao adicionar IP:', error);
       toast.error('Erro ao adicionar IP: ' + error.message);
@@ -88,12 +84,11 @@ const OKXWhitelistManager: React.FC = () => {
 
   const toggleIPStatus = async (id: string, currentStatus: boolean) => {
     try {
-      const { error } = await supabase
-        .from('okx_whitelist_ips')
-        .update({ is_active: !currentStatus })
-        .eq('id', id);
-
-      if (error) throw error;
+      const userId = await getUserId();
+      const { data, error } = await supabase.functions.invoke('okx-whitelist-manager', {
+        body: { action: 'toggle', id, currentStatus, user_id: userId },
+      });
+      if (error || !data?.success) throw new Error((error as any)?.message || data?.error || 'Falha ao atualizar');
 
       toast.success(`IP ${!currentStatus ? 'ativado' : 'desativado'} com sucesso!`);
       loadWhitelistIPs();
@@ -107,12 +102,11 @@ const OKXWhitelistManager: React.FC = () => {
     if (!confirm('Tem certeza que deseja deletar este IP?')) return;
 
     try {
-      const { error } = await supabase
-        .from('okx_whitelist_ips')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
+      const userId = await getUserId();
+      const { data, error } = await supabase.functions.invoke('okx-whitelist-manager', {
+        body: { action: 'delete', id, user_id: userId },
+      });
+      if (error || !data?.success) throw new Error((error as any)?.message || data?.error || 'Falha ao deletar');
 
       toast.success('IP removido com sucesso!');
       loadWhitelistIPs();
