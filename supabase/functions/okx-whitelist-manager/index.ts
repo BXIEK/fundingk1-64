@@ -12,7 +12,9 @@ const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
 function isValidUuid(id: string) {
-  return /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/.test(id);
+  // Aceita UUIDs v1-v5 e também UUIDs genéricos/derivados (ex.: hash formatado) e o demo UUID
+  const generic = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+  return id === '00000000-0000-0000-0000-000000000000' || generic.test(id);
 }
 
 // Very simple IPv4/CIDR validation; DB will also enforce inet type
