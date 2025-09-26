@@ -160,10 +160,17 @@ async function getOKXPrices(creds?: { apiKey?: string; secretKey?: string; passp
     const response = await makeOKXRequest('/api/v5/market/tickers?instType=SPOT', 'GET', undefined, creds, supabase, userId);
     
     if (response.code !== '0') {
-      throw new Error(`OKX API Error: ${response.msg}`);
+      const errorMsg = `OKX API Error: ${response.msg}`;
+      console.error('❌ Erro da API OKX:', errorMsg);
+      throw new Error(errorMsg);
     }
 
     const prices: Record<string, number> = {};
+    
+    if (!response.data || !Array.isArray(response.data)) {
+      console.error('❌ Dados inválidos da OKX:', response);
+      throw new Error('Dados inválidos retornados pela API OKX');
+    }
     
     response.data.forEach((ticker: any) => {
       // Converter formato da OKX (BTC-USDT) para símbolo base (BTC)
@@ -175,11 +182,31 @@ async function getOKXPrices(creds?: { apiKey?: string; secretKey?: string; passp
     });
 
     console.log(`✅ Preços da OKX obtidos: ${Object.keys(prices).length} símbolos`);
-    return { success: true, prices }; // Retornar em formato compatível
+    return { 
+      success: true, 
+      data: prices,
+      count: Object.keys(prices).length
+    };
     
   } catch (error) {
     console.error('❌ Erro ao obter preços da OKX:', error);
-    throw error;
+    
+    // Verificar se é erro de IP whitelist
+    const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+    if (errorMessage.includes('50110') || errorMessage.includes('IP') || errorMessage.includes('whitelist')) {
+      return {
+        success: false,
+        error: 'IP não autorizado na whitelist da OKX. Configure a whitelist com 0.0.0.0/0 ou adicione todos os IPs dinâmicos do servidor.',
+        errorCode: '50110',
+        count: 0
+      };
+    }
+    
+    return {
+      success: false,
+      error: errorMessage,
+      count: 0
+    };
   }
 }
 
@@ -628,7 +655,16 @@ serve(async (req) => {
         }
         break;
       case 'get_prices':
-        result = await getOKXPrices(creds, supabase, normalizedUserId);
+        try {
+          result = await getOKXPrices(creds, supabase, normalizedUserId);
+        } catch (error) {
+          console.error('❌ Erro ao obter preços da OKX:', error);
+          result = {
+            success: false,
+            error: error instanceof Error ? error.message : 'Erro ao obter preços da OKX',
+            count: 0
+          };
+        }
         break;
       case 'get_balances':
         result = await getOKXBalances(creds, supabase, normalizedUserId);

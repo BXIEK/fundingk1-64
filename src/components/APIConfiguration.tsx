@@ -427,20 +427,33 @@ const APIConfiguration = () => {
         }
       });
 
+      console.log('📊 Resposta da OKX:', { data, error });
+
       if (error) {
         throw new Error(error.message);
       }
 
       if (data.success) {
+        const priceCount = data.count || Object.keys(data.data || {}).length || 0;
         toast({
           title: "✅ Conexão OKX Estabelecida",
-          description: `Conexão testada com sucesso! ${Object.keys(data.data || {}).length} pares de preços obtidos.`,
+          description: `Conexão testada com sucesso! ${priceCount} pares de preços obtidos.`,
         });
       } else {
-        throw new Error(data.error || 'Erro desconhecido');
+        // Verificar se é erro específico de IP whitelist
+        if (data.errorCode === '50110' || (data.error && data.error.includes('whitelist'))) {
+          toast({
+            title: "❌ IP não autorizado na OKX",
+            description: "Configure a whitelist da OKX com 0.0.0.0/0 ou use o AutoIPWhitelistFixer",
+            variant: "destructive",
+            duration: 10000
+          });
+        } else {
+          throw new Error(data.error || 'Erro desconhecido');
+        }
       }
     } catch (error) {
-      console.error('Erro no teste da OKX:', error);
+      console.error('❌ Erro no teste da OKX:', error);
       toast({
         title: "❌ Erro de Conexão OKX",
         description: error instanceof Error ? error.message : "Falha ao conectar com a API OKX. Verifique suas credenciais.",
