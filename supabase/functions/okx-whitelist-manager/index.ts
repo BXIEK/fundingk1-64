@@ -30,6 +30,25 @@ function isValidIP(ip: string) {
   return ipv4.test(value) || cidr4.test(value) || ipv6Generic.test(value);
 }
 
+async function normalizeUserId(id: string) {
+  try {
+    const generic = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+    if (id === '00000000-0000-0000-0000-000000000000' || generic.test(id)) {
+      return id.toLowerCase();
+    }
+    const encoder = new TextEncoder();
+    const hashBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(id));
+    const bytes = Array.from(new Uint8Array(hashBuffer)).slice(0, 16);
+    // Set version (4) and variant bits
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    const hex = bytes.map(b => b.toString(16).padStart(2, '0')).join('');
+    return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20,32)}`;
+  } catch (_) {
+    return '00000000-0000-0000-0000-000000000000';
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -39,12 +58,14 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const { action, user_id, ip_address, description, id, currentStatus } = body || {};
 
-    if (!user_id || typeof user_id !== "string" || !isValidUuid(user_id)) {
-      return new Response(JSON.stringify({ success: false, error: "user_id inválido" }), {
+    if (!user_id || typeof user_id !== "string") {
+      return new Response(JSON.stringify({ success: false, error: "user_id ausente" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 400,
       });
     }
+
+    const normalizedUserId = await normalizeUserId(user_id);
 
     if (!action) {
       return new Response(JSON.stringify({ success: false, error: "Ação não informada" }), {
@@ -53,13 +74,13 @@ serve(async (req) => {
       });
     }
 
-    console.log(`[OKX Whitelist Manager] action=${action} user_id=${user_id}`);
+    console.log(`[OKX Whitelist Manager] action=${action} user_id=${normalizedUserId} (orig=${user_id})`);
 
     if (action === "list") {
       const { data, error } = await supabaseAdmin
         .from("okx_whitelist_ips")
         .select("*")
-        .eq("user_id", user_id)
+        .eq("user_id", normalizedUserId)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -85,7 +106,7 @@ serve(async (req) => {
       const { data, error } = await supabaseAdmin
         .from("okx_whitelist_ips")
         .insert({
-          user_id,
+          user_id: normalizedUserId,
           ip_address: ip_address.trim(),
           description: (description?.trim?.() || "IP da whitelist OKX"),
           is_active: true,
@@ -117,7 +138,7 @@ serve(async (req) => {
         .from("okx_whitelist_ips")
         .update({ is_active: !Boolean(currentStatus) })
         .eq("id", id)
-        .eq("user_id", user_id);
+        .eq("user_id", normalizedUserId);
 
       if (error) throw error;
       return new Response(JSON.stringify({ success: true }), {
@@ -138,7 +159,7 @@ serve(async (req) => {
         .from("okx_whitelist_ips")
         .delete()
         .eq("id", id)
-        .eq("user_id", user_id);
+        .eq("user_id", normalizedUserId);
 
       if (error) throw error;
       return new Response(JSON.stringify({ success: true }), {
