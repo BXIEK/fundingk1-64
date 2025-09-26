@@ -155,7 +155,14 @@ serve(async (req) => {
       } catch (realError) {
         console.error('❌ Erro na execução real:', realError);
         status = 'failed';
-        error_message = `Falha na execução real: ${realError instanceof Error ? realError.message : String(realError)}`;
+        
+        // Tratamento específico para restrições de conformidade da OKX
+        if (realError instanceof Error && realError.message?.includes('OKX_COMPLIANCE_RESTRICTION')) {
+          error_message = `Par ${symbol} restrito por conformidade na OKX. Tente outro símbolo.`;
+        } else {
+          error_message = `Falha na execução real: ${realError instanceof Error ? realError.message : String(realError)}`;
+        }
+        
         net_profit = 0;
       }
     }

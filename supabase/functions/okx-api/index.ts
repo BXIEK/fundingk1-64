@@ -294,6 +294,13 @@ async function executeOKXOrderInternal(instId: string, orderRequest: OKXOrderReq
   
   if (sCode && sCode !== '0') {
     console.error(`❌ Erro na ordem OKX (sCode ${sCode}):`, sMsg);
+    
+    // Tratamento específico para restrições de conformidade
+    if (sCode === '51155') {
+      console.warn(`🚫 Par ${instId} restrito por conformidade local na OKX`);
+      throw new Error(`OKX_COMPLIANCE_RESTRICTION: ${sMsg || 'Par não permitido por restrições de conformidade local'} (sCode=${sCode})`);
+    }
+    
     throw new Error(`OKX Order Error: ${sMsg || 'Ordem rejeitada'} (sCode=${sCode})`);
   }
 
