@@ -149,7 +149,7 @@ async function getBinanceFundingOpportunities(): Promise<ArbitrageOpportunity[]>
 }
 
 function processFundingData(fundingData: any[]): ArbitrageOpportunity[] {
-  const standardInvestment = 1000; // Base padronizada US$ 1000
+  const standardInvestment = 10; // Base padronizada US$ 10
   
   const fundingOpportunities: ArbitrageOpportunity[] = fundingData.map((opp: any) => {
     // CÁLCULO PADRONIZADO (mesmo da calculadora)
@@ -291,7 +291,7 @@ function simulateOKXPrices(binancePrices: any) {
 function generateGuaranteedOpportunities(binancePrices: any): ArbitrageOpportunity[] {
   const guaranteedOpps: ArbitrageOpportunity[] = [];
   const symbols = Object.keys(binancePrices).slice(0, 5); // Pegar 5 símbolos principais (aumentado de 3)
-  const standardInvestment = 1000; // Base padronizada US$ 1000
+  const standardInvestment = 10; // Base padronizada US$ 10
   
   symbols.forEach((symbol, index) => {
     const basePrice = binancePrices[symbol];
@@ -386,7 +386,7 @@ function calculateCrossExchangeOpportunities(binancePrices: any, okxPrices: any,
     // Verificar oportunidade Binance -> OKX
     if (spreadBinanceToOKX >= minSpread && spreadBinanceToOKX <= maxSpread) {
       // CÁLCULO PADRONIZADO (mesmo da calculadora)
-      const standardInvestment = 1000;
+      const standardInvestment = 10;
       const spotQuantity = standardInvestment / binancePrice;
       const futuresValue = spotQuantity * okxPrice;
       const grossProfit = futuresValue - standardInvestment;
@@ -417,7 +417,7 @@ function calculateCrossExchangeOpportunities(binancePrices: any, okxPrices: any,
     // Verificar oportunidade OKX -> Binance  
     if (spreadOKXToBinance >= minSpread && spreadOKXToBinance <= maxSpread) {
       // CÁLCULO PADRONIZADO (mesmo da calculadora)
-      const standardInvestment = 1000;
+      const standardInvestment = 10;
       const spotQuantity = standardInvestment / okxPrice;
       const futuresValue = spotQuantity * binancePrice;
       const grossProfit = futuresValue - standardInvestment;
@@ -614,7 +614,7 @@ serve(async (req) => {
         // Preparar dados para inserção com cálculos padronizados
         const insertData = finalOpportunities.map(opp => {
           // PADRONIZAR: calcular lucro baseado em US$ 1000 (mesmo padrão da calculadora)
-          const standardInvestment = 1000;
+          const standardInvestment = 10;
           const spotQuantity = standardInvestment / opp.buy_price;
           const futuresValue = spotQuantity * opp.sell_price;
           const grossProfit = futuresValue - standardInvestment;

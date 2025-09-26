@@ -188,7 +188,7 @@ export default function CrossPlatformTransferHub() {
             symbol: opp.symbol,
             from_platform: opp.buy_exchange,
             to_platform: opp.sell_exchange,
-            amount_available: 1000 / opp.buy_price, // Mock available amount
+            amount_available: 100 / opp.buy_price, // Mock available amount
             arbitrage_opportunity: {
               spread_percentage: opp.spread_percentage,
               potential_profit: opp.potential_profit,
@@ -234,7 +234,7 @@ export default function CrossPlatformTransferHub() {
         estimated_cost: selectedTransfer.amount * 0.002, // 0.2% cost
         estimated_time_minutes: selectedTransfer.to === 'Web3' ? 15 : 30,
         success_probability: 95,
-        warnings: selectedTransfer.amount > 1000 ? ['Valor alto - considere dividir em múltiplas transferências'] : [],
+        warnings: selectedTransfer.amount > 100 ? ['Valor alto - considere dividir em múltiplas transferências'] : [],
         recommendations: [
           'Verifique os endereços de depósito',
           'Considere horários de menor congestionamento de rede',

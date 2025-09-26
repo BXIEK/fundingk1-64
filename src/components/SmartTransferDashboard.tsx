@@ -413,7 +413,7 @@ const SmartTransferDashboard = () => {
                     step="1"
                     value={formData.requiredAmount}
                     onChange={(e) => setFormData(prev => ({...prev, requiredAmount: parseFloat(e.target.value) || 0}))}
-                    placeholder="100"
+                    placeholder="10"
                   />
                   <div className="text-xs text-muted-foreground mt-1">
                     💡 Valor em USDT que será usado para comprar {formData.symbol}

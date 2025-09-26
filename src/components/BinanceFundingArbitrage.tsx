@@ -396,9 +396,9 @@ export const BinanceFundingArbitrage = () => {
                 type="number"
                 value={investmentAmount}
                 onChange={(e) => setInvestmentAmount(Number(e.target.value))}
-                min="100"
-                max="100000"
-                step="100"
+                min="10"
+                max="1000"
+                step="10"
               />
             </div>
           </div>

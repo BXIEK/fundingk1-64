@@ -829,7 +829,7 @@ const APIConfiguration = () => {
                       value={tradingConfig.maxTradeSize}
                       onChange={(e) => setTradingConfig(prev => ({ 
                         ...prev, 
-                        maxTradeSize: parseFloat(e.target.value) || 500 
+                        maxTradeSize: parseFloat(e.target.value) || 10 
                       }))}
                     />
                   </div>

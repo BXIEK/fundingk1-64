@@ -57,7 +57,7 @@ serve(async (req) => {
       hyperliquidWalletAddress,
       hyperliquidPrivateKey,
       config = {
-        investmentAmount: 1000,
+        investmentAmount: 10,
         maxSlippage: 0.3,
         customFeeRate: 0.2, // 0.2% para cross-exchange
         stopLossPercentage: 2.0,

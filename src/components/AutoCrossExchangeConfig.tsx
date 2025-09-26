@@ -274,7 +274,7 @@ export const AutoCrossExchangeConfig = () => {
     if (!binanceCost || !pionexCost) return 0;
     
     const totalFees = binanceCost.withdrawal_fee_fixed + pionexCost.deposit_fee_fixed + 
-                     (binanceCost.trading_fee_taker + pionexCost.trading_fee_taker) * 100; // Assumindo $100 trade
+                     (binanceCost.trading_fee_taker + pionexCost.trading_fee_taker) * 10; // Assumindo $10 trade
     
     return totalFees;
   };

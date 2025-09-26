@@ -228,7 +228,7 @@ async function findCrossExchangeOpportunities(
 
     if (!buyCosts || !sellCosts) continue;
 
-    const amount = Math.min(config.max_investment_amount / opportunity.buy_price, 100);
+    const amount = Math.min(config.max_investment_amount / opportunity.buy_price, 10);
     
     // Calcular custos totais
     const tradingFeeBuy = amount * opportunity.buy_price * buyCosts.trading_fee_taker;
@@ -275,7 +275,7 @@ async function executeArbitrageOpportunity(
   try {
     console.log(`🎯 Executando oportunidade: ${opportunity.symbol} ${opportunity.buy_exchange} → ${opportunity.sell_exchange}`);
     
-    const amount = Math.min(config.max_investment_amount / opportunity.buy_price, 100);
+    const amount = Math.min(config.max_investment_amount / opportunity.buy_price, 10);
     
     // Registrar execução
     const { error: insertError } = await supabase

@@ -119,7 +119,7 @@ serve(async (req) => {
             console.log(`🚀 Executando funding arbitrage automático: ${opportunity.symbol}`);
             
             // Calcular quantidade baseada no investimento máximo
-            const investmentAmount = Math.min(config.max_investment_per_trade, 1000);
+            const investmentAmount = Math.min(config.max_investment_per_trade, 10);
             const tokenAmount = investmentAmount / opportunity.spotPrice;
 
             // Verificar se já existe uma posição aberta para este símbolo

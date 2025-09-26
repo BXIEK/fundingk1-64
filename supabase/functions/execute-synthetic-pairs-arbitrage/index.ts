@@ -34,13 +34,13 @@ serve(async (req) => {
     const { 
       opportunityId, 
       userId, 
-      amount = 100, 
+      amount = 10, 
       symbol, 
       buy_price, 
       sell_price, 
       mode = 'simulation',
       config = {
-        investmentAmount: 100,
+        investmentAmount: 10,
         maxSlippage: 0.5,
         customFeeRate: 0.1,
         stopLossPercentage: 2.0,

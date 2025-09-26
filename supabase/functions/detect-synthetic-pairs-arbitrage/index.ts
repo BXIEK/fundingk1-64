@@ -220,7 +220,7 @@ function calculateRealCorrelationalOpportunities(spotData: any[], futuresData: a
       const execution_time = 800 + Math.floor(Math.random() * 400);
       
       // Calcular lucro para $100
-      const trade_amount = 100;
+      const trade_amount = 10;
       let gross_profit = 0;
       
       if (abs_spread > Math.abs(funding_rate)) {

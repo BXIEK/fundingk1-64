@@ -44,7 +44,7 @@ interface ArbitrageExecutionModalProps {
 }
 
 const configSchema = z.object({
-  investmentAmount: z.number().min(10, "Valor mínimo: $10").max(100000, "Valor máximo: $100,000"),
+  investmentAmount: z.number().min(10, "Valor mínimo: $10").max(1000, "Valor máximo: $1,000"),
   maxSlippage: z.number().min(0.1, "Slippage mínimo: 0.1%").max(5, "Slippage máximo: 5%"),
   customFeeRate: z.number().min(0.1, "Taxa mínima: 0.1%").max(1.0, "Taxa máxima: 1.0%"),
   stopLossPercentage: z.number().min(1, "Stop loss mínimo: 1%").max(10, "Stop loss máximo: 10%"),
@@ -186,7 +186,7 @@ const ArbitrageExecutionModal: React.FC<ArbitrageExecutionModalProps> = ({
                 type="number"
                 value={config.investmentAmount}
                 onChange={(e) => setConfig(prev => ({ ...prev, investmentAmount: Number(e.target.value) }))}
-                placeholder="100"
+                placeholder="10"
                 className={errors.investmentAmount ? "border-red-500" : ""}
               />
               {errors.investmentAmount && (
