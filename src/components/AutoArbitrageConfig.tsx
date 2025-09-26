@@ -54,21 +54,53 @@ const AutoArbitrageConfig = () => {
   const saveConfiguration = async () => {
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from('auto_cross_exchange_configs')
-        .upsert(config);
+      // Garantir que o user_id está presente
+      if (!config.user_id) {
+        const userId = await getUserId();
+        setConfig(prev => ({ ...prev, user_id: userId }));
+        config.user_id = userId;
+      }
 
-      if (error) throw error;
+      console.log('Salvando configuração:', config);
+
+      const { data, error } = await supabase
+        .from('auto_cross_exchange_configs')
+        .upsert({
+          user_id: config.user_id,
+          is_enabled: config.is_enabled,
+          min_spread_percentage: Number(config.min_spread_percentage),
+          max_investment_amount: Number(config.max_investment_amount),
+          min_profit_threshold: Number(config.min_profit_threshold),
+          max_concurrent_operations: Number(config.max_concurrent_operations),
+          auto_rebalance_enabled: config.auto_rebalance_enabled,
+          exchanges_enabled: config.exchanges_enabled,
+          symbols_filter: config.symbols_filter,
+          risk_management_level: config.risk_management_level,
+          stop_loss_percentage: config.stop_loss_percentage ? Number(config.stop_loss_percentage) : null
+        }, {
+          onConflict: 'user_id'
+        });
+
+      if (error) {
+        console.error('Erro do Supabase:', error);
+        throw error;
+      }
+
+      console.log('Configuração salva com sucesso:', data);
 
       toast({
         title: "✅ Configuração Salva",
         description: "Sistema de arbitragem configurado!"
       });
 
-    } catch (error) {
+      // Recarregar configuração para garantir consistência
+      await loadConfiguration();
+
+    } catch (error: any) {
+      console.error('Erro ao salvar:', error);
       toast({
         title: "Erro",
-        description: "Erro ao salvar configuração",
+        description: error.message || "Erro ao salvar configuração",
         variant: "destructive"
       });
     } finally {
