@@ -63,42 +63,77 @@ const APICredentialsManager = () => {
   }, []);
 
   const loadSupabaseCredentials = async () => {
+    let credentialsLoaded = false;
+    
     try {
+      console.log('🔄 Carregando credenciais do Supabase...');
+      
       // Carregar credenciais da Binance do Supabase
-      const { data: binanceData } = await supabase.functions.invoke('get-binance-credentials');
-      if (binanceData?.success && binanceData.credentials) {
+      const { data: binanceData, error: binanceError } = await supabase.functions.invoke('get-binance-credentials');
+      
+      if (binanceError) {
+        console.error('❌ Erro ao carregar credenciais Binance:', binanceError);
+      } else if (binanceData?.success && binanceData.credentials) {
+        console.log('✅ Credenciais Binance carregadas com sucesso');
         setCredentials(prev => ({ 
           ...prev, 
-          binance: binanceData.credentials 
+          binance: {
+            apiKey: binanceData.credentials.apiKey || '',
+            secretKey: binanceData.credentials.secretKey || ''
+          }
         }));
         setConnectionStatus(prev => ({ 
           ...prev, 
           binance: 'configured' 
         }));
         localStorage.setItem("binance_credentials", JSON.stringify(binanceData.credentials));
+        credentialsLoaded = true;
+      } else {
+        console.log('⚠️ Credenciais Binance não encontradas no Supabase');
       }
 
       // Carregar credenciais da OKX do Supabase
-      const { data: okxData } = await supabase.functions.invoke('get-okx-credentials');
-      if (okxData?.success && okxData.credentials) {
+      const { data: okxData, error: okxError } = await supabase.functions.invoke('get-okx-credentials');
+      
+      if (okxError) {
+        console.error('❌ Erro ao carregar credenciais OKX:', okxError);
+      } else if (okxData?.success && okxData.credentials) {
+        console.log('✅ Credenciais OKX carregadas com sucesso');
         setCredentials(prev => ({ 
           ...prev, 
-          okx: okxData.credentials 
+          okx: {
+            apiKey: okxData.credentials.apiKey || '',
+            secretKey: okxData.credentials.secretKey || '',
+            passphrase: okxData.credentials.passphrase || ''
+          }
         }));
         setConnectionStatus(prev => ({ 
           ...prev, 
           okx: 'configured' 
         }));
         localStorage.setItem("okx_credentials", JSON.stringify(okxData.credentials));
+        credentialsLoaded = true;
+      } else {
+        console.log('⚠️ Credenciais OKX não encontradas no Supabase');
       }
 
-      toast({
-        title: "✅ Credenciais Carregadas",
-        description: "Credenciais das exchanges carregadas automaticamente"
-      });
+      // Só mostrar toast se pelo menos uma credencial foi carregada
+      if (credentialsLoaded) {
+        toast({
+          title: "✅ Credenciais Carregadas",
+          description: "Credenciais das exchanges carregadas do Supabase e preenchidas automaticamente"
+        });
+      } else {
+        console.log('📝 Nenhuma credencial encontrada no Supabase, campos ficaram vazios para preenchimento manual');
+      }
 
     } catch (error) {
-      console.log('Credenciais do Supabase não encontradas, usando localStorage');
+      console.error('❌ Erro geral ao carregar credenciais do Supabase:', error);
+      toast({
+        title: "⚠️ Aviso",
+        description: "Erro ao carregar credenciais do Supabase. Preencha manualmente ou verifique a configuração.",
+        variant: "destructive"
+      });
     }
   };
 
