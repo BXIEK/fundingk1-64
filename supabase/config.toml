@@ -21,3 +21,9 @@ verify_jwt = false
 
 [functions.okx-whitelist-manager]
 verify_jwt = false
+
+[functions.get-binance-credentials]
+verify_jwt = false
+
+[functions.get-okx-credentials]
+verify_jwt = false

@@ -59,7 +59,48 @@ const APICredentialsManager = () => {
 
   useEffect(() => {
     loadStoredCredentials();
+    loadSupabaseCredentials();
   }, []);
+
+  const loadSupabaseCredentials = async () => {
+    try {
+      // Carregar credenciais da Binance do Supabase
+      const { data: binanceData } = await supabase.functions.invoke('get-binance-credentials');
+      if (binanceData?.success && binanceData.credentials) {
+        setCredentials(prev => ({ 
+          ...prev, 
+          binance: binanceData.credentials 
+        }));
+        setConnectionStatus(prev => ({ 
+          ...prev, 
+          binance: 'configured' 
+        }));
+        localStorage.setItem("binance_credentials", JSON.stringify(binanceData.credentials));
+      }
+
+      // Carregar credenciais da OKX do Supabase
+      const { data: okxData } = await supabase.functions.invoke('get-okx-credentials');
+      if (okxData?.success && okxData.credentials) {
+        setCredentials(prev => ({ 
+          ...prev, 
+          okx: okxData.credentials 
+        }));
+        setConnectionStatus(prev => ({ 
+          ...prev, 
+          okx: 'configured' 
+        }));
+        localStorage.setItem("okx_credentials", JSON.stringify(okxData.credentials));
+      }
+
+      toast({
+        title: "✅ Credenciais Carregadas",
+        description: "Credenciais das exchanges carregadas automaticamente"
+      });
+
+    } catch (error) {
+      console.log('Credenciais do Supabase não encontradas, usando localStorage');
+    }
+  };
 
   const loadStoredCredentials = () => {
     try {
