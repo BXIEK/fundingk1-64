@@ -158,4 +158,53 @@ All colors MUST be HSL.
     color: inherit;
     opacity: 1;
   }
+
+  /* Mobile optimizations */
+  @media (max-width: 768px) {
+    /* Touch-friendly buttons and inputs */
+    .touch-target {
+      min-height: 44px;
+      min-width: 44px;
+    }
+    
+    /* Better spacing for mobile */
+    .mobile-container {
+      padding: 1rem;
+      padding-bottom: env(safe-area-inset-bottom, 1rem);
+    }
+    
+    /* Optimize card spacing */
+    .mobile-card {
+      margin-bottom: 1rem;
+    }
+    
+    /* Responsive text sizes */
+    .mobile-text-sm {
+      font-size: 0.875rem;
+      line-height: 1.25rem;
+    }
+    
+    .mobile-text-base {
+      font-size: 1rem;
+      line-height: 1.5rem;
+    }
+    
+    /* Stack form elements vertically */
+    .mobile-form-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+  }
+
+  /* PWA viewport optimizations */
+  @supports (padding: max(0px)) {
+    .pb-safe {
+      padding-bottom: max(1rem, env(safe-area-inset-bottom));
+    }
+    
+    .pt-safe {
+      padding-top: max(1rem, env(safe-area-inset-top));
+    }
+  }
 }

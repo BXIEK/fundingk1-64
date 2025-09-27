@@ -230,25 +230,25 @@ const APICredentialsManager = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 px-2 pb-safe">
       {/* Status Geral */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Shield className="h-5 w-5" />
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Shield className="h-4 w-4" />
             Status das Conexões API
           </CardTitle>
-          <CardDescription>
+          <CardDescription className="text-sm">
             Configure e teste suas credenciais para habilitar operações reais
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
+          <div className="space-y-3">
             {Object.entries(connectionStatus).map(([exchange, status]) => (
               <div key={exchange} className="flex items-center justify-between p-3 border rounded-lg">
-                <div className="flex items-center gap-3">
-                  <Key className="h-4 w-4" />
-                  <span className="font-medium capitalize">{exchange}</span>
+                <div className="flex items-center gap-2">
+                  <Key className="h-3 w-3 sm:h-4 sm:w-4" />
+                  <span className="font-medium capitalize text-sm sm:text-base">{exchange}</span>
                 </div>
                 {getStatusBadge(status)}
               </div>
@@ -268,13 +268,13 @@ const APICredentialsManager = () => {
 
       {/* Configuração Binance */}
       <Card>
-        <CardHeader>
-          <CardTitle>Binance API</CardTitle>
-          <CardDescription>Configure suas credenciais da Binance</CardDescription>
+        <CardHeader className="pb-4">
+          <CardTitle className="text-lg">Binance API</CardTitle>
+          <CardDescription className="text-sm">Configure suas credenciais da Binance</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label>API Key</Label>
+            <Label className="text-sm font-medium">API Key</Label>
             <div className="flex gap-2">
               <Input
                 type={showKeys.binance ? "text" : "password"}
@@ -284,19 +284,21 @@ const APICredentialsManager = () => {
                   binance: { ...prev.binance, apiKey: e.target.value }
                 }))}
                 placeholder="Sua API Key da Binance"
+                className="text-sm"
               />
               <Button
                 variant="outline"
                 size="icon"
+                className="shrink-0"
                 onClick={() => setShowKeys(prev => ({ ...prev, binance: !prev.binance }))}
               >
-                {showKeys.binance ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                {showKeys.binance ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
               </Button>
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label>Secret Key</Label>
+            <Label className="text-sm font-medium">Secret Key</Label>
             <Input
               type={showKeys.binance ? "text" : "password"}
               value={credentials.binance.secretKey}
@@ -305,23 +307,28 @@ const APICredentialsManager = () => {
                 binance: { ...prev.binance, secretKey: e.target.value }
               }))}
               placeholder="Sua Secret Key da Binance"
+              className="text-sm"
             />
           </div>
 
-          <div className="flex gap-2">
-            <Button onClick={() => saveCredentials('binance')}>
-              <Key className="h-4 w-4 mr-2" />
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button 
+              onClick={() => saveCredentials('binance')}
+              className="flex-1 sm:flex-none"
+            >
+              <Key className="h-3 w-3 mr-2" />
               Salvar
             </Button>
             <Button 
               variant="outline" 
               onClick={testBinanceConnection}
               disabled={testing.binance}
+              className="flex-1 sm:flex-none"
             >
               {testing.binance ? (
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
+                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current mr-2"></div>
               ) : (
-                <TestTube className="h-4 w-4 mr-2" />
+                <TestTube className="h-3 w-3 mr-2" />
               )}
               Testar
             </Button>
@@ -331,13 +338,13 @@ const APICredentialsManager = () => {
 
       {/* Configuração OKX */}
       <Card>
-        <CardHeader>
-          <CardTitle>OKX API</CardTitle>
-          <CardDescription>Configure suas credenciais da OKX</CardDescription>
+        <CardHeader className="pb-4">
+          <CardTitle className="text-lg">OKX API</CardTitle>
+          <CardDescription className="text-sm">Configure suas credenciais da OKX</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label>API Key</Label>
+            <Label className="text-sm font-medium">API Key</Label>
             <div className="flex gap-2">
               <Input
                 type={showKeys.okx ? "text" : "password"}
@@ -347,19 +354,21 @@ const APICredentialsManager = () => {
                   okx: { ...prev.okx, apiKey: e.target.value }
                 }))}
                 placeholder="Sua API Key da OKX"
+                className="text-sm"
               />
               <Button
                 variant="outline"
                 size="icon"
+                className="shrink-0"
                 onClick={() => setShowKeys(prev => ({ ...prev, okx: !prev.okx }))}
               >
-                {showKeys.okx ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                {showKeys.okx ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
               </Button>
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label>Secret Key</Label>
+            <Label className="text-sm font-medium">Secret Key</Label>
             <Input
               type={showKeys.okx ? "text" : "password"}
               value={credentials.okx.secretKey}
@@ -368,11 +377,12 @@ const APICredentialsManager = () => {
                 okx: { ...prev.okx, secretKey: e.target.value }
               }))}
               placeholder="Sua Secret Key da OKX"
+              className="text-sm"
             />
           </div>
 
           <div className="space-y-2">
-            <Label>Passphrase</Label>
+            <Label className="text-sm font-medium">Passphrase</Label>
             <Input
               type={showKeys.okx ? "text" : "password"}
               value={credentials.okx.passphrase}
@@ -381,32 +391,37 @@ const APICredentialsManager = () => {
                 okx: { ...prev.okx, passphrase: e.target.value }
               }))}
               placeholder="Sua Passphrase da OKX"
+              className="text-sm"
             />
           </div>
 
-          <div className="flex gap-2">
-            <Button onClick={() => saveCredentials('okx')}>
-              <Key className="h-4 w-4 mr-2" />
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button 
+              onClick={() => saveCredentials('okx')}
+              className="flex-1 sm:flex-none"
+            >
+              <Key className="h-3 w-3 mr-2" />
               Salvar
             </Button>
             <Button 
               variant="outline" 
               onClick={testOKXConnection}
               disabled={testing.okx}
+              className="flex-1 sm:flex-none"
             >
               {testing.okx ? (
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
+                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current mr-2"></div>
               ) : (
-                <TestTube className="h-4 w-4 mr-2" />
+                <TestTube className="h-3 w-3 mr-2" />
               )}
               Testar
             </Button>
           </div>
 
           {connectionStatus.okx === 'error' && (
-            <Alert>
+            <Alert className="mt-4">
               <AlertTriangle className="h-4 w-4" />
-              <AlertDescription>
+              <AlertDescription className="text-sm">
                 <strong>Erro de IP Whitelist:</strong> Configure "0.0.0.0/0" em OKX → API Management → Edit API → IP Restriction para permitir Edge Functions.
               </AlertDescription>
             </Alert>

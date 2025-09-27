@@ -6,13 +6,120 @@ import { HybridStrategyDashboard } from "@/components/HybridStrategyDashboard";
 import { TradingModeValidator } from "@/components/TradingModeValidator";
 import { SmartProxyDashboard } from "@/components/SmartProxyDashboard";
 import SyntheticPairsArbitrage from "@/components/SyntheticPairsArbitrage";
+import MobileAPIManager from "@/components/MobileAPIManger";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { TrendingUp, Wallet, Settings, MessageCircle, ArrowRightLeft, BarChart3, Zap, DollarSign, Globe } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { TrendingUp, Wallet, Settings, MessageCircle, ArrowRightLeft, BarChart3, Zap, DollarSign, Globe, Smartphone, Shield, ArrowRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const Index = () => {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
+  
+  if (isMobile) {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="mobile-container pb-safe">
+          {/* Mobile Header */}
+          <div className="text-center space-y-4 mb-8">
+            <div className="flex items-center justify-center gap-2">
+              <Smartphone className="h-8 w-8 text-primary" />
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
+                FundingK1
+              </h1>
+            </div>
+            <p className="text-muted-foreground text-sm">
+              Plataforma de arbitragem móvel
+            </p>
+            <Badge className="bg-success text-success-foreground text-xs">
+              📱 Versão Mobile Otimizada
+            </Badge>
+          </div>
+
+          {/* Mobile Quick Actions */}
+          <div className="grid gap-4 mb-8">
+            <Card className="border-border/50">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <TrendingUp className="h-4 w-4 text-primary" />
+                  Funding Arbitrage
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Spot ↔ Futures na Binance
+                </p>
+                <Button size="sm" className="w-full touch-target" onClick={() => navigate('/arbitrage-control')}>
+                  Acessar Arbitragem
+                  <ArrowRight className="h-3 w-3 ml-2" />
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card className="border-border/50">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Wallet className="h-4 w-4 text-primary" />
+                  Portfolio
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Monitore seus saldos
+                </p>
+                <Button size="sm" variant="outline" className="w-full touch-target" onClick={() => navigate('/portfolio')}>
+                  Ver Portfolio
+                  <ArrowRight className="h-3 w-3 ml-2" />
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card className="border-border/50">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Shield className="h-4 w-4 text-primary" />
+                  Configurações
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Configure suas APIs
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Mobile API Manager */}
+          <MobileAPIManager />
+
+          {/* Mobile Features */}
+          <div className="mt-8 space-y-4">
+            <Card className="border-border/50">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <MessageCircle className="h-4 w-4 text-primary" />
+                  Chat IA
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ChatInterface />
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Mobile Footer */}
+          <div className="text-center mt-8 pb-safe">
+            <p className="text-xs text-muted-foreground">
+              Sistema otimizado para dispositivos móveis
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
   
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 p-2 sm:p-4">
