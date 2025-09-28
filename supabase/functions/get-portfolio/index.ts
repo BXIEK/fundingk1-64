@@ -9,8 +9,10 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Helper functions for API calls
+// Helper functions for API calls - CONEXÃO DIRETA SEM PROXIES
 async function getBinanceBalances(apiKey: string, secretKey: string) {
+  console.log('🔗 CONEXÃO DIRETA BINANCE - SEM PROXIES/BYPASS');
+  
   const timestamp = Date.now();
   const queryString = `timestamp=${timestamp}`;
   
@@ -29,25 +31,27 @@ async function getBinanceBalances(apiKey: string, secretKey: string) {
     .map(b => b.toString(16).padStart(2, '0'))
     .join('');
 
+  console.log('📡 Fazendo requisição DIRETA para api.binance.com...');
+  
   const response = await fetch(
     `https://api.binance.com/api/v3/account?${queryString}&signature=${signatureHex}`,
     {
+      method: 'GET',
       headers: {
         'X-MBX-APIKEY': apiKey,
+        'Content-Type': 'application/json',
       },
     }
   );
 
   if (!response.ok) {
-    // Capturar detalhes específicos do erro
+    const errorText = await response.text();
+    console.error('❌ Erro da API Binance:', response.status, errorText);
+    
     let errorMessage = `Binance API error: ${response.statusText}`;
     
-    if (response.status === 451) {
-      errorMessage = 'Geographic restriction: Binance API is blocked from this server location';
-    }
-    
     try {
-      const errorData = await response.json();
+      const errorData = JSON.parse(errorText);
       if (errorData.msg) {
         errorMessage += ` - ${errorData.msg}`;
       }
@@ -59,6 +63,7 @@ async function getBinanceBalances(apiKey: string, secretKey: string) {
   }
 
   const data = await response.json();
+  console.log('✅ Binance API conectada diretamente com sucesso!');
   return data.balances.filter((b: any) => parseFloat(b.free) > 0 || parseFloat(b.locked) > 0);
 }
 

@@ -256,30 +256,11 @@ async function analyzeAndAdaptBinanceError(error: string, adaptations: string[],
   
   // IP não autorizado
   if (error.includes('IP') || error.includes('not authorized') || error.includes('-2010')) {
-    adaptations.push(`Tentativa ${attempt}: IP não autorizado - aplicando estratégias de bypass`)
-    console.log('🌐 IP não autorizado - tentando bypass geográfico')
+    adaptations.push(`Tentativa ${attempt}: IP não autorizado - esta API não tem whitelist`)
+    console.log('🌐 IP não autorizado - mas esta API não deve ter whitelist')
     
-    // Tentar usar proxy geográfico
-    try {
-      const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-      
-      await fetch(`${supabaseUrl}/functions/v1/geographic-bypass`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json', 
-          'Authorization': `Bearer ${supabaseKey}`
-        },
-        body: JSON.stringify({
-          targetUrl: 'https://api.binance.com',
-          method: 'GET'
-        })
-      })
-      
-      adaptations.push('Bypass geográfico aplicado')
-    } catch {
-      console.log('⚠️ Falha ao aplicar bypass geográfico')
-    }
+    // NÃO usar bypass geográfico - fazer conexão direta
+    console.log('⚠️ Conexão direta falhou - API Key pode ter problema')
     
     return attempt < maxRetries
   }
