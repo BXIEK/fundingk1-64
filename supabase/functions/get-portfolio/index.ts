@@ -517,9 +517,41 @@ serve(async (req) => {
               console.log(`✅ OKX conectada com sucesso: ${okxBalances.length} saldos carregados`);
             } else {
               console.warn('⚠️ Falha ao obter saldos da OKX:', okxJson.error);
+              
+              // Verificar se é erro de IP whitelist (código 50110)
+              if (okxJson.error && okxJson.error.includes('50110')) {
+                console.error('🚫 ERRO DE IP WHITELIST DA OKX!');
+                console.error('Supabase está usando IPs dinâmicos que não estão na whitelist da OKX');
+                console.error('💡 SOLUÇÕES:');
+                console.error('1. Na OKX → API Management → Edit → Desabilite IP Restriction');
+                console.error('2. Ou adicione 0.0.0.0/0 na whitelist (se disponível)');
+                console.error('3. Ou mantenha a OKX apenas para preços (sem saldos)');
+                dataSource = dataSource === 'real' ? 'partial-real' : dataSource;
+              } else if (okxJson.error && okxJson.error.includes('Unauthorized')) {
+                console.error('🚨 CREDENCIAIS DA OKX INVÁLIDAS! Verifique:');
+                console.error('1. Se a API Key está correta');
+                console.error('2. Se a Secret Key está correta');
+                console.error('3. Se a Passphrase está correta');
+                console.error('4. Se as permissões incluem "Trade"');
+                dataSource = dataSource === 'real' ? 'partial-real' : dataSource;
+              }
             }
           } catch (okxError) {
             console.error('❌ Erro específico da OKX:', okxError);
+            console.error('📋 Detalhes do erro OKX:', {
+              message: okxError.message,
+              name: okxError.name
+            });
+            
+            // Verificar se é erro de conectividade ou whitelist
+            if (okxError.message.includes('50110') || okxError.message.includes('IP') || okxError.message.includes('whitelist')) {
+              console.error('🚫 PROBLEMA DE IP WHITELIST DA OKX - Edge Functions usam IPs dinâmicos');
+              console.error('💡 Configure a OKX para permitir qualquer IP ou desabilite IP Restriction');
+              dataSource = dataSource === 'real' ? 'partial-real' : dataSource;
+            } else {
+              console.error('❌ Erro geral da OKX - pode ser temporário');
+              dataSource = dataSource === 'real' ? 'partial-real' : dataSource;
+            }
           }
         } else {
           console.log('⚠️ Credenciais da OKX não fornecidas - pulando OKX');
