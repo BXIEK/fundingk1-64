@@ -11,9 +11,8 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Wallet, Activity, Clock, Target, RefreshCw, Settings, Shield, AlertTriangle, Plus } from 'lucide-react';
+import { ArrowLeft, Wallet, Activity, RefreshCw, Settings, Shield, AlertTriangle, Plus, AlertCircle } from 'lucide-react';
 import APIConfiguration from '@/components/APIConfiguration';
-import Web3PortfolioCard from '@/components/Web3PortfolioCard';
 import RealtimeTradingValidator from '@/components/RealtimeTradingValidator';
 
 import { useTradingMode } from '@/contexts/TradingModeContext';
@@ -44,8 +43,8 @@ interface ArbitrageTrade {
   executed_at: string;
   created_at: string;
   risk_level: string;
-  trading_mode?: string; // Adicionar campo de modo
-  error_message?: string; // Adicionar campo de mensagem de erro
+  trading_mode?: string;
+  error_message?: string;
 }
 
 interface PortfolioStats {
@@ -68,6 +67,7 @@ export default function Portfolio() {
   const [showAPIConfig, setShowAPIConfig] = useState(false);
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [depositAmount, setDepositAmount] = useState('');
+  const [dataSource, setDataSource] = useState('');
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -90,7 +90,6 @@ export default function Portfolio() {
       // Se modo real estiver ativo, incluir credenciais
       if (isRealMode) {
         const binanceCredentials = localStorage.getItem('binance_credentials');
-        const pionexCredentials = localStorage.getItem('pionex_credentials');
         const hyperliquidCredentials = localStorage.getItem('hyperliquid_credentials');
         const okxCredentials = localStorage.getItem('okx_credentials');
         
@@ -100,15 +99,6 @@ export default function Portfolio() {
             ...requestBody, 
             binance_api_key: binanceCreds.apiKey,
             binance_secret_key: binanceCreds.secretKey
-          };
-        }
-        
-        if (pionexCredentials) {
-          const pionexCreds = JSON.parse(pionexCredentials);
-          requestBody = { 
-            ...requestBody, 
-            pionex_api_key: pionexCreds.apiKey,
-            pionex_secret_key: pionexCreds.secretKey
           };
         }
         
@@ -131,15 +121,6 @@ export default function Portfolio() {
             okx_passphrase: okxCreds.passphrase
           };
         }
-        
-        // Log para debug
-        console.log('Credenciais enviadas:', {
-          hasBinance: !!binanceCredentials,
-          hasPionex: !!pionexCredentials,
-          hasHyperliquid: !!hyperliquidCredentials,
-          hasOKX: !!okxCredentials,
-          realMode: isRealMode
-        });
       }
 
       const userId = await getUserId();
@@ -157,21 +138,36 @@ export default function Portfolio() {
       }
       
       if (response.success) {
-        setPortfolio(response.data.portfolio);
-        setTrades(response.data.recent_trades);
-        setStats(response.data.statistics);
+        setPortfolio(response.data.portfolio || []);
+        setTrades(response.data.recent_trades || []);
+        setStats(response.data.statistics || null);
+        setDataSource(response.data.data_source || 'unknown');
         
-        // Mostrar toast indicando o modo e fonte dos dados
+        // Mostrar toast baseado na fonte dos dados
         if (isRealMode) {
-          if (response.data.data_source === 'real-api') {
+          const source = response.data.data_source;
+          
+          if (source === 'real-api') {
             toast({
               title: "✅ Modo Real Ativo",
               description: "Dados obtidos diretamente das APIs das exchanges",
             });
-          } else if (response.data.data_source === 'simulated-fallback') {
+          } else if (source === 'invalid-credentials') {
             toast({
-              title: "⚠️ Modo Real com Fallback",
-              description: "Problema na autenticação com APIs. Verifique suas credenciais.",
+              title: "🚨 Credenciais Inválidas",
+              description: "Verifique suas API Keys das exchanges",
+              variant: "destructive"
+            });
+          } else if (source === 'geo-blocked') {
+            toast({
+              title: "🌍 Restrição Geográfica",
+              description: "Servidor bloqueado geograficamente pela exchange",
+              variant: "destructive"
+            });
+          } else if (source === 'no-data' || source === 'api-error') {
+            toast({
+              title: "❌ Sem Dados Reais",
+              description: "Não foi possível obter saldos reais das exchanges",
               variant: "destructive"
             });
           }
@@ -182,7 +178,19 @@ export default function Portfolio() {
           });
         }
       } else {
-        throw new Error(response.error || 'Erro ao carregar dados');
+        // Se response.success for false, mostrar erro
+        const errorInfo = response.data?.error_info || response.error || 'Erro desconhecido';
+        toast({
+          title: "❌ Erro ao Carregar Portfolio",
+          description: errorInfo,
+          variant: "destructive"
+        });
+        
+        // Limpar dados se houver erro
+        setPortfolio([]);
+        setTrades([]);
+        setStats(null);
+        setDataSource('error');
       }
     } catch (error) {
       console.error('Erro ao carregar portfolio:', error);
@@ -191,6 +199,10 @@ export default function Portfolio() {
         description: isRealMode ? "Falha ao carregar dados reais. Verifique suas credenciais." : "Falha ao carregar dados do portfolio",
         variant: "destructive"
       });
+      setPortfolio([]);
+      setTrades([]);
+      setStats(null);
+      setDataSource('error');
     } finally {
       setIsLoading(false);
     }
@@ -272,6 +284,10 @@ export default function Portfolio() {
     };
   }, []);
 
+  // Determinar se devemos mostrar dados ou uma mensagem de erro/vazio
+  const shouldShowEmptyState = isRealMode && (!portfolio || portfolio.length === 0 || dataSource.includes('error') || dataSource.includes('invalid') || dataSource.includes('blocked'));
+  const hasRealData = isRealMode && portfolio && portfolio.length > 0 && !dataSource.includes('error');
+
   if (isLoading) {
     return (
       <div className="container mx-auto p-6">
@@ -326,10 +342,6 @@ export default function Portfolio() {
           <p className="text-muted-foreground">Acompanhe seus saldos e histórico de operações</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setShowDepositModal(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Depositar
-          </Button>
           <Button variant="outline" size="sm" onClick={() => setShowAPIConfig(true)}>
             <Settings className="h-4 w-4 mr-2" />
             APIs
@@ -382,408 +394,235 @@ export default function Portfolio() {
         </CardContent>
       </Card>
 
-      {/* Estatísticas */}
-      {stats && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+      {/* Mostrar estado vazio se não há dados reais em modo real */}
+      {shouldShowEmptyState ? (
+        <div className="text-center py-12">
           <Card>
-            <CardContent className="p-4">
-              <div className="text-center">
-                <p className="text-sm text-muted-foreground">Valor Total</p>
-                <p className="text-2xl font-bold text-primary">{formatCurrency(stats.total_value_usd)}</p>
+            <CardContent className="p-12">
+              <AlertCircle className="w-16 h-16 text-muted-foreground mx-auto mb-6" />
+              <h2 className="text-2xl font-semibold text-foreground mb-4">
+                Nenhum Saldo Real Encontrado
+              </h2>
+              <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+                Para ver seus saldos reais das exchanges, verifique se:
+              </p>
+              <div className="text-left max-w-md mx-auto mb-6 space-y-2">
+                <p className="text-sm text-muted-foreground">• Suas credenciais de API estão corretas</p>
+                <p className="text-sm text-muted-foreground">• As APIs têm permissões de leitura</p>
+                <p className="text-sm text-muted-foreground">• Os IPs estão na whitelist (se configurado)</p>
+                <p className="text-sm text-muted-foreground">• Você possui saldos nas exchanges conectadas</p>
               </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="text-center">
-                <p className="text-sm text-muted-foreground">Total de Trades</p>
-                <p className="text-2xl font-bold">{stats.total_trades}</p>
+              <div className="flex gap-4 justify-center">
+                <Button onClick={() => setShowAPIConfig(true)}>
+                  <Settings className="h-4 w-4 mr-2" />
+                  Configurar APIs
+                </Button>
+                <Button variant="outline" onClick={loadPortfolioData}>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Tentar Novamente
+                </Button>
               </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="text-center">
-                <p className="text-sm text-muted-foreground">Taxa de Sucesso</p>
-                <p className="text-2xl font-bold text-success">{stats.success_rate_percent.toFixed(1)}%</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="text-center">
-                <p className="text-sm text-muted-foreground">Lucro Total</p>
-                <p className={`text-2xl font-bold ${stats.total_profit_usd > 0 ? 'text-success' : 'text-destructive'}`}>
-                  {formatCurrency(stats.total_profit_usd)}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="text-center">
-                <p className="text-sm text-muted-foreground">Sucesso</p>
-                <p className="text-2xl font-bold text-success">{stats.successful_trades}</p>
+              <div className="mt-4 text-xs text-muted-foreground">
+                Status: {dataSource}
               </div>
             </CardContent>
           </Card>
         </div>
-      )}
-
-      {/* Tabs: Portfolio e Histórico */}
-      <Tabs defaultValue="portfolio" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="portfolio">Meus Saldos</TabsTrigger>
-          <TabsTrigger value="history">Histórico de Trades</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="portfolio" className="space-y-4">
-          {/* Validador de Trading em Tempo Real */}
-          {isRealMode && (
-            <RealtimeTradingValidator />
-          )}
-          
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Saldos Binance */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Activity className="h-5 w-5 text-yellow-500" />
-                  Binance
-                </CardTitle>
-                <CardDescription>Seus saldos na Binance</CardDescription>
-              </CardHeader>
-              <CardContent className="p-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[100px]">Asset</TableHead>
-                      <TableHead className="text-right w-[80px]">Preço</TableHead>
-                      <TableHead className="text-right w-[100px]">Saldo Livre</TableHead>
-                      <TableHead className="text-right w-[100px]">Bloqueado</TableHead>
-                      <TableHead className="text-right w-[100px]">Total</TableHead>
-                      <TableHead className="text-right w-[100px]">Valor USD</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {portfolio.filter(asset => asset.exchange === 'Binance').length > 0 ? (
-                      portfolio.filter(asset => asset.exchange === 'Binance').map((asset) => (
-                        <TableRow key={`binance-${asset.symbol}`}>
-                          <TableCell className="font-medium">
-                            <div className="flex items-center gap-2">
-                              <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                              <span className="text-sm font-mono">{asset.symbol}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-right font-mono text-xs">
-                            {asset.price_usd ? `$${asset.price_usd.toFixed(asset.price_usd < 1 ? 4 : 2)}` : '-'}
-                          </TableCell>
-                          <TableCell className="text-right font-mono text-xs">
-                            {asset.balance.toFixed(asset.balance < 1 ? 6 : 2)}
-                          </TableCell>
-                          <TableCell className="text-right font-mono text-xs text-muted-foreground">
-                            {asset.locked_balance.toFixed(asset.locked_balance < 1 ? 6 : 2)}
-                          </TableCell>
-                          <TableCell className="text-right font-mono text-xs font-medium">
-                            {(asset.balance + asset.locked_balance).toFixed((asset.balance + asset.locked_balance) < 1 ? 6 : 2)}
-                          </TableCell>
-                          <TableCell className="text-right text-xs font-medium">
-                            {asset.price_usd ? formatCurrency(asset.price_usd * (asset.balance + asset.locked_balance)) : '-'}
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    ) : (
-                      <TableRow>
-                        <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                          {isRealMode ? 'Nenhum saldo encontrado na Binance' : 'Configure a API da Binance no modo real'}
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-
-            {/* Carteira Web3 (substituindo Hyperliquid) */}
-            <Web3PortfolioCard />
-
-            {/* Saldos OKX */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Activity className="h-5 w-5 text-blue-500" />
-                  OKX
-                </CardTitle>
-                <CardDescription>Seus saldos na OKX</CardDescription>
-              </CardHeader>
-              <CardContent className="p-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[100px]">Asset</TableHead>
-                      <TableHead className="text-right w-[80px]">Preço</TableHead>
-                      <TableHead className="text-right w-[100px]">Saldo Livre</TableHead>
-                      <TableHead className="text-right w-[100px]">Bloqueado</TableHead>
-                      <TableHead className="text-right w-[100px]">Total</TableHead>
-                      <TableHead className="text-right w-[100px]">Valor USD</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {portfolio.filter(asset => asset.exchange === 'OKX').length > 0 ? (
-                      portfolio.filter(asset => asset.exchange === 'OKX').map((asset) => (
-                        <TableRow key={`okx-${asset.symbol}`}>
-                          <TableCell className="font-medium">
-                            <div className="flex items-center gap-2">
-                              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                              <span className="text-sm font-mono">{asset.symbol}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-right font-mono text-xs">
-                            {asset.price_usd ? `$${asset.price_usd.toFixed(asset.price_usd < 1 ? 4 : 2)}` : '-'}
-                          </TableCell>
-                          <TableCell className="text-right font-mono text-xs">
-                            {asset.balance.toFixed(asset.balance < 1 ? 6 : 2)}
-                          </TableCell>
-                          <TableCell className="text-right font-mono text-xs text-muted-foreground">
-                            {asset.locked_balance.toFixed(asset.locked_balance < 1 ? 6 : 2)}
-                          </TableCell>
-                          <TableCell className="text-right font-mono text-xs font-medium">
-                            {(asset.balance + asset.locked_balance).toFixed((asset.balance + asset.locked_balance) < 1 ? 6 : 2)}
-                          </TableCell>
-                          <TableCell className="text-right text-xs font-medium">
-                            {asset.price_usd ? formatCurrency(asset.price_usd * (asset.balance + asset.locked_balance)) : '-'}
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    ) : (
-                      <TableRow>
-                        <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                          {isRealMode ? 'Nenhum saldo encontrado na OKX' : 'Configure a API da OKX no modo real'}
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Saldos Consolidados - apenas se houver dados simulados */}
-          {portfolio.some(asset => !asset.exchange) && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Target className="h-5 w-5" />
-                  Saldos Consolidados (Simulados)
-                </CardTitle>
-                <CardDescription>Dados de demonstração consolidados</CardDescription>
-              </CardHeader>
-              <CardContent className="p-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[100px]">Asset</TableHead>
-                      <TableHead className="text-right w-[80px]">Preço</TableHead>
-                      <TableHead className="text-right w-[100px]">Saldo Livre</TableHead>
-                      <TableHead className="text-right w-[100px]">Bloqueado</TableHead>
-                      <TableHead className="text-right w-[100px]">Total</TableHead>
-                      <TableHead className="text-right w-[100px]">Valor USD</TableHead>
-                      <TableHead className="text-center w-[120px]">Atualização</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {portfolio.filter(asset => !asset.exchange).map((asset) => (
-                      <TableRow key={asset.symbol}>
-                        <TableCell className="font-medium">
-                          <div className="flex items-center gap-2">
-                            <Activity className="h-4 w-4 text-primary" />
-                            {asset.symbol}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right font-mono">
-                          {asset.balance.toFixed(8)}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-muted-foreground">
-                          {asset.locked_balance.toFixed(8)}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-xs">
-                          {asset.price_usd ? `$${asset.price_usd.toFixed(asset.price_usd < 1 ? 4 : 2)}` : '-'}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-xs">
-                          {asset.balance.toFixed(asset.balance < 1 ? 6 : 2)}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-xs text-muted-foreground">
-                          {asset.locked_balance.toFixed(asset.locked_balance < 1 ? 6 : 2)}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-xs font-medium">
-                          {(asset.balance + asset.locked_balance).toFixed((asset.balance + asset.locked_balance) < 1 ? 6 : 2)}
-                        </TableCell>
-                        <TableCell className="text-right text-xs font-medium">
-                          {asset.price_usd ? formatCurrency(asset.price_usd * (asset.balance + asset.locked_balance)) : '-'}
-                        </TableCell>
-                        <TableCell className="text-center text-xs text-muted-foreground">
-                          {new Date(asset.updated_at).toLocaleDateString('pt-BR')}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
-
-        <TabsContent value="history" className="space-y-4">
-          {/* Aviso sobre diferenciação de modos */}
-          {trades.some(t => t.trading_mode === 'real') && !isRealMode && (
-            <Card className="border-orange-200 bg-orange-50">
-              <CardContent className="p-4">
-                <div className="flex items-start gap-3">
-                  <AlertTriangle className="h-5 w-5 text-orange-600 mt-0.5" />
-                  <div>
-                    <p className="font-medium text-orange-800">
-                      Histórico Contém Operações Reais
-                    </p>
-                    <p className="text-sm text-orange-700 mt-1">
-                      Você executou operações anteriormente em modo real. Agora está no modo simulação, 
-                      então novas operações não afetarão sua carteira física.
+      ) : (
+        <>
+          {/* Estatísticas - mostrar apenas se há dados */}
+          {stats && (hasRealData || !isRealMode) && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+              <Card>
+                <CardContent className="p-4">
+                  <div className="text-center">
+                    <p className="text-sm text-muted-foreground">Valor Total</p>
+                    <p className="text-2xl font-bold text-primary">{formatCurrency(stats.total_value_usd)}</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="text-center">
+                    <p className="text-sm text-muted-foreground">Total de Trades</p>
+                    <p className="text-2xl font-bold">{stats.total_trades}</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="text-center">
+                    <p className="text-sm text-muted-foreground">Taxa de Sucesso</p>
+                    <p className="text-2xl font-bold text-success">{stats.success_rate_percent.toFixed(1)}%</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="text-center">
+                    <p className="text-sm text-muted-foreground">Lucro Total</p>
+                    <p className={`text-2xl font-bold ${stats.total_profit_usd > 0 ? 'text-success' : 'text-destructive'}`}>
+                      {formatCurrency(stats.total_profit_usd)}
                     </p>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="text-center">
+                    <p className="text-sm text-muted-foreground">Sucesso</p>
+                    <p className="text-2xl font-bold text-success">{stats.successful_trades}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           )}
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Clock className="h-5 w-5" />
-                Histórico de Operações
-              </CardTitle>
-              <CardDescription>Suas últimas 20 operações de arbitragem</CardDescription>
-            </CardHeader>
-            <CardContent className="p-0">
-              <Table>
-                 <TableHeader>
-                   <TableRow>
-                     <TableHead>Token</TableHead>
-                     <TableHead className="text-right">Investimento</TableHead>
-                     <TableHead className="text-right">Spread</TableHead>
-                     <TableHead className="text-right">Lucro Líq.</TableHead>
-                     <TableHead className="text-right">ROI</TableHead>
-                     <TableHead className="text-center">Status</TableHead>
-                     <TableHead className="text-center">Risco</TableHead>
-                     <TableHead className="text-center">Modo</TableHead>
-                     <TableHead className="text-center">Data</TableHead>
-                   </TableRow>
-                 </TableHeader>
-                <TableBody>
-                  {trades
-                    .filter(trade => {
-                      // Se está em modo simulação, mostrar apenas trades de teste/simulação
-                      if (!isRealMode) {
-                        return trade.trading_mode === 'test' || trade.trading_mode === 'simulation';
-                      }
-                      // Se está em modo real, mostrar todos
-                      return true;
-                    })
-                    .map((trade) => (
-                    <TableRow key={trade.id}>
-                      <TableCell className="font-medium">
-                        <div className="flex items-center gap-2">
-                          <Activity className="h-4 w-4 text-primary" />
-                          {trade.symbol}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {trade.buy_exchange} → {trade.sell_exchange}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right font-mono">
-                        {formatCurrency(trade.investment_amount)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Badge variant={trade.spread_percentage > 1.5 ? 'default' : 'secondary'}>
-                          {formatPercentage(trade.spread_percentage)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <span className={`font-mono ${trade.net_profit > 0 ? 'text-success' : 'text-destructive'}`}>
-                          {formatCurrency(trade.net_profit)}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <span className={`font-medium ${trade.roi_percentage > 0 ? 'text-success' : 'text-destructive'}`}>
-                          {formatPercentage(trade.roi_percentage)}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Badge 
-                          variant={
-                            trade.status === 'completed' ? 'default' : 
-                            trade.status === 'pending' ? 'secondary' : 'destructive'
-                          }
-                        >
-                          {trade.status === 'completed' ? 'Executado' : 
-                           trade.status === 'pending' ? 'Pendente' : 'Falhou'}
-                        </Badge>
-                      </TableCell>
-                       <TableCell className="text-center">
-                         <Badge 
-                           variant={
-                             trade.risk_level === 'LOW' ? 'default' : 
-                             trade.risk_level === 'MEDIUM' ? 'secondary' : 'destructive'
-                           }
-                           className="text-xs"
-                         >
-                           {trade.risk_level}
-                         </Badge>
-                       </TableCell>
-                        <TableCell className="text-center">
-                          {trade.error_message && trade.error_message.includes('Solicitado modo real') ? (
-                            <div className="flex flex-col items-center gap-1">
-                              <Badge 
-                                variant="outline"
-                                className="text-xs bg-yellow-50 border-yellow-300 text-yellow-800"
-                              >
-                                TESTE
-                              </Badge>
-                              <span className="text-[10px] text-yellow-600">
-                                (Real solicitado)
-                              </span>
-                            </div>
-                          ) : (
-                            <div className="flex flex-col items-center gap-1">
-                              <Badge 
-                                variant={trade.trading_mode === 'real' ? 'default' : 'outline'}
-                                className={`text-xs ${
-                                  trade.trading_mode === 'real' 
-                                    ? 'bg-red-100 border-red-300 text-red-800' 
-                                    : 'bg-blue-50 border-blue-300 text-blue-800'
-                                }`}
-                              >
-                                {trade.trading_mode === 'real' ? 'REAL' : 'TESTE'}
-                              </Badge>
-                              {!isRealMode && trade.trading_mode === 'real' && (
-                                <span className="text-[10px] text-orange-600">
-                                  ⚠️ Operação anterior em modo real
-                                </span>
-                              )}
-                            </div>
-                          )}
-                        </TableCell>
-                       <TableCell className="text-center text-sm text-muted-foreground">
-                         {new Date(trade.created_at).toLocaleString('pt-BR')}
-                       </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
+          {/* Tabs: Portfolio e Histórico - mostrar apenas se há dados reais ou modo simulação */}
+          {(hasRealData || !isRealMode) && (
+            <Tabs defaultValue="portfolio" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="portfolio">Meus Saldos</TabsTrigger>
+                <TabsTrigger value="history">Histórico de Trades</TabsTrigger>
+              </TabsList>
 
-        
-      </Tabs>
+              <TabsContent value="portfolio" className="space-y-4">
+                {/* Validador de Trading em Tempo Real */}
+                {isRealMode && hasRealData && (
+                  <RealtimeTradingValidator />
+                )}
+                
+                {/* Mostrar saldos apenas se há dados reais */}
+                {portfolio && portfolio.length > 0 && (
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Saldos por Exchange */}
+                    {['Binance', 'OKX', 'Hyperliquid'].map(exchangeName => {
+                      const exchangeAssets = portfolio.filter(asset => asset.exchange === exchangeName);
+                      
+                      if (exchangeAssets.length === 0) {
+                        return null; // Não mostrar exchanges sem saldos
+                      }
+                      
+                      return (
+                        <Card key={exchangeName}>
+                          <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                              <Activity className="h-5 w-5 text-yellow-500" />
+                              {exchangeName}
+                            </CardTitle>
+                            <CardDescription>Seus saldos na {exchangeName}</CardDescription>
+                          </CardHeader>
+                          <CardContent className="p-0">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead>Asset</TableHead>
+                                  <TableHead className="text-right">Saldo</TableHead>
+                                  <TableHead className="text-right">Valor USD</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {exchangeAssets.map((asset) => (
+                                  <TableRow key={`${exchangeName}-${asset.symbol}`}>
+                                    <TableCell className="font-medium">
+                                      <div className="flex items-center gap-2">
+                                        <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                                        <span className="text-sm font-mono">{asset.symbol}</span>
+                                      </div>
+                                    </TableCell>
+                                    <TableCell className="text-right font-mono text-xs">
+                                      {asset.balance.toFixed(asset.balance < 1 ? 6 : 2)}
+                                    </TableCell>
+                                    <TableCell className="text-right font-mono text-xs">
+                                      {asset.value_usd ? formatCurrency(asset.value_usd) : '-'}
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="history" className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Histórico de Trades</CardTitle>
+                    <CardDescription>Suas operações de arbitragem mais recentes</CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Símbolo</TableHead>
+                          <TableHead>Compra</TableHead>
+                          <TableHead>Venda</TableHead>
+                          <TableHead className="text-right">Investimento</TableHead>
+                          <TableHead className="text-right">Lucro Líquido</TableHead>
+                          <TableHead className="text-right">ROI</TableHead>
+                          <TableHead className="text-center">Status</TableHead>
+                          <TableHead className="text-center">Data</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {trades.map((trade) => (
+                          <TableRow key={trade.id}>
+                            <TableCell className="font-medium">{trade.symbol}</TableCell>
+                            <TableCell className="text-sm">{trade.buy_exchange}</TableCell>
+                            <TableCell className="text-sm">{trade.sell_exchange}</TableCell>
+                            <TableCell className="text-right font-mono text-xs">
+                              {formatCurrency(trade.investment_amount)}
+                            </TableCell>
+                            <TableCell className={`text-right font-mono text-xs ${
+                              trade.net_profit > 0 ? 'text-success' : 'text-destructive'
+                            }`}>
+                              {formatCurrency(trade.net_profit)}
+                            </TableCell>
+                            <TableCell className={`text-right font-mono text-xs ${
+                              trade.roi_percentage > 0 ? 'text-success' : 'text-destructive'
+                            }`}>
+                              {formatPercentage(trade.roi_percentage)}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <div className="space-y-1">
+                                <Badge variant={trade.status === 'completed' ? 'default' : 'secondary'}>
+                                  {trade.status === 'completed' ? 'Concluído' : 
+                                   trade.status === 'failed' ? 'Falhado' : 'Pendente'}
+                                </Badge>
+                                {trade.trading_mode && (
+                                  <div className="flex flex-col items-center gap-1">
+                                    <Badge 
+                                      variant="outline" 
+                                      className={`text-xs ${
+                                        trade.trading_mode === 'real' 
+                                          ? 'bg-red-100 border-red-300 text-red-800' 
+                                          : 'bg-blue-50 border-blue-300 text-blue-800'
+                                      }`}
+                                    >
+                                      {trade.trading_mode === 'real' ? 'REAL' : 'TESTE'}
+                                    </Badge>
+                                  </div>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-center text-sm text-muted-foreground">
+                              {new Date(trade.created_at).toLocaleString('pt-BR')}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+          )}
+        </>
+      )}
 
       {/* Modal de Depósito */}
       <Dialog open={showDepositModal} onOpenChange={setShowDepositModal}>

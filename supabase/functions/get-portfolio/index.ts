@@ -464,13 +464,33 @@ serve(async (req) => {
           dataSource = 'real-api';
           console.log(`✅ SUCESSO: ${realBalances.length} saldos reais carregados de ${realBalances.map(b => b.exchange).filter((v, i, a) => a.indexOf(v) === i).join(', ')}`);
         } else {
-          console.log('⚠️ Nenhum saldo real encontrado, usando dados simulados como fallback');
-          dataSource = 'simulated-fallback';
+          console.log('❌ Nenhum saldo real encontrado - credenciais podem estar inválidas');
+          dataSource = 'no-data';
         }
       } catch (error) {
         console.error('❌ ERRO GERAL ao buscar saldos das exchanges:', error);
-        console.log('🔄 Usando dados simulados como fallback devido ao erro na API');
-        dataSource = 'simulated-fallback';
+        console.error('Detalhes do erro:', {
+          message: error.message,
+          stack: error.stack
+        });
+        
+        // Verificar diferentes tipos de erro
+        if (error.message.includes('Geographic restriction') || error.message.includes('451')) {
+          console.error('🌍 RESTRIÇÃO GEOGRÁFICA DA BINANCE!');
+          console.error('O servidor Supabase está em uma localização bloqueada pela Binance.');
+          dataSource = 'geo-blocked';
+        } else if (error.message.includes('Unauthorized') || error.message.includes('401')) {
+          console.error('🚨 CREDENCIAIS DA BINANCE INVÁLIDAS! Verifique:');
+          console.error('1. Se a API Key está correta');
+          console.error('2. Se a Secret Key está correta');
+          console.error('3. Se as permissões incluem "Enable Reading" e "Spot & Margin Trading"');
+          console.error('4. Se o IP está na whitelist (se configurado)');
+          dataSource = 'invalid-credentials';
+        } else {
+          dataSource = 'api-error';
+        }
+        
+        console.info('❌ ERRO: Não é possível buscar saldos reais. Não usando fallback simulado.');
       }
     }
 
@@ -559,18 +579,21 @@ serve(async (req) => {
     if (localError) {
       console.error("❌ Erro ao buscar dados do portfolio:", localError);
       portfolio = [];
-    } else {
-      portfolio = (localAssets || []).map(asset => ({
+    } else if (localAssets && localAssets.length > 0) {
+      portfolio = localAssets.map(asset => ({
         ...asset,
         price_usd: asset.price_usd || tokenPrices[asset.symbol] || 0,
         value_usd: asset.value_usd || (asset.balance * (tokenPrices[asset.symbol] || 0))
       }));
       console.log(`📊 Portfolio carregado: ${portfolio.length} ativos`);
+    } else {
+      console.log(`📊 Portfolio vazio - nenhum saldo encontrado`);
+      portfolio = [];
     }
 
-    // Se não há dados no banco e estamos em modo real com saldos das exchanges
-    if (portfolio.length === 0 && realBalances.length > 0 && realMode) {
-      portfolio = realBalances
+    // Se há saldos reais das exchanges, usar diretamente (sem fallback para dados antigos)
+    if (realBalances.length > 0 && realMode) {
+      const realPortfolio = realBalances
         .filter(asset => asset.balance > 0)
         .map(asset => ({
           symbol: asset.symbol,
@@ -583,7 +606,12 @@ serve(async (req) => {
           investment_type: asset.type || 'spot',
           updated_at: new Date().toISOString()
         }));
-      console.log("📈 Usando dados diretos das exchanges (fallback)");
+      
+      // Usar apenas dados reais se existirem
+      if (realPortfolio.length > 0) {
+        portfolio = realPortfolio;
+        console.log("📈 Usando dados reais das exchanges");
+      }
     }
 
     // Buscar histórico de trades
@@ -612,7 +640,7 @@ serve(async (req) => {
     console.log(`Portfolio stats - Value: ${totalValue}, Trades: ${totalTrades}, Success: ${successRate.toFixed(1)}%, Source: ${dataSource}`);
 
     return new Response(JSON.stringify({
-      success: true,
+      success: dataSource !== 'api-error' && dataSource !== 'invalid-credentials' && dataSource !== 'geo-blocked',
       data: {
         portfolio: portfolio || [],
         recent_trades: trades || [],
@@ -625,7 +653,9 @@ serve(async (req) => {
           last_updated: new Date().toISOString()
         },
         data_source: dataSource,
-        real_mode_active: realMode
+        real_mode_active: realMode,
+        error_info: dataSource.includes('error') || dataSource.includes('invalid') || dataSource.includes('blocked') ? 
+          'API credentials invalid or connection issue. Please verify your API keys.' : null
       },
       timestamp: new Date().toISOString()
     }), {
