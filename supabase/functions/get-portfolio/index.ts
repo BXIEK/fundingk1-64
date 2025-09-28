@@ -12,59 +12,105 @@ const corsHeaders = {
 // Helper functions for API calls - CONEXÃO DIRETA SEM PROXIES
 async function getBinanceBalances(apiKey: string, secretKey: string) {
   console.log('🔗 CONEXÃO DIRETA BINANCE - SEM PROXIES/BYPASS');
+  console.log('API Key fornecida:', apiKey ? `${apiKey.substring(0, 8)}...` : 'VAZIA');
+  console.log('Secret Key fornecida:', secretKey ? `${secretKey.substring(0, 8)}...` : 'VAZIA');
+  
+  // Validar se as credenciais foram fornecidas
+  if (!apiKey || !secretKey) {
+    throw new Error('Credenciais da Binance não fornecidas (API Key ou Secret Key ausentes)');
+  }
+
+  // Validar formato básico das credenciais
+  if (apiKey.length < 32) {
+    throw new Error('Formato inválido da API Key da Binance (muito curta)');
+  }
+
+  if (secretKey.length < 32) {
+    throw new Error('Formato inválido da Secret Key da Binance (muito curta)');
+  }
   
   const timestamp = Date.now();
   const queryString = `timestamp=${timestamp}`;
   
-  // Generate signature
-  const encoder = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    'raw',
-    encoder.encode(secretKey),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign']
-  );
+  console.log('📝 Query string gerada:', queryString);
   
-  const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(queryString));
-  const signatureHex = Array.from(new Uint8Array(signature))
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('');
+  try {
+    // Generate signature
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+      'raw',
+      encoder.encode(secretKey),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign']
+    );
+    
+    const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(queryString));
+    const signatureHex = Array.from(new Uint8Array(signature))
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
 
-  console.log('📡 Fazendo requisição DIRETA para api.binance.com...');
-  
-  const response = await fetch(
-    `https://api.binance.com/api/v3/account?${queryString}&signature=${signatureHex}`,
-    {
+    console.log('🔐 Assinatura gerada:', signatureHex.substring(0, 16) + '...');
+    console.log('📡 Fazendo requisição DIRETA para api.binance.com...');
+    
+    const url = `https://api.binance.com/api/v3/account?${queryString}&signature=${signatureHex}`;
+    console.log('🌐 URL completa:', url.replace(signatureHex, '***SIGNATURE***'));
+    
+    const response = await fetch(url, {
       method: 'GET',
       headers: {
         'X-MBX-APIKEY': apiKey,
         'Content-Type': 'application/json',
       },
-    }
-  );
+    });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('❌ Erro da API Binance:', response.status, errorText);
-    
-    let errorMessage = `Binance API error: ${response.statusText}`;
-    
-    try {
-      const errorData = JSON.parse(errorText);
-      if (errorData.msg) {
-        errorMessage += ` - ${errorData.msg}`;
+    console.log('📊 Resposta da Binance:', {
+      status: response.status,
+      statusText: response.statusText,
+      ok: response.ok
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ Erro detalhado da API Binance:', {
+        status: response.status,
+        statusText: response.statusText,
+        body: errorText
+      });
+      
+      let errorMessage = `Binance API error ${response.status}: ${response.statusText}`;
+      
+      try {
+        const errorData = JSON.parse(errorText);
+        if (errorData.msg) {
+          errorMessage += ` - ${errorData.msg}`;
+          
+          // Dar dicas específicas baseadas no erro
+          if (errorData.code === -2014) {
+            errorMessage += ' (Verifique se a API Key está correta)';
+          } else if (errorData.code === -1021) {
+            errorMessage += ' (Erro de timestamp - sincronização de horário)';
+          } else if (errorData.code === -2015) {
+            errorMessage += ' (Assinatura inválida - verifique a Secret Key)';
+          }
+        }
+      } catch {
+        // Ignorar se não conseguir parsear o JSON do erro
       }
-    } catch {
-      // Ignorar se não conseguir parsear o JSON do erro
+      
+      throw new Error(errorMessage);
     }
-    
-    throw new Error(errorMessage);
-  }
 
-  const data = await response.json();
-  console.log('✅ Binance API conectada diretamente com sucesso!');
-  return data.balances.filter((b: any) => parseFloat(b.free) > 0 || parseFloat(b.locked) > 0);
+    const data = await response.json();
+    console.log('✅ Binance API conectada diretamente com sucesso!');
+    console.log(`📊 Dados recebidos: ${data.balances ? data.balances.length : 0} saldos`);
+    
+    return data.balances.filter((b: any) => parseFloat(b.free) > 0 || parseFloat(b.locked) > 0);
+
+  } catch (error) {
+    console.error('💥 Erro na função getBinanceBalances:', error);
+    throw error;
+  }
 }
 
 async function getBinancePrices() {
@@ -326,6 +372,10 @@ serve(async (req) => {
         
         if (binanceApiKey && binanceSecretKey) {
           console.log('Tentando conectar na Binance com credenciais fornecidas...');
+          console.log('🔍 Validando credenciais da Binance...');
+          console.log('✓ API Key presente:', !!binanceApiKey, binanceApiKey ? `(${binanceApiKey.length} chars)` : '');
+          console.log('✓ Secret Key presente:', !!binanceSecretKey, binanceSecretKey ? `(${binanceSecretKey.length} chars)` : '');
+          
           try {
             const binanceBalances = await getBinanceBalances(binanceApiKey, binanceSecretKey);
             realBalances = realBalances.concat(
@@ -342,8 +392,9 @@ serve(async (req) => {
             console.log(`✅ Binance conectada com sucesso: ${binanceBalances.length} saldos carregados`);
           } catch (binanceError) {
             console.error('❌ Erro específico da Binance:', binanceError);
-            console.error('Detalhes do erro:', {
+            console.error('📋 Detalhes completos do erro:', {
               message: binanceError.message,
+              name: binanceError.name,
               stack: binanceError.stack
             });
             
@@ -353,12 +404,13 @@ serve(async (req) => {
               console.error('O servidor Supabase está em uma localização bloqueada pela Binance.');
               console.error('Isso é temporário e independe das suas credenciais.');
               dataSource = 'simulated-geo-restriction';
-            } else if (binanceError.message.includes('Unauthorized') || binanceError.message.includes('401')) {
+            } else if (binanceError.message.includes('Unauthorized') || binanceError.message.includes('401') || binanceError.message.includes('API-key format invalid')) {
               console.error('🚨 CREDENCIAIS DA BINANCE INVÁLIDAS! Verifique:');
               console.error('1. Se a API Key está correta');
               console.error('2. Se a Secret Key está correta');
               console.error('3. Se as permissões incluem "Enable Reading" e "Spot & Margin Trading"');
               console.error('4. Se o IP está na whitelist (se configurado)');
+              console.error('💡 Erro específico:', binanceError.message);
             }
             
             throw binanceError; // Re-throw para ser capturado pelo catch geral
