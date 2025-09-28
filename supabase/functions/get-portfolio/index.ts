@@ -98,9 +98,15 @@ async function getBinancePrices() {
   return priceMap;
 }
 
-async function getHyperliquidBalances(walletAddress: string, privateKey: string) {
+async function getHyperliquidBalances(walletAddress: string, privateKey: string): Promise<any> {
   try {
-    console.log('🔄 Tentando conectar na Hyperliquid API...');
+    console.log(`🔗 Obtendo saldos da Hyperliquid para wallet: ${walletAddress.substring(0, 8)}...`);
+    
+    // Verificar se as credenciais estão válidas
+    if (!walletAddress || !privateKey || walletAddress === 'undefined' || privateKey === 'undefined') {
+      console.warn('⚠️ Credenciais Hyperliquid inválidas');
+      throw new Error('Credenciais Hyperliquid não configuradas corretamente');
+    }
     
     // Usar a nossa edge function hyperliquid-api para obter saldos
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -134,25 +140,18 @@ async function getHyperliquidBalances(walletAddress: string, privateKey: string)
     console.log('✅ Hyperliquid API conectada com sucesso');
     
     // Processar os dados retornados pela nova implementação
-    const balances = data.data || [];
+    const balances = data.balances || data.data || [];
     console.log(`🔍 Processando ${balances.length} saldos da Hyperliquid:`, balances);
     
-    // Converter para formato padrão
-    const processedBalances = balances.map((balance: any) => ({
-      asset: balance.asset,
-      free: balance.balance?.toString() || '0',
-      locked: '0',
-      balance: balance.balance || 0,
-      type: balance.type || 'spot',
-      exchange: 'Hyperliquid'
-    }));
-    
-    console.log(`✅ ${processedBalances.length} saldos convertidos da Hyperliquid`);
-    return processedBalances;
-    
+    return balances;
+
   } catch (error) {
-    console.error('❌ Erro específico da Hyperliquid:', error);
-    throw error;
+    console.error('❌ Erro ao obter saldos Hyperliquid:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro desconhecido na Hyperliquid',
+      balances: []
+    };
   }
 }
 
@@ -196,8 +195,8 @@ async function getPionexBalances(apiKey: string, secretKey: string) {
       const errorText = await response.text();
       console.error('❌ Erro Pionex API:', response.status, errorText);
       
-      // Se for erro 404/Not Found, tentar endpoint alternativo
-      if (response.status === 404) {
+        // Se for erro 404/Not Found ou 403/Forbidden, tentar endpoint alternativo
+        if (response.status === 404 || response.status === 403) {
         console.log('🔄 Tentando endpoint alternativo da Pionex...');
         
         const altResponse = await fetch(`https://api.pionex.com/api/v1/account/balances?${params}`, {
