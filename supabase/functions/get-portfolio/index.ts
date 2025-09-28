@@ -411,9 +411,12 @@ serve(async (req) => {
               console.error('3. Se as permissões incluem "Enable Reading" e "Spot & Margin Trading"');
               console.error('4. Se o IP está na whitelist (se configurado)');
               console.error('💡 Erro específico:', binanceError.message);
+              // Não interromper o fluxo: seguimos para Hyperliquid/OKX
+              dataSource = dataSource === 'real' ? 'partial-real' : dataSource;
+            } else {
+              dataSource = dataSource === 'real' ? 'api-error' : dataSource;
             }
-            
-            throw binanceError; // Re-throw para ser capturado pelo catch geral
+            // Não relançar o erro para permitir continuar com as outras exchanges
           }
         } else {
           console.log('⚠️ Credenciais da Binance não fornecidas - pulando Binance');
@@ -690,8 +693,10 @@ serve(async (req) => {
 
     console.log(`Portfolio stats - Value: ${totalValue}, Trades: ${totalTrades}, Success: ${successRate.toFixed(1)}%, Source: ${dataSource}`);
 
+    const isSuccess = (portfolio && portfolio.length > 0) || dataSource === 'real-api' || dataSource === 'partial-real' || !realMode;
+
     return new Response(JSON.stringify({
-      success: dataSource !== 'api-error' && dataSource !== 'invalid-credentials' && dataSource !== 'geo-blocked',
+      success: isSuccess,
       data: {
         portfolio: portfolio || [],
         recent_trades: trades || [],
