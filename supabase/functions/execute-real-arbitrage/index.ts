@@ -1849,6 +1849,13 @@ serve(async (req) => {
     try {
       console.log('📍 CHECKPOINT 2: Dentro do try block, iniciando validações');
       
+      // 🔥 VALIDAR VALOR MÍNIMO NOTIONAL (previne erro -1013)
+      const investmentAmount = requestData.amount * requestData.buy_price;
+      const minNotional = 10; // Mínimo da Binance = $10 USDT
+      if (investmentAmount < minNotional) {
+        throw new Error(`Valor de investimento muito baixo: $${investmentAmount} < $${minNotional} USDT (mínimo da Binance)`);
+      }
+      
       // Validar permissões da API key para símbolos da Binance antes de executar
       if (requestData.buy_exchange === 'Binance' || requestData.sell_exchange === 'Binance') {
         console.log('🔍 Validando permissões da API Binance para o símbolo...');
@@ -2223,12 +2230,18 @@ serve(async (req) => {
 async function executeSimulatedArbitrage(supabase: any, requestData: TradeExecution) {
   console.log('🎭 Executando arbitragem simulada...');
   
+  // 🔥 VALIDAR VALOR MÍNIMO NOTIONAL (previne erro -1013)
+  const investmentAmount = requestData.investmentAmount || (requestData.amount * requestData.buy_price);
+  const minNotional = 10; // Mínimo da Binance = $10 USDT
+  if (investmentAmount < minNotional) {
+    throw new Error(`Valor de investimento muito baixo: $${investmentAmount} < $${minNotional} USDT (mínimo da Binance)`);
+  }
+  
   const startTime = Date.now();
   const simulationSuccess = Math.random() > 0.05; // 95% de sucesso
   
   // Simular resultados
   const executionTime = 400 + Math.random() * 300; // 400-700ms
-  const investmentAmount = requestData.investmentAmount || (requestData.amount * requestData.buy_price);
   const grossProfit = requestData.amount * (requestData.sell_price - requestData.buy_price);
   const totalFees = investmentAmount * 0.001; // 0.1% taxas
   const netProfit = simulationSuccess ? grossProfit - totalFees : 0;

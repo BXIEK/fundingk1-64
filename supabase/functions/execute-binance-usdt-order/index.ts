@@ -45,7 +45,17 @@ async function executeBinanceOrderUSDT(
     // Arredondar quantidade baseada no stepSize
     const adjustedQuantity = roundToStepSize(quantity, symbolInfo.stepSize);
     
-    // Verificar limites
+    // 🔥 VERIFICAR VALOR NOTIONAL MÍNIMO (corrige erro -1013)
+    const notionalValue = adjustedQuantity * currentPrice;
+    if (notionalValue < symbolInfo.minNotional) {
+      throw new Error(`Valor notional muito pequeno: $${notionalValue.toFixed(2)} < $${symbolInfo.minNotional} (mínimo da Binance)`);
+    }
+    
+    if (notionalValue > symbolInfo.maxNotional) {
+      throw new Error(`Valor notional muito grande: $${notionalValue.toFixed(2)} > $${symbolInfo.maxNotional} (máximo da Binance)`);
+    }
+    
+    // Verificar limites de quantidade
     if (adjustedQuantity < symbolInfo.minQty) {
       throw new Error(`Quantidade muito pequena: ${adjustedQuantity} < ${symbolInfo.minQty}`);
     }
@@ -127,21 +137,24 @@ async function getSymbolInfo(symbol: string) {
     
     const symbolInfo = data.symbols[0];
     const lotSizeFilter = symbolInfo.filters.find((f: any) => f.filterType === 'LOT_SIZE');
+    const notionalFilter = symbolInfo.filters.find((f: any) => f.filterType === 'NOTIONAL');
     
     return {
       stepSize: parseFloat(lotSizeFilter.stepSize),
       minQty: parseFloat(lotSizeFilter.minQty),
-      maxQty: parseFloat(lotSizeFilter.maxQty)
+      maxQty: parseFloat(lotSizeFilter.maxQty),
+      minNotional: notionalFilter ? parseFloat(notionalFilter.minNotional || notionalFilter.minNotional || '10') : 10,
+      maxNotional: notionalFilter ? parseFloat(notionalFilter.maxNotional || '1000000') : 1000000
     };
   } catch (error) {
-    // Fallback para valores padrão
+    // Fallback para valores padrão (incluindo notional)
     const precisionMap: Record<string, any> = {
-      'BTC': { stepSize: 0.00001, minQty: 0.00001, maxQty: 9000 },
-      'ETH': { stepSize: 0.0001, minQty: 0.0001, maxQty: 100000 },
-      'BNB': { stepSize: 0.001, minQty: 0.001, maxQty: 10000000 },
-      'SOL': { stepSize: 0.001, minQty: 0.001, maxQty: 10000000 }
+      'BTC': { stepSize: 0.00001, minQty: 0.00001, maxQty: 9000, minNotional: 10, maxNotional: 1000000 },
+      'ETH': { stepSize: 0.0001, minQty: 0.0001, maxQty: 100000, minNotional: 10, maxNotional: 1000000 },
+      'BNB': { stepSize: 0.001, minQty: 0.001, maxQty: 10000000, minNotional: 10, maxNotional: 1000000 },
+      'SOL': { stepSize: 0.001, minQty: 0.001, maxQty: 10000000, minNotional: 10, maxNotional: 1000000 }
     };
-    return precisionMap[symbol] || { stepSize: 0.001, minQty: 0.001, maxQty: 10000000 };
+    return precisionMap[symbol] || { stepSize: 0.001, minQty: 0.001, maxQty: 10000000, minNotional: 10, maxNotional: 1000000 };
   }
 }
 

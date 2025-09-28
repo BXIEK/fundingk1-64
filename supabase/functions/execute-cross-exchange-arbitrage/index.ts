@@ -73,6 +73,12 @@ serve(async (req) => {
 
     // ⭐ NOVA LÓGICA USDT: Usar valor em USDT diretamente
     const usdtInvestment = config.investmentAmount;
+    
+    // 🔥 VALIDAR VALOR MÍNIMO NOTIONAL (previne erro -1013)
+    const minNotional = 10; // Mínimo da Binance = $10 USDT
+    if (usdtInvestment < minNotional) {
+      throw new Error(`Valor de investimento muito baixo: $${usdtInvestment} < $${minNotional} USDT (mínimo da Binance)`);
+    }
     const adjustedSpread = Math.abs((sellPrice - buyPrice) / buyPrice * 100);
     const slippageAdjustedSpread = Math.max(0, adjustedSpread - config.maxSlippage);
     
