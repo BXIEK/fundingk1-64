@@ -36,22 +36,6 @@ async function getBinanceWhitelistedSymbols(): Promise<string[]> {
     return ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'XRPUSDT', 'ADAUSDT', 'SOLUSDT', 'DOTUSDT', 'MATICUSDT', 'AVAXUSDT', 'LTCUSDT'];
   }
 }
-}
-    
-    if (data.success && data.whitelistedSymbols && data.whitelistedSymbols.length > 0) {
-      console.log(`✅ Símbolos whitelisted encontrados: ${data.whitelistedSymbols.join(', ')}`);
-      return data.whitelistedSymbols;
-    } else {
-      console.log('⚠️ Nenhum símbolo whitelisted encontrado, usando símbolos expandidos');
-      return ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'XRPUSDT', 'ADAUSDT', 'SOLUSDT', 'DOTUSDT', 'MATICUSDT', 'AVAXUSDT', 'LTCUSDT', 'LINKUSDT', 'UNIUSDT', 'ATOMUSDT', 'FILUSDT', 'TRXUSDT', 'DOGEUSDT', 'SHIBUSDT', 'PEPEUSDT'];
-    }
-    
-  } catch (error) {
-    console.log(`⚠️ Erro ao verificar whitelist: ${error instanceof Error ? error.message : String(error)}`);
-    // Fallback para símbolos expandidos incluindo XRP
-    return ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'XRPUSDT', 'ADAUSDT', 'SOLUSDT', 'DOTUSDT', 'MATICUSDT', 'AVAXUSDT', 'LTCUSDT'];
-  }
-}
 
 // Gerar preços simulados realísticos baseados em dados de mercado
 function generateRealisticPrices(allowedSymbols?: string[]) {
