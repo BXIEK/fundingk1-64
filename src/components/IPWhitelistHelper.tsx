@@ -6,6 +6,7 @@ import { Separator } from "@/components/ui/separator"
 import { AlertTriangle, CheckCircle, ExternalLink, Shield, Zap } from "lucide-react"
 import { supabase } from "@/integrations/supabase/client"
 import { useState } from "react"
+import { useToast } from "@/hooks/use-toast"
 
 interface IPInstructions {
   problem: string
@@ -31,6 +32,7 @@ interface IPInstructions {
 export default function IPWhitelistHelper() {
   const [instructions, setInstructions] = useState<IPInstructions | null>(null)
   const [loading, setLoading] = useState(false)
+  const { toast } = useToast()
 
   const getIPInstructions = async () => {
     setLoading(true)
@@ -39,7 +41,12 @@ export default function IPWhitelistHelper() {
       if (error) throw error
       setInstructions(data)
     } catch (error) {
-      console.error('Erro ao obter instruções:', error)
+      console.error('Erro ao obter instruções:', error);
+      toast({
+        title: "Erro",
+        description: error instanceof Error ? error.message : 'Erro ao obter instruções de whitelist',
+        variant: "destructive"
+      });
     } finally {
       setLoading(false)
     }

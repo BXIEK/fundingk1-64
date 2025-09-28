@@ -13,7 +13,7 @@ import { useTradingMode } from "@/contexts/TradingModeContext";
 import { useWeb3Wallet } from "@/hooks/useWeb3Wallet";
 import { Eye, EyeOff, Key, Shield, Save, TestTube, Settings2, Wallet, CheckCircle, AlertTriangle } from "lucide-react";
 import OKXWhitelistManager from "@/components/OKXWhitelistManager";
-import AutoIPWhitelistFixer from "@/components/AutoIPWhitelistFixer";
+
 
 interface APICredentials {
   apiKey: string;
@@ -274,8 +274,9 @@ const APIConfiguration = () => {
 
       console.log('Response from test-binance-connection:', { data, error });
 
-      if (error) {
-        throw new Error(error.message);
+      if (error || !data) {
+        console.error('❌ Erro na função test-binance-connection:', error);
+        throw new Error(error?.message || 'Erro na comunicação com a função edge');
       }
 
       if (data.success) {
@@ -306,7 +307,8 @@ const APIConfiguration = () => {
           description: `Conta conectada! ${data.accountInfo?.totalAssets || 0} ativos detectados. USDT: ${data.accountInfo?.usdtBalance?.free || '0'}`,
         });
       } else {
-        throw new Error(data.error || 'Erro desconhecido');
+        console.error('❌ Teste Binance falhou:', data);
+        throw new Error(data?.error || 'Teste de conexão falhou sem detalhes específicos');
       }
 
     } catch (error) {
@@ -445,7 +447,7 @@ const APIConfiguration = () => {
         if (data.errorCode === '50110' || (data.error && data.error.includes('whitelist'))) {
           toast({
             title: "❌ IP não autorizado na OKX",
-            description: "Configure a whitelist da OKX com 0.0.0.0/0 ou use o AutoIPWhitelistFixer",
+            description: "Configure a whitelist da OKX com 0.0.0.0/0 nas configurações da API OKX",
             variant: "destructive",
             duration: 10000
           });
@@ -482,8 +484,6 @@ const APIConfiguration = () => {
         </p>
       </div>
 
-      {/* AutoIPWhitelistFixer - Aparecer sempre que houver problemas de IP */}
-      <AutoIPWhitelistFixer />
 
       <Alert>
         <Shield className="h-4 w-4" />

@@ -1135,9 +1135,7 @@ const adjustInvestmentForLotSize = (symbol: string, investmentAmount: number, bu
                               <>
                                 {(trade.error_message.includes('IP não autorizado') || 
                                   trade.error_message.includes('50110') || 
-                                  trade.error_message.includes('whitelist') ||
-                                  trade.error_message.includes('Sistema adaptativo: undefined') ||
-                                  trade.error_message.includes('Sistema adaptativo OKX: undefined')) ? (
+                                  trade.error_message.includes('whitelist')) ? (
                                    <div className="text-xs text-blue-600 max-w-xs">
                                      <strong>🔧 Configuração OKX:</strong> 
                                      <br />

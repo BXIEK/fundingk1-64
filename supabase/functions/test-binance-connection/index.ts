@@ -18,7 +18,7 @@ serve(async (req) => {
     apiKey = requestData.apiKey
     secretKey = requestData.secretKey
 
-    if (!apiKey || !secretKey || apiKey === 'null' || secretKey === 'null') {
+    if (!apiKey || !secretKey || apiKey === 'null' || secretKey === 'null' || apiKey.trim() === '' || secretKey.trim() === '') {
       return new Response(
         JSON.stringify({
           success: false,

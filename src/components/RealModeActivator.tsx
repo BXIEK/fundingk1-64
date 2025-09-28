@@ -16,7 +16,7 @@ import {
   Clock
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import AutoIPWhitelistFixer from './AutoIPWhitelistFixer';
+
 
 interface APIConnectionStatus {
   exchange: string;
@@ -342,10 +342,6 @@ const RealModeActivator = () => {
         </CardContent>
       </Card>
 
-      {/* Correção Automática de IP */}
-      {apiConnections.find(c => c.exchange === 'OKX' && c.status === 'error' && c.errorMessage?.includes('IP'))  && (
-        <AutoIPWhitelistFixer />
-      )}
 
       {/* Configuração Automática Atual */}
       {systemStatus.hasActiveConfig && (

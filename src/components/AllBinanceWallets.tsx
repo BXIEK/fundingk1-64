@@ -139,8 +139,8 @@ export const AllBinanceWallets = () => {
           });
         }
       } else {
-        const errorMsg = data?.error || data?.message || `Resposta inválida da API: success=${data?.success}`;
-        console.error('❌ Erro na resposta:', errorMsg);
+        const errorMsg = data?.error || data?.message || 'Resposta inválida da API Binance';
+        console.error('❌ Erro na resposta Binance:', errorMsg);
         throw new Error(errorMsg);
       }
 
