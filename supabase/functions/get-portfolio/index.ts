@@ -725,7 +725,7 @@ serve(async (req) => {
 
     // Calcular estatísticas
     const totalValue = portfolio?.reduce((sum, asset) => {
-      const assetValue = (asset.price_usd || asset.value_usd || 0) * (parseFloat(asset.balance) + parseFloat(asset.locked_balance || 0));
+      const assetValue = (asset.value_usd_calculated || (asset.balance * asset.price_usd)) || asset.value_usd || 0;
       return sum + assetValue;
     }, 0) || 0;
     
