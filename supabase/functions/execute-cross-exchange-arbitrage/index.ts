@@ -226,113 +226,65 @@ serve(async (req) => {
         if (realError instanceof Error && realError.message?.includes('OKX')) {
           console.log('🤖 Ativando sistema adaptativo para erro OKX...');
           
+          // Conexão direta com OKX - sem sistemas adaptativos
           try {
-            // Chamar sistema adaptativo
-            const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-            const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+            console.log('🔗 Executando ordem OKX diretamente...');
             
-            const adaptiveResponse = await fetch(`${supabaseUrl}/functions/v1/okx-adaptive-handler`, {
-              method: 'POST',
-              headers: { 
-                'Content-Type': 'application/json', 
-                'Authorization': `Bearer ${supabaseKey}`
-              },
-              body: JSON.stringify({
-                action: 'adaptive_order',
+            const okxResponse = await supabase.functions.invoke('okx-api', {
+              body: {
+                action: 'place_order',
                 symbol: symbol,
                 side: sellExchange === 'OKX' ? 'sell' : 'buy',
+                type: 'market',
                 quantity: effectiveAmount / buyPrice,
-                price: sellExchange === 'OKX' ? sellPrice : buyPrice,
-                maxRetries: 2,
-                credentials: {
-                  apiKey: okxApiKey,
-                  secretKey: okxSecretKey,
-                  passphrase: okxPassphrase
-                }
-              })
-            });
-            
-            const adaptiveResult = await adaptiveResponse.json();
-            
-            if (adaptiveResult.success) {
-              console.log('✅ Sistema adaptativo resolveu o problema:', adaptiveResult.adaptations_applied);
-              status = 'completed';
-              error_message = `Sucesso com adaptações: ${adaptiveResult.adaptations_applied.join(', ')}`;
-              net_profit = (sellPrice - buyPrice) * (effectiveAmount / buyPrice) - 0.1 - 0.2; // gas_fees + slippage_cost estimados
-            } else {
-              console.log('❌ Sistema adaptativo falhou:', adaptiveResult.error);
-              // Tratar erro undefined e dar mensagem específica
-              const adaptiveErrorMsg = adaptiveResult.error || 'Erro desconhecido no sistema adaptativo';
-              const isWhitelistIssue = (realError.message?.includes('50110')) ||
-                                       (realError.message?.toLowerCase()?.includes('whitelist')) ||
-                                       (realError.message?.toLowerCase()?.includes('ip'));
-              if (isWhitelistIssue) {
-                // Fallback gracioso: executar como simulação para não bloquear a operação
-                forcedSimulation = true;
-                status = 'completed';
-                error_message = 'Executado como simulação devido a restrição de IP na OKX (50110). Ajuste a API: OKX → API Management → Edit API → IP Restriction → use 0.0.0.0/0 para Edge Functions.';
-                // Mantemos o net_profit já calculado anteriormente
-              } else {
-                error_message = `Sistema adaptativo OKX: ${adaptiveErrorMsg}`;
+                api_key: okxApiKey,
+                secret_key: okxSecretKey,
+                passphrase: okxPassphrase
               }
+            });
+
+            if (okxResponse.data?.success) {
+              console.log('✅ Ordem OKX executada diretamente');
+              status = 'completed';
+              error_message = 'Ordem executada com sucesso na OKX';
+              net_profit = (sellPrice - buyPrice) * (effectiveAmount / buyPrice) - 0.1 - 0.2;
+            } else {
+              console.log('❌ Falha na execução direta OKX:', okxResponse.data?.error);
+              error_message = `Erro OKX: ${okxResponse.data?.error || 'Erro desconhecido'}`;
             }
-            
-          } catch (adaptiveError) {
-            console.error('❌ Erro no sistema adaptativo:', adaptiveError);
-            error_message = `Falha no sistema adaptativo: ${realError.message}`;
+          } catch (okxError) {
+            console.error('❌ Erro na execução direta OKX:', okxError);
+            error_message = `Falha na conexão direta OKX: ${realError.message}`;
           }
         } else if (realError instanceof Error && realError.message?.includes('Binance')) {
-          console.log('🤖 Ativando sistema adaptativo para erro Binance...');
-          
+          // Conexão direta com Binance - sem sistemas adaptativos
           try {
-            // Chamar sistema adaptativo da Binance
-            const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-            const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+            console.log('🔗 Executando ordem Binance diretamente...');
             
-            const adaptiveResponse = await fetch(`${supabaseUrl}/functions/v1/binance-adaptive-handler`, {
-              method: 'POST',
-              headers: { 
-                'Content-Type': 'application/json', 
-                'Authorization': `Bearer ${supabaseKey}`
-              },
-              body: JSON.stringify({
-                action: 'adaptive_order',
+            const binanceResponse = await supabase.functions.invoke('test-binance-connection', {
+              body: {
+                action: 'place_order',
                 symbol: symbol + 'USDT',
                 side: buyExchange === 'Binance' ? 'BUY' : 'SELL',
+                type: 'MARKET',
                 quantity: buyExchange === 'Binance' ? effectiveAmount / buyPrice : effectiveAmount,
-                price: buyExchange === 'Binance' ? buyPrice : sellPrice,
-                maxRetries: 3,
-                credentials: {
-                  apiKey: binanceApiKey,
-                  secretKey: binanceSecretKey
-                }
-              })
-            });
-            
-            const adaptiveResult = await adaptiveResponse.json();
-            
-            if (adaptiveResult.success) {
-              console.log('✅ Sistema adaptativo Binance resolveu o problema:', adaptiveResult.adaptations_applied);
-              status = 'completed';
-              error_message = `Sucesso com adaptações Binance: ${adaptiveResult.adaptations_applied.join(', ')}`;
-              net_profit = (sellPrice - buyPrice) * (effectiveAmount / buyPrice) - 0.1 - 0.2; // gas_fees + slippage_cost estimados
-            } else {
-              console.log('❌ Sistema adaptativo Binance falhou:', adaptiveResult.error);
-              
-              // Tratar erro undefined e dar mensagem específica  
-              let adaptiveErrorMsg = adaptiveResult.error || 'Erro desconhecido no sistema adaptativo';
-              
-              // Se é erro de IP ou permissão da Binance, dar instruções específicas
-              if (realError.message?.includes('IP') || realError.message?.includes('not authorized') || realError.message?.includes('whitelist')) {
-                adaptiveErrorMsg = '🚫 IP não autorizado na Binance. SOLUÇÃO: Vá para Binance → API Management → Edit API → API restrictions → "Restrict access to trusted IPs only" → Deixe em branco ou adicione "0.0.0.0/0"';
+                apiKey: binanceApiKey,
+                secretKey: binanceSecretKey
               }
-              
-              error_message = `Sistema adaptativo Binance: ${adaptiveErrorMsg}`;
+            });
+
+            if (binanceResponse.data?.success) {
+              console.log('✅ Ordem Binance executada diretamente');
+              status = 'completed';
+              error_message = 'Ordem executada com sucesso na Binance';
+              net_profit = (sellPrice - buyPrice) * (effectiveAmount / buyPrice) - 0.1 - 0.2;
+            } else {
+              console.log('❌ Falha na execução direta Binance:', binanceResponse.data?.error);
+              error_message = `Erro Binance: ${binanceResponse.data?.error || 'Erro desconhecido'}`;
             }
-            
-          } catch (adaptiveError) {
-            console.error('❌ Erro no sistema adaptativo Binance:', adaptiveError);
-            error_message = `Falha no sistema adaptativo Binance: ${realError.message}`;
+          } catch (binanceError) {
+            console.error('❌ Erro na execução direta Binance:', binanceError);
+            error_message = `Falha na conexão direta Binance: ${realError.message}`;
           }
         } else {
           // Tratamento de outros erros não-OKX
