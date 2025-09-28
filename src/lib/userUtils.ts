@@ -58,7 +58,6 @@ export const getUserId = async (): Promise<string> => {
     }
   }
   
-  // Fallback para UUID demo
-  console.log('Usando UUID demo como fallback');
-  return '00000000-0000-0000-0000-000000000000';
+  // Erro: nenhuma credencial válida encontrada
+  throw new Error('Nenhuma credencial válida encontrada. Configure suas chaves de API nas configurações.');
 };

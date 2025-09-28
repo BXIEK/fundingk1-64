@@ -23,6 +23,7 @@ import {
 import { useWeb3Wallet } from "@/hooks/useWeb3Wallet"
 import { useToast } from "@/hooks/use-toast"
 import { supabase } from "@/integrations/supabase/client"
+import { getUserId } from "@/lib/userUtils"
 
 interface PlatformBalance {
   platform: string
@@ -93,10 +94,11 @@ export default function CrossPlatformTransferHub() {
 
   const loadPlatformBalances = async () => {
     try {
-      const [portfolioResponse, arbitrageResponse] = await Promise.all([
-        supabase.functions.invoke('get-portfolio', {
-          body: { real_mode: true, user_id: "00000000-0000-0000-0000-000000000000" }
-        }),
+        const userId = await getUserId();
+        const [portfolioResponse, arbitrageResponse] = await Promise.all([
+          supabase.functions.invoke('get-portfolio', {
+            body: { real_mode: true, user_id: userId }
+          }),
         supabase.functions.invoke('detect-arbitrage-opportunities', {
           body: { type: "cross_exchange", trading_mode: "real" }
         })

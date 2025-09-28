@@ -28,8 +28,12 @@ serve(async (req) => {
       body = await req.json()
     }
 
-    const binanceApiKey = body.apiKey || Deno.env.get('BINANCE_API_KEY')
-    const binanceSecretKey = body.secretKey || Deno.env.get('BINANCE_SECRET_KEY')
+    const binanceApiKey = body.apiKey;
+    const binanceSecretKey = body.secretKey;
+
+    if (!binanceApiKey || !binanceSecretKey) {
+      throw new Error('Credenciais da Binance são obrigatórias (apiKey e secretKey)');
+    }
 
     if (!binanceApiKey || !binanceSecretKey) {
       console.log('⚠️ Credenciais da Binance não fornecidas - usando dados simulados');

@@ -91,8 +91,8 @@ const RealModeActivator = () => {
       }
 
       const creds = JSON.parse(credentials);
-      if (creds.apiKey.includes('demo')) {
-        return { exchange: 'Binance', status: 'configured', errorMessage: 'Credenciais demo' };
+      if (!creds.apiKey || !creds.secretKey) {
+        return { exchange: 'Binance', status: 'missing', errorMessage: 'Credenciais não configuradas' };
       }
 
       const { data, error } = await supabase.functions.invoke('test-binance-connection', {
@@ -125,8 +125,8 @@ const RealModeActivator = () => {
       }
 
       const creds = JSON.parse(credentials);
-      if (creds.apiKey.includes('demo')) {
-        return { exchange: 'OKX', status: 'configured', errorMessage: 'Credenciais demo' };
+      if (!creds.apiKey || !creds.secretKey || !creds.passphrase) {
+        return { exchange: 'OKX', status: 'missing', errorMessage: 'Credenciais não configuradas' };
       }
 
       const { data, error } = await supabase.functions.invoke('okx-api', {
@@ -161,8 +161,8 @@ const RealModeActivator = () => {
       }
 
       const creds = JSON.parse(credentials);
-      if (creds.privateKey.includes('demo')) {
-        return { exchange: 'Hyperliquid', status: 'configured', errorMessage: 'Credenciais demo' };
+      if (!creds.walletAddress || !creds.privateKey) {
+        return { exchange: 'Hyperliquid', status: 'missing', errorMessage: 'Credenciais não configuradas' };
       }
 
       return { 

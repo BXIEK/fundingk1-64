@@ -300,8 +300,19 @@ serve(async (req) => {
       }
     }
     
-    // Usar user_id da requisição ou fallback para demo user
-    const userId = requestData.user_id || '00000000-0000-0000-0000-000000000000';
+    // Usar user_id da requisição - OBRIGATÓRIO
+    if (!requestData.user_id) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'User ID é obrigatório. Faça login para continuar.',
+        timestamp: new Date().toISOString()
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    
+    const userId = requestData.user_id;
     console.log('User ID usado:', userId);
 
     const realMode = requestData.real_mode || false;
@@ -326,14 +337,14 @@ serve(async (req) => {
       hyperliquidPrivateKey: userHyperliquidPrivateKey ? `${userHyperliquidPrivateKey.substring(0, 8)}...` : 'não fornecida',
     });
 
-    // Fallback para env vars se não foram fornecidas
-    const binanceApiKey = userBinanceApiKey || Deno.env.get('BINANCE_API_KEY');
-    const binanceSecretKey = userBinanceSecretKey || Deno.env.get('BINANCE_SECRET_KEY');
+    // Usar credenciais fornecidas pelo usuário - SEM FALLBACK PARA ENV VARS
+    const binanceApiKey = userBinanceApiKey;
+    const binanceSecretKey = userBinanceSecretKey;
     const hyperliquidWalletAddress = userHyperliquidWalletAddress;
-    const hyperliquidPrivateKey = userHyperliquidPrivateKey || Deno.env.get('HYPERLIQUID_PRIVATE_KEY');
-    const okxApiKey = userOKXApiKey || Deno.env.get('OKX_API_KEY');
-    const okxSecretKey = userOKXSecretKey || Deno.env.get('OKX_SECRET_KEY');
-    const okxPassphrase = userOKXPassphrase || Deno.env.get('OKX_PASSPHRASE');
+    const hyperliquidPrivateKey = userHyperliquidPrivateKey;
+    const okxApiKey = userOKXApiKey;
+    const okxSecretKey = userOKXSecretKey;
+    const okxPassphrase = userOKXPassphrase;
 
     console.log('Credenciais finais a serem usadas:', {
       binanceApiKey: binanceApiKey ? `${binanceApiKey.substring(0, 8)}...` : 'AUSENTE',

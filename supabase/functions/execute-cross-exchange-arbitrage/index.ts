@@ -637,10 +637,16 @@ async function executeSellOrder(exchange: string, symbol: string, quantity: numb
 }
 
 // Verificar se símbolo está whitelistado na Binance
-async function checkBinanceWhitelist(symbol: string): Promise<boolean> {
+async function checkBinanceWhitelist(symbol: string, requestBody?: any): Promise<boolean> {
   try {
-    const apiKey = Deno.env.get('BINANCE_API_KEY');
-    const secretKey = Deno.env.get('BINANCE_SECRET_KEY');
+    // Usar apenas credenciais fornecidas pelo usuário - sem fallback para env vars
+    if (!requestBody?.binanceApiKey || !requestBody?.binanceSecretKey) {
+      console.log('⚠️ Credenciais da Binance não fornecidas para verificação da whitelist');
+      return false;
+    }
+    
+    const apiKey = requestBody.binanceApiKey;
+    const secretKey = requestBody.binanceSecretKey;
     if (!apiKey || !secretKey) return false;
 
     const bSymbol = toBinanceSymbol(symbol);

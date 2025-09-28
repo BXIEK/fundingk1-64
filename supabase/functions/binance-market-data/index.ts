@@ -292,17 +292,18 @@ serve(async (req) => {
     }
 
     // Get Binance API credentials from Supabase secrets
-    const binanceApiKey = Deno.env.get('BINANCE_API_KEY') || '';
+    // Remover uso de credenciais demo - usar apenas credenciais fornecidas pelos usuários
+    console.log('📊 Buscando dados de mercado da Binance via API pública');
     
-    console.log(`🚀 Binance API request: ${endpoint}, has API key: ${binanceApiKey ? 'yes' : 'no'}`);
+    console.log(`🚀 Binance API request: ${endpoint}`);
 
     switch (endpoint) {
       case 'tickers':
-        return await getSpotTickers(binanceApiKey);
+        return await getSpotTickers();
       case 'futures':
-        return await getFuturesTickers(binanceApiKey);
+        return await getFuturesTickers();
       case 'funding-arbitrage':
-        return await getFundingArbitrageOpportunities(binanceApiKey);
+        return await getFundingArbitrageOpportunities();
       case 'place_order':
         return await executeBinanceOrder(body);
       default:
@@ -328,7 +329,7 @@ serve(async (req) => {
   }
 });
 
-async function getSpotTickers(binanceApiKey: string) {
+async function getSpotTickers(binanceApiKey: string = '') {
   try {
     console.log('🚀 Fetching Binance Spot tickers with advanced proxy system...');
     
@@ -454,7 +455,7 @@ async function getSpotTickers(binanceApiKey: string) {
   }
 }
 
-async function getFuturesTickers(binanceApiKey: string) {
+async function getFuturesTickers(binanceApiKey: string = '') {
   try {
     console.log('🚀 Fetching Binance Futures tickers with advanced proxy system...');
     
@@ -569,7 +570,7 @@ async function getFuturesTickers(binanceApiKey: string) {
   }
 }
 
-async function getFundingArbitrageOpportunities(binanceApiKey: string): Promise<Response> {
+async function getFundingArbitrageOpportunities(binanceApiKey: string = ''): Promise<Response> {
   try {
     console.log('🚀 Fetching funding arbitrage opportunities with proxy system...');
     

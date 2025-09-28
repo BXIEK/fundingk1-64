@@ -28,30 +28,15 @@ async function getBinanceWhitelistedSymbols(): Promise<string[]> {
   try {
     console.log('🔍 Verificando símbolos whitelisted na Binance...');
     
-    // Tentar buscar credenciais do ambiente ou usar valores padrão para teste
-    const binanceApiKey = Deno.env.get('BINANCE_API_KEY');
-    const binanceSecretKey = Deno.env.get('BINANCE_SECRET_KEY');
-    
-    if (!binanceApiKey || !binanceSecretKey) {
-      console.log('⚠️ Credenciais da Binance não encontradas, usando símbolos expandidos');
-      return ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'XRPUSDT', 'ADAUSDT', 'SOLUSDT', 'DOTUSDT', 'MATICUSDT', 'AVAXUSDT', 'LTCUSDT', 'LINKUSDT', 'UNIUSDT', 'ATOMUSDT', 'FILUSDT', 'TRXUSDT', 'DOGEUSDT', 'SHIBUSDT', 'PEPEUSDT', 'FLOKIUSDT', 'WIFUSDT'];
-    }
-    
-    const response = await fetch('https://uxhcsjlfwkhwkvhfacho.supabase.co/functions/v1/check-binance-whitelist', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        apiKey: binanceApiKey,
-        secretKey: binanceSecretKey,
-        symbols: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'XRPUSDT', 'ADAUSDT', 'SOLUSDT', 'DOTUSDT', 'MATICUSDT', 'AVAXUSDT', 'LTCUSDT', 'LINKUSDT', 'UNIUSDT', 'ATOMUSDT', 'FILUSDT', 'TRXUSDT', 'DOGEUSDT', 'SHIBUSDT', 'PEPEUSDT', 'FLOKIUSDT', 'WIFUSDT']
-      })
-    });
-    
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-    
-    const data = await response.json();
+    // Usar lista de símbolos padrão (sem credenciais demo)
+    console.log('⚠️ Usando símbolos padrão expandidos');
+    return ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'XRPUSDT', 'ADAUSDT', 'SOLUSDT', 'DOTUSDT', 'MATICUSDT', 'AVAXUSDT', 'LTCUSDT', 'LINKUSDT', 'UNIUSDT', 'ATOMUSDT', 'FILUSDT', 'TRXUSDT', 'DOGEUSDT', 'SHIBUSDT', 'PEPEUSDT', 'FLOKIUSDT', 'WIFUSDT'];
+  } catch (error) {
+    console.error('❌ Erro ao buscar símbolos whitelisted:', error);
+    return ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'XRPUSDT', 'ADAUSDT', 'SOLUSDT', 'DOTUSDT', 'MATICUSDT', 'AVAXUSDT', 'LTCUSDT'];
+  }
+}
+}
     
     if (data.success && data.whitelistedSymbols && data.whitelistedSymbols.length > 0) {
       console.log(`✅ Símbolos whitelisted encontrados: ${data.whitelistedSymbols.join(', ')}`);

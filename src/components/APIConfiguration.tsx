@@ -94,53 +94,24 @@ const APIConfiguration = () => {
     }));
   }, [wallet.address, wallet.isConnected]);
 
-  useEffect(() => {
-    // Verificar se há credenciais de demonstração e configurá-las automaticamente
-    const initializeDemoCredentials = () => {
-      const savedBinance = localStorage.getItem("binance_credentials");
-      const savedHyperliquid = localStorage.getItem("hyperliquid_credentials");
-      const savedOKX = localStorage.getItem("okx_credentials");
-      
-      // Se não há credenciais salvas, configurar credenciais de demonstração
-      if (!savedBinance) {
-        const demoBinanceCredentials = {
-          apiKey: "demo_binance_api_key_for_testing",
-          secretKey: "demo_binance_secret_key_for_testing"
-        };
-        localStorage.setItem("binance_credentials", JSON.stringify(demoBinanceCredentials));
-        setBinanceCredentials(demoBinanceCredentials);
-      } else {
-        setBinanceCredentials(JSON.parse(savedBinance));
-      }
-      
-      if (!savedHyperliquid) {
-        const demoHyperliquidCredentials = {
-          walletName: "Demo Wallet",
-          walletAddress: "0x1234567890123456789012345678901234567890",
-          privateKey: "demo_hyperliquid_private_key_for_testing"
-        };
-        localStorage.setItem("hyperliquid_credentials", JSON.stringify(demoHyperliquidCredentials));
-        setHyperliquidCredentials(demoHyperliquidCredentials);
-      } else {
-        setHyperliquidCredentials(JSON.parse(savedHyperliquid));
-      }
-
-      if (!savedOKX) {
-        const demoOKXCredentials = {
-          apiKey: "demo_okx_api_key_for_testing",
-          secretKey: "demo_okx_secret_key_for_testing",
-          passphrase: "demo_okx_passphrase_for_testing"
-        };
-        localStorage.setItem("okx_credentials", JSON.stringify(demoOKXCredentials));
-        setOkxCredentials(demoOKXCredentials);
-      } else {
-        setOkxCredentials(JSON.parse(savedOKX));
-      }
-
-      return { savedBinance, savedHyperliquid, savedOKX };
-    };
-
+  const loadSavedCredentials = () => {
+    const savedBinance = localStorage.getItem("binance_credentials");
+    const savedHyperliquid = localStorage.getItem("hyperliquid_credentials");
+    const savedOKX = localStorage.getItem("okx_credentials");
     const savedTradingConfig = localStorage.getItem("trading_config");
+    
+    if (savedBinance) {
+      setBinanceCredentials(JSON.parse(savedBinance));
+    }
+    
+    if (savedHyperliquid) {
+      setHyperliquidCredentials(JSON.parse(savedHyperliquid));
+    }
+    
+    if (savedOKX) {
+      setOkxCredentials(JSON.parse(savedOKX));
+    }
+
     if (savedTradingConfig) {
       const parsed = JSON.parse(savedTradingConfig);
       // Garantir que minSlippage existe (para compatibilidade com configurações antigas)
@@ -149,24 +120,12 @@ const APIConfiguration = () => {
       }
       setTradingConfig(parsed);
     }
+  };
 
-    // Inicializar credenciais de demonstração na primeira vez
-    const { savedBinance, savedHyperliquid, savedOKX } = initializeDemoCredentials();
-    
-    // Revalidar credenciais após configuração
+  useEffect(() => {
+    loadSavedCredentials();
     recheckCredentials();
-    
-    // Notificar o usuário sobre as credenciais de demonstração
-    setTimeout(() => {
-      const hasRealCredentials = savedBinance && savedHyperliquid && savedOKX;
-      if (!hasRealCredentials) {
-        toast({
-          title: "🔑 Credenciais de Demonstração Configuradas",
-          description: "O sistema foi configurado com credenciais de demonstração para você testar. Configure suas próprias credenciais reais para usar o modo real.",
-        });
-      }
-    }, 1000);
-  }, [toast, recheckCredentials]);
+  }, [recheckCredentials]);
 
   const handleSaveHyperliquid = () => {
     if (!hyperliquidCredentials.walletName || !hyperliquidCredentials.walletAddress || !hyperliquidCredentials.privateKey) {
@@ -490,7 +449,7 @@ const APIConfiguration = () => {
         <AlertDescription>
           Suas credenciais são armazenadas localmente no seu navegador e nunca são enviadas para nossos servidores.
           <br />
-          <strong>Para começar rapidamente:</strong> Credenciais de demonstração foram configuradas automaticamente. 
+          Configure suas credenciais reais das exchanges para acessar seus saldos e executar operações de arbitragem. 
           Você pode usar o sistema imediatamente para testes, mas para operações reais, configure suas próprias credenciais.
         </AlertDescription>
       </Alert>
