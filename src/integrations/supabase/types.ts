@@ -4708,6 +4708,15 @@ export type Database = {
         }
         Returns: Json
       }
+      check_available_balance: {
+        Args: {
+          p_amount: number
+          p_exchange?: string
+          p_symbol: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
       check_rate_limit: {
         Args: {
           p_identifier: string
@@ -4727,6 +4736,17 @@ export type Database = {
       deactivate_expired_trial_users: {
         Args: Record<PropertyKey, never>
         Returns: number
+      }
+      enable_realtime_trading: {
+        Args: {
+          p_amount: number
+          p_exchange_from?: string
+          p_exchange_to?: string
+          p_operation_type: string
+          p_symbol: string
+          p_user_id: string
+        }
+        Returns: Json
       }
       generate_fresh_arbitrage_opportunities: {
         Args: Record<PropertyKey, never>
@@ -4795,6 +4815,10 @@ export type Database = {
       }
       process_block_rewards: {
         Args: { block_id: string }
+        Returns: undefined
+      }
+      sync_real_balances: {
+        Args: { p_balances: Json; p_exchange: string; p_user_id: string }
         Returns: undefined
       }
       unlock_balance_after_arbitrage: {

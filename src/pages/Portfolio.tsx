@@ -14,6 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Wallet, Activity, Clock, Target, RefreshCw, Settings, Shield, AlertTriangle, Plus } from 'lucide-react';
 import APIConfiguration from '@/components/APIConfiguration';
 import Web3PortfolioCard from '@/components/Web3PortfolioCard';
+import RealtimeTradingValidator from '@/components/RealtimeTradingValidator';
 
 import { useTradingMode } from '@/contexts/TradingModeContext';
 import { getUserId } from '@/lib/userUtils';
@@ -437,6 +438,11 @@ export default function Portfolio() {
         </TabsList>
 
         <TabsContent value="portfolio" className="space-y-4">
+          {/* Validador de Trading em Tempo Real */}
+          {isRealMode && (
+            <RealtimeTradingValidator />
+          )}
+          
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Saldos Binance */}
             <Card>

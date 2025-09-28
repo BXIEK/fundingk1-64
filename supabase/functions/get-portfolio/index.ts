@@ -474,52 +474,116 @@ serve(async (req) => {
       }
     }
 
-    // Atualizar portfolio local com saldos reais (mantendo informação da exchange)
-    if (realBalances.length > 0) {
-      for (const balance of realBalances) {
-        if (balance.balance > 0 || balance.locked_balance > 0) {
-          await supabase
-            .from('portfolios')
-            .upsert({
-              user_id: userId,
-              symbol: balance.symbol,
-              balance: balance.balance,
-              locked_balance: balance.locked_balance,
-              exchange: balance.exchange, // Preservar informação da exchange
-              price_usd: balance.price_usd,
-              value_usd: balance.value_usd,
-              updated_at: new Date().toISOString()
-            });
+    // 🔄 Se conseguiu buscar dados das exchanges, sincronizar com portfolio local
+    if (realBalances.length > 0 && realMode) {
+      console.log(`Sincronizando ${realBalances.length} saldos com banco de dados...`);
+      
+      // Agrupar saldos por exchange
+      const binanceBalances = realBalances
+        .filter(asset => asset.exchange === 'Binance')
+        .filter(asset => asset.balance > 0)
+        .map(asset => ({
+          symbol: asset.symbol,
+          balance: asset.balance,
+          price_usd: asset.price_usd || 0,
+          value_usd: asset.value_usd || 0
+        }));
+
+      const okxBalances = realBalances
+        .filter(asset => asset.exchange === 'OKX')
+        .filter(asset => asset.balance > 0)
+        .map(asset => ({
+          symbol: asset.symbol,
+          balance: asset.balance,
+          price_usd: asset.price_usd || 0,
+          value_usd: asset.value_usd || 0
+        }));
+
+      const hyperliquidBalances = realBalances
+        .filter(asset => asset.exchange === 'Hyperliquid')
+        .filter(asset => asset.balance > 0)
+        .map(asset => ({
+          symbol: asset.symbol,
+          balance: asset.balance,
+          price_usd: asset.price_usd || 0,
+          value_usd: asset.value_usd || 0
+        }));
+
+      // Sincronizar cada exchange usando a nova função
+      try {
+        if (binanceBalances.length > 0) {
+          await supabase.rpc('sync_real_balances', {
+            p_user_id: userId,
+            p_exchange: 'Binance', 
+            p_balances: binanceBalances
+          });
         }
+
+        if (okxBalances.length > 0) {
+          await supabase.rpc('sync_real_balances', {
+            p_user_id: userId,
+            p_exchange: 'OKX',
+            p_balances: okxBalances
+          });
+        }
+
+        if (hyperliquidBalances.length > 0) {
+          await supabase.rpc('sync_real_balances', {
+            p_user_id: userId,
+            p_exchange: 'Hyperliquid',
+            p_balances: hyperliquidBalances
+          });
+        }
+
+        console.log("✅ Saldos sincronizados com sucesso no banco de dados");
+      } catch (syncError) {
+        console.error("❌ Erro ao sincronizar saldos:", syncError);
       }
     }
 
-    // Buscar portfolio atualizado
-    let portfolio: any[] = [];
-    
-    if (realMode && realBalances.length > 0) {
-      // Se modo real e temos dados das APIs, usar os dados reais diretos
-      portfolio = realBalances;
-      console.log(`Usando dados reais diretos: ${realBalances.length} ativos`);
-    } else {
-      // Caso contrário, buscar dados locais (simulados ou cache)
-      const { data: localPortfolio, error: portfolioError } = await supabase
-        .from('portfolios')
-        .select('*')
-        .eq('user_id', userId)
-        .order('symbol');
+    // ===============================================
+    // 📊 BUSCAR DADOS DO PORTFOLIO ATUALIZADO
+    // ===============================================
 
-      if (portfolioError) {
-        throw new Error(`Erro ao buscar portfolio: ${portfolioError.message}`);
-      }
-      
-      // Adicionar preços aos dados locais se disponíveis
-      portfolio = (localPortfolio || []).map((asset: any) => ({
+    let portfolio: any[] = [];
+
+    // Sempre buscar dados do banco (após sincronização ou dados existentes)
+    const { data: localAssets, error: localError } = await supabase
+      .from('portfolios')
+      .select('*')
+      .eq('user_id', userId)
+      .gt('balance', 0)
+      .order('exchange', { ascending: true })
+      .order('symbol', { ascending: true });
+
+    if (localError) {
+      console.error("❌ Erro ao buscar dados do portfolio:", localError);
+      portfolio = [];
+    } else {
+      portfolio = (localAssets || []).map(asset => ({
         ...asset,
-        price_usd: tokenPrices[asset.symbol] || asset.price_usd || 0,
-        value_usd: tokenPrices[asset.symbol] || asset.value_usd || 0
+        price_usd: asset.price_usd || tokenPrices[asset.symbol] || 0,
+        value_usd: asset.value_usd || (asset.balance * (tokenPrices[asset.symbol] || 0))
       }));
-      console.log(`Usando dados locais: ${portfolio.length} ativos`);
+      console.log(`📊 Portfolio carregado: ${portfolio.length} ativos`);
+    }
+
+    // Se não há dados no banco e estamos em modo real com saldos das exchanges
+    if (portfolio.length === 0 && realBalances.length > 0 && realMode) {
+      portfolio = realBalances
+        .filter(asset => asset.balance > 0)
+        .map(asset => ({
+          symbol: asset.symbol,
+          balance: asset.balance,
+          locked_balance: asset.locked_balance || 0,
+          exchange: asset.exchange,
+          price_usd: asset.price_usd || tokenPrices[asset.symbol] || 0,
+          value_usd: asset.value_usd || (asset.balance * (tokenPrices[asset.symbol] || 0)),
+          application_title: asset.application_title || `Real Balance - ${asset.exchange}`,
+          investment_type: asset.type || 'spot',
+          updated_at: new Date().toISOString()
+        }));
+      console.log("📈 Usando dados diretos das exchanges (fallback)");
     }
 
     // Buscar histórico de trades
