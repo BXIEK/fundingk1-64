@@ -396,7 +396,7 @@ serve(async (req) => {
                 locked_balance: parseFloat(b.locked),
                 exchange: 'Binance',
                 price_usd: tokenPrices[b.asset] || 0,
-                value_usd: tokenPrices[b.asset] || 0,
+                value_usd: parseFloat(b.free) * (tokenPrices[b.asset] || 0),
                 updated_at: new Date().toISOString()
               }))
             );

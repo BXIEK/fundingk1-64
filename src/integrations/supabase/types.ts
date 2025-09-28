@@ -2815,6 +2815,7 @@ export type Database = {
           updated_at: string
           user_id: string
           value_usd: number | null
+          value_usd_calculated: number | null
         }
         Insert: {
           application_title?: string | null
@@ -2829,6 +2830,7 @@ export type Database = {
           updated_at?: string
           user_id: string
           value_usd?: number | null
+          value_usd_calculated?: number | null
         }
         Update: {
           application_title?: string | null
@@ -2843,6 +2845,7 @@ export type Database = {
           updated_at?: string
           user_id?: string
           value_usd?: number | null
+          value_usd_calculated?: number | null
         }
         Relationships: []
       }
