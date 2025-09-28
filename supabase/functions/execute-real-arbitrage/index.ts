@@ -415,17 +415,31 @@ function roundToStepSize(quantity: number, stepSize: number): number {
   return parseFloat(rounded.toFixed(precision));
 }
 
-// Executar ordem na Binance
+// Executar ordem na Binance com padrão USDT
 async function executeBinanceOrder(
   symbol: string, 
   side: 'BUY' | 'SELL', 
-  quantity: number,
+  usdtAmount: number, // ⭐ MUDANÇA: Agora recebe valor em USDT diretamente
+  currentPrice: number,
   apiKey: string,
   secretKey: string
 ) {
-  console.log(`🔄 Iniciando ordem Binance ${side}: ${quantity} ${symbol}`);
+  console.log(`🔄 Iniciando ordem Binance ${side}: $${usdtAmount} USDT para ${symbol}`);
   
   try {
+    // ⭐ NOVA LÓGICA: Calcular quantidade baseada no USDT
+    let quantity: number;
+    
+    if (side === 'BUY') {
+      // Para BUY: USDT → Crypto (quantidade = usdtAmount / preço)
+      quantity = usdtAmount / currentPrice;
+      console.log(`💰 COMPRA: $${usdtAmount} USDT → ${quantity} ${symbol} (preço: $${currentPrice})`);
+    } else {
+      // Para SELL: Crypto → USDT (quantidade = usdtAmount / preço)  
+      quantity = usdtAmount / currentPrice;
+      console.log(`💰 VENDA: ${quantity} ${symbol} → $${usdtAmount} USDT (preço: $${currentPrice})`);
+    }
+    
     // Obter informações do símbolo para ajustar precisão
     console.log(`🔍 Obtendo informações de precisão para ${symbol}USDT...`);
     const symbolInfo = await getSymbolInfo(symbol);
@@ -447,8 +461,8 @@ async function executeBinanceOrder(
     const timestamp = Date.now();
     const queryString = `symbol=${symbol}USDT&side=${side}&type=MARKET&quantity=${adjustedQuantity}&timestamp=${timestamp}`;
     
-    console.log('Preparando assinatura para Binance...');
-    console.log('Query string final:', queryString);
+    console.log('🔐 Preparando assinatura para Binance (Operação baseada em USDT)...');
+    console.log('📝 Query string final:', queryString);
     
     // Gerar assinatura
     const encoder = new TextEncoder();

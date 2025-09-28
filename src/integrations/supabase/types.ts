@@ -4836,6 +4836,14 @@ export type Database = {
         }
         Returns: undefined
       }
+      unlock_usdt_balance_after_arbitrage: {
+        Args: {
+          p_amount_to_unlock: number
+          p_success?: boolean
+          p_user_id: string
+        }
+        Returns: undefined
+      }
       update_miner_stats: {
         Args: {
           p_hashrate?: number
