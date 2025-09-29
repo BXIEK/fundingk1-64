@@ -193,22 +193,41 @@ const RealModeActivator = () => {
     try {
       const userId = await getUserId();
       
-      // Ativar configuração automática
-      const { error } = await supabase
+      // Primeiro verificar se já existe configuração
+      const { data: existingConfig } = await supabase
         .from('auto_cross_exchange_configs')
-        .upsert({
-          user_id: userId,
-          is_enabled: true,
-          min_spread_percentage: 0.3,
-          max_investment_amount: 50,
-          min_profit_threshold: 1.0,
-          max_concurrent_operations: 2,
-          auto_rebalance_enabled: true,
-          exchanges_enabled: ['binance', 'okx'],
-          symbols_filter: ['BTCUSDT', 'ETHUSDT', 'SOLUSDT'],
-          risk_management_level: 'medium',
-          stop_loss_percentage: 2.0
-        });
+        .select('id, is_enabled')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      let error = null;
+      
+      if (existingConfig) {
+        // Atualizar configuração existente
+        const { error: updateError } = await supabase
+          .from('auto_cross_exchange_configs')
+          .update({ is_enabled: true })
+          .eq('id', existingConfig.id);
+        error = updateError;
+      } else {
+        // Criar nova configuração
+        const { error: insertError } = await supabase
+          .from('auto_cross_exchange_configs')
+          .insert({
+            user_id: userId,
+            is_enabled: true,
+            min_spread_percentage: 0.3,
+            max_investment_amount: 50,
+            min_profit_threshold: 1.0,
+            max_concurrent_operations: 2,
+            auto_rebalance_enabled: true,
+            exchanges_enabled: ['binance', 'okx'],
+            symbols_filter: ['BTCUSDT', 'ETHUSDT', 'SOLUSDT'],
+            risk_management_level: 'medium',
+            stop_loss_percentage: 2.0
+          });
+        error = insertError;
+      }
 
       if (error) throw error;
 
