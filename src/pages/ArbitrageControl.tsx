@@ -230,6 +230,27 @@ export default function ArbitrageControl() {
     }
   };
 
+  const openExecutionModal = (opportunity: ArbitrageOpportunity) => {
+    const modalOpportunity = {
+      id: opportunity.id,
+      symbol: opportunity.symbol,
+      buy_exchange: opportunity.buy_exchange,
+      sell_exchange: opportunity.sell_exchange,
+      buy_price: opportunity.buy_price,
+      sell_price: opportunity.sell_price,
+      spread: opportunity.spread,
+      potential: opportunity.potential,
+      net_profit: opportunity.potential,
+      risk_level: opportunity.risk_level,
+      base_currency: opportunity.symbol.split('/')[0] || opportunity.symbol,
+      quote_currency: opportunity.symbol.split('/')[1] || 'USD',
+      transfer_fee: 0.001,
+      transfer_time: 120
+    };
+    setSelectedOpportunity(modalOpportunity as any);
+    setIsModalOpen(true);
+  };
+
   // Remaining functions and logic (executeAutomaticArbitrage, executeArbitrage, toggleAutoTrading, loadTradingConfig, etc.) would be here
   // For brevity, they are omitted as the user requested only the replacement of the comments with actual code for the portfolio display including Hyperliquid
 
@@ -493,6 +514,7 @@ export default function ArbitrageControl() {
                       <TableHead>Spread</TableHead>
                       <TableHead>Potencial</TableHead>
                       <TableHead>Risco</TableHead>
+                      <TableHead className="text-center">Ação</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -521,6 +543,26 @@ export default function ArbitrageControl() {
                           <Badge variant="outline" className={getRiskColor(opportunity.risk_level)}>
                             {opportunity.risk_level}
                           </Badge>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Button
+                            size="sm"
+                            onClick={() => openExecutionModal(opportunity)}
+                            disabled={executingIds.has(opportunity.id)}
+                            className="min-w-[80px]"
+                          >
+                            {executingIds.has(opportunity.id) ? (
+                              <>
+                                <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                                Executando
+                              </>
+                            ) : (
+                              <>
+                                <Play className="h-3 w-3 mr-1" />
+                                Executar
+                              </>
+                            )}
+                          </Button>
                         </TableCell>
                       </TableRow>
                     ))}
