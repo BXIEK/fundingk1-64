@@ -31,6 +31,9 @@ export const TradingModeProvider: React.FC<TradingModeProviderProps> = ({ childr
     const hyperliquidCredentials = localStorage.getItem('hyperliquid_credentials');
     const okxCredentials = localStorage.getItem('okx_credentials');
     
+    console.log('🔍 DIAGNÓSTICO COMPLETO DE CREDENCIAIS:');
+    console.log('localStorage keys presentes:', Object.keys(localStorage));
+    
     // Verificar se tem credenciais válidas (incluindo de demonstração)
     let hasValidBinance = false;
     let hasValidHyperliquid = false;
@@ -40,57 +43,63 @@ export const TradingModeProvider: React.FC<TradingModeProviderProps> = ({ childr
       try {
         const binanceCreds = JSON.parse(binanceCredentials);
         hasValidBinance = !!(binanceCreds.apiKey && binanceCreds.secretKey);
-        console.log('Credenciais Binance encontradas:', { 
+        console.log('✅ Credenciais Binance no localStorage:', { 
+          present: true,
           hasApiKey: !!binanceCreds.apiKey, 
-          hasSecretKey: !!binanceCreds.secretKey 
+          hasSecretKey: !!binanceCreds.secretKey,
+          apiKeyLength: binanceCreds.apiKey?.length || 0,
+          secretKeyLength: binanceCreds.secretKey?.length || 0
         });
       } catch (e) {
-        console.error('Erro ao parse credenciais Binance:', e);
+        console.error('❌ Erro ao parse credenciais Binance:', e);
       }
     } else {
-      console.log('Nenhuma credencial Binance encontrada no localStorage');
+      console.log('❌ Nenhuma credencial Binance no localStorage');
     }
     
     if (okxCredentials) {
       try {
         const okxCreds = JSON.parse(okxCredentials);
         hasValidOKX = !!(okxCreds.apiKey && okxCreds.secretKey && okxCreds.passphrase);
-        console.log('Credenciais OKX encontradas:', { 
+        console.log('✅ Credenciais OKX no localStorage:', { 
+          present: true,
           hasApiKey: !!okxCreds.apiKey, 
           hasSecretKey: !!okxCreds.secretKey,
           hasPassphrase: !!okxCreds.passphrase
         });
       } catch (e) {
-        console.error('Erro ao parse credenciais OKX:', e);
+        console.error('❌ Erro ao parse credenciais OKX:', e);
       }
     } else {
-      console.log('Nenhuma credencial OKX encontrada no localStorage');
+      console.log('❌ Nenhuma credencial OKX no localStorage');
     }
     
     if (hyperliquidCredentials) {
       try {
         const hyperliquidCreds = JSON.parse(hyperliquidCredentials);
         hasValidHyperliquid = !!(hyperliquidCreds.walletName && hyperliquidCreds.walletAddress && hyperliquidCreds.privateKey);
-        console.log('Credenciais Hyperliquid encontradas:', { 
+        console.log('✅ Credenciais Hyperliquid no localStorage:', { 
+          present: true,
           hasWalletName: !!hyperliquidCreds.walletName, 
           hasWalletAddress: !!hyperliquidCreds.walletAddress,
           hasPrivateKey: !!hyperliquidCreds.privateKey
         });
       } catch (e) {
-        console.error('Erro ao parse credenciais Hyperliquid:', e);
+        console.error('❌ Erro ao parse credenciais Hyperliquid:', e);
       }
     } else {
-      console.log('Nenhuma credencial Hyperliquid encontrada no localStorage');
+      console.log('❌ Nenhuma credencial Hyperliquid no localStorage');
     }
     
     const hasValidCredentials = hasValidBinance || hasValidHyperliquid || hasValidOKX;
     setHasCredentials(hasValidCredentials);
     
-    console.log('Status das credenciais:', {
+    console.log('📊 RESUMO DAS CREDENCIAIS:', {
       hasValidBinance,
       hasValidOKX,
       hasValidHyperliquid,
-      hasValidCredentials
+      hasValidCredentials,
+      conclusao: hasValidCredentials ? 'SISTEMA PRONTO' : 'CREDENCIAIS NECESSÁRIAS'
     });
     
     return hasValidCredentials;
