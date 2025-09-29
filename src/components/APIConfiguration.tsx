@@ -190,13 +190,13 @@ const APIConfiguration = () => {
         throw new Error(error.message);
       }
 
-      if (data.success && data.data.connected) {
+      if (data.success) {
         toast({
           title: "✅ Conexão Hyperliquid Estabelecida",
-          description: data.data.message || "Conexão testada com sucesso!",
+          description: data.message || "Conexão testada com sucesso!",
         });
       } else {
-        throw new Error(data.data?.error || data.error || 'Erro desconhecido');
+        throw new Error(data.error || 'Erro desconhecido');
       }
     } catch (error) {
       console.error('Erro no teste da Hyperliquid:', error);

@@ -165,10 +165,29 @@ const RealModeActivator = () => {
         return { exchange: 'Hyperliquid', status: 'missing', errorMessage: 'Credenciais não configuradas' };
       }
 
-      return { 
-        exchange: 'Hyperliquid', 
-        status: 'configured', 
-        lastChecked: new Date().toISOString()
+      // Fazer teste real de conexão
+      const { data, error } = await supabase.functions.invoke('hyperliquid-api', {
+        body: { 
+          action: 'test_connection',
+          wallet_address: creds.walletAddress,
+          private_key: creds.privateKey
+        }
+      });
+
+      if (error) {
+        return {
+          exchange: 'Hyperliquid',
+          status: 'error',
+          lastChecked: new Date().toISOString(),
+          errorMessage: error.message || 'Erro na conexão'
+        };
+      }
+
+      return {
+        exchange: 'Hyperliquid',
+        status: data?.success ? 'connected' : 'error',
+        lastChecked: new Date().toISOString(),
+        errorMessage: data?.success ? undefined : (data?.error || 'Erro desconhecido')
       };
     } catch (e) {
       return { 
