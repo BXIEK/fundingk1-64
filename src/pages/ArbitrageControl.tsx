@@ -601,6 +601,17 @@ export default function ArbitrageControl() {
             setIsModalOpen(false);
             setSelectedOpportunity(null);
           }}
+          onExecute={(opportunity, config) => {
+            // Handle arbitrage execution here
+            console.log('Executing arbitrage:', opportunity, config);
+            toast({
+              title: "Arbitragem Iniciada",
+              description: `Executando arbitragem para ${opportunity.symbol}...`
+            });
+            setIsModalOpen(false);
+            setSelectedOpportunity(null);
+          }}
+          isExecuting={executingIds.has(selectedOpportunity?.id || '')}
         />
       )}
 
