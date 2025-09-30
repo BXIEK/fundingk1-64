@@ -37,48 +37,6 @@ async function getBinanceWhitelistedSymbols(): Promise<string[]> {
   }
 }
 
-// Gerar preços simulados realísticos baseados em dados de mercado
-function generateRealisticPrices(allowedSymbols?: string[]) {
-  const baseTime = Date.now();
-  const volatilityFactor = 0.002 + Math.random() * 0.008; // 0.2% a 1% de volatilidade
-  
-  // Preços base realísticos atualizados
-  const basePrices = {
-    'BTCUSDT': 112500 + (Math.random() - 0.5) * 2000, // ±$1000 variação
-    'ETHUSDT': 4150 + (Math.random() - 0.5) * 200,    // ±$100 variação  
-    'BNBUSDT': 998 + (Math.random() - 0.5) * 60,      // ±$30 variação
-    'SOLUSDT': 220 + (Math.random() - 0.5) * 20,      // ±$10 variação
-    'ADAUSDT': 0.821 + (Math.random() - 0.5) * 0.04,  // ±$0.02 variação
-    'XRPUSDT': 2.854 + (Math.random() - 0.5) * 0.1,   // ±$0.05 variação
-    'MATICUSDT': 0.379 + (Math.random() - 0.5) * 0.02, // ±$0.01 variação
-    'DOTUSDT': 3.977 + (Math.random() - 0.5) * 0.2    // ±$0.1 variação
-  };
-  
-  const prices: any = {};
-  
-  // Filtrar apenas símbolos permitidos se especificado
-  const symbolsToUse = allowedSymbols && allowedSymbols.length > 0 
-    ? Object.keys(basePrices).filter(symbol => allowedSymbols.includes(symbol))
-    : Object.keys(basePrices);
-  
-  console.log(`📊 Usando símbolos: ${symbolsToUse.join(', ')}`);
-  
-  symbolsToUse.forEach(symbol => {
-    const basePrice = basePrices[symbol as keyof typeof basePrices];
-    if (basePrice) {
-      // Aplicar volatilidade realística
-      const marketMovement = (Math.sin(baseTime / 300000) * volatilityFactor);
-      const randomNoise = (Math.random() - 0.5) * volatilityFactor * 0.5;
-      const finalPrice = basePrice * (1 + marketMovement + randomNoise);
-      
-      const cleanSymbol = symbol.replace('USDT', ''); // Remover USDT para compatibilidade
-      prices[cleanSymbol] = Math.max(0.0001, finalPrice); // Garantir preços positivos
-    }
-  });
-  
-  console.log(`Preços simulados gerados: ${Object.keys(prices).length} símbolos`);
-  return prices;
-}
 
 // Buscar oportunidades de funding arbitrage da Binance
 async function getBinanceFundingOpportunities(): Promise<ArbitrageOpportunity[]> {
@@ -262,93 +220,9 @@ async function getOKXPrices(userId?: string) {
     console.log(`✅ Preços reais da OKX obtidos: ${Object.keys(prices).length} símbolos`);
     return prices;
   } catch (error) {
-    console.log('⚠️ API OKX indisponível, gerando preços simulados:', error instanceof Error ? error.message : String(error));
-    throw error;
+    console.error('❌ Erro ao buscar preços da OKX:', error instanceof Error ? error.message : String(error));
+    return {}; // Retornar objeto vazio ao invés de simular
   }
-}
-
-// Simular preços da OKX com spreads que geram oportunidades
-function simulateOKXPrices(binancePrices: any) {
-  const okxPrices: any = {};
-  
-  Object.entries(binancePrices).forEach(([symbol, binancePrice]: [string, any]) => {
-    if (typeof binancePrice === 'number' && binancePrice > 0) {
-      // Criar variações que garantam mais oportunidades
-      let variation: number;
-      
-      // 70% de chance de ter spread favorável para criar oportunidade
-      if (Math.random() < 0.7) {
-        // Criar spread de 0.2% a 2.0% para gerar oportunidade viável
-        const targetSpread = 0.002 + Math.random() * 0.018; // 0.2% a 2.0%
-        variation = Math.random() > 0.5 ? targetSpread : -targetSpread;
-      } else {
-        // Variação normal menor
-        variation = (Math.random() - 0.5) * 0.004; // -0.2% a +0.2%
-      }
-      
-      const okxPrice = binancePrice * (1 + variation);
-      okxPrices[symbol] = Math.max(0.0001, okxPrice);
-    }
-  });
-  
-  console.log(`Preços da OKX simulados: ${Object.keys(okxPrices).length} símbolos`);
-  return okxPrices;
-}
-
-// Garantir oportunidades mínimas quando necessário
-function generateGuaranteedOpportunities(binancePrices: any): ArbitrageOpportunity[] {
-  const guaranteedOpps: ArbitrageOpportunity[] = [];
-  const symbols = Object.keys(binancePrices).slice(0, 5); // Pegar 5 símbolos principais (aumentado de 3)
-  const standardInvestment = 10; // Base padronizada US$ 10
-  
-  symbols.forEach((symbol, index) => {
-    const basePrice = binancePrices[symbol];
-    if (!basePrice || basePrice <= 0) return;
-    
-    // Alternar direção da oportunidade
-    const buyFromBinance = index % 2 === 0;
-    const spreadPercent = 0.15 + Math.random() * 1.2; // 0.15% a 1.35% (mais variação)
-    
-    let buyPrice, sellPrice, buyExchange, sellExchange;
-    
-    if (buyFromBinance) {
-      buyPrice = basePrice;
-      sellPrice = basePrice * (1 + spreadPercent / 100);
-      buyExchange = 'Binance';
-      sellExchange = 'OKX';
-    } else {
-      buyPrice = basePrice * (1 + spreadPercent / 100);
-      sellPrice = basePrice;
-      buyExchange = 'OKX';
-      sellExchange = 'Binance';
-    }
-    
-    // CÁLCULO PADRONIZADO (mesmo da calculadora)
-    const spotQuantity = standardInvestment / buyPrice;
-    const futuresValue = spotQuantity * sellPrice;
-    const grossProfit = futuresValue - standardInvestment;
-    const fees = standardInvestment * 0.0015; // 0.15% do investimento
-    const potentialProfit = Math.max(0.001, grossProfit - fees);
-    
-    guaranteedOpps.push({
-      symbol,
-      buy_exchange: buyExchange,
-      sell_exchange: sellExchange,
-      buy_price: buyPrice,
-      sell_price: sellPrice,
-      spread_percentage: spreadPercent,
-      potential_profit: potentialProfit,
-      required_balance: standardInvestment,
-      risk_level: spreadPercent > 1.0 ? 'MEDIUM' : 'LOW',
-      expiry_time: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
-      liquidity_buy: 50000 + Math.random() * 30000,
-      liquidity_sell: 45000 + Math.random() * 25000,
-      execution_time_estimate: 700 + Math.random() * 400
-    });
-  });
-  
-  console.log(`Oportunidades garantidas geradas: ${guaranteedOpps.length}`);
-  return guaranteedOpps;
 }
 
 // Calcular oportunidades de arbitragem com critérios otimizados
@@ -516,75 +390,27 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     } else {
-      // APENAS OPORTUNIDADES CROSS-EXCHANGE (Binance vs OKX)  
-      console.log('🔄 Buscando apenas oportunidades cross-exchange (Binance vs OKX)...');
+      // APENAS OPORTUNIDADES CROSS-EXCHANGE REAIS (Binance vs OKX)  
+      console.log('🔄 Buscando apenas oportunidades cross-exchange REAIS (Binance vs OKX)...');
       
-      // Primeiro, verificar símbolos whitelistados da Binance
+      // Verificar símbolos whitelistados da Binance
       const whitelistedSymbols = await getBinanceWhitelistedSymbols();
       console.log(`🔒 Símbolos autorizados pela Binance: ${whitelistedSymbols.join(', ')}`);
       
-      // Sempre usar preços simulados realísticos como base, mas filtrados pela whitelist
-      let binancePrices = generateRealisticPrices(whitelistedSymbols);
-      let dataSource = 'simulated_whitelisted';
+      // Buscar preços reais da Binance (obrigatório)
+      const binancePrices = await getBinancePrices();
+      const dataSource = 'binance_api';
+      console.log(`✅ Preços reais da Binance obtidos: ${Object.keys(binancePrices).length} símbolos`);
       
-      // Tentar buscar preços reais da Binance (opcional)
-      try {
-        const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-        const response = await fetch('https://uxhcsjlfwkhwkvhfacho.supabase.co/functions/v1/binance-market-data/tickers', {
-          method: 'GET',
-          headers: { 
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${supabaseKey}`
-          }
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          if (data.success && data.data && data.data.length > 0) {
-            const realPrices: any = {};
-            data.data.forEach((item: any) => {
-              if (item.price && item.price > 0) {
-                const symbol = item.symbol.replace('/USDT', '');
-                realPrices[symbol] = item.price;
-              }
-            });
-            
-            if (Object.keys(realPrices).length > 0) {
-              binancePrices = realPrices;
-              dataSource = 'binance_api';
-              console.log(`✅ Preços reais da Binance obtidos: ${Object.keys(realPrices).length} símbolos`);
-            }
-          }
-        }
-      } catch (apiError) {
-        // @ts-ignore - Type error suppression
-        console.log(`⚠️ API Binance indisponível (${apiError instanceof Error ? apiError.message : String(apiError)}), usando dados simulados realísticos`);
-      }
-      
-      // Tentar buscar preços reais da OKX, senão simular
-      let okxPrices: any = {};
-      try {
-        okxPrices = await getOKXPrices(userId);
-      } catch (okxError) {
-        // @ts-ignore - Type error suppression
-        console.log(`⚠️ API OKX indisponível, simulando preços: ${okxError instanceof Error ? okxError.message : String(okxError)}`);
-        okxPrices = simulateOKXPrices(binancePrices);
-      }
+      // Buscar preços reais da OKX
+      const okxPrices = await getOKXPrices(userId);
       
       console.log(`📊 Dados preparados - Binance: ${Object.keys(binancePrices).length}, OKX: ${Object.keys(okxPrices).length} símbolos`);
       
-      // Calcular oportunidades cross-exchange usando apenas símbolos whitelistados
+      // Calcular oportunidades cross-exchange REAIS usando apenas símbolos whitelistados
       const crossExchangeOpportunities = calculateCrossExchangeOpportunities(binancePrices, okxPrices, whitelistedSymbols);
       allOpportunities.push(...crossExchangeOpportunities);
-      console.log(`🔄 ${crossExchangeOpportunities.length} oportunidades cross-exchange adicionadas`);
-      
-      // Se poucas oportunidades encontradas, gerar algumas garantidas
-      if (allOpportunities.length < 3) {
-        console.log('🔄 Poucas oportunidades encontradas, gerando oportunidades adicionais...');
-        const guaranteed = generateGuaranteedOpportunities(binancePrices);
-        allOpportunities.push(...guaranteed);
-        console.log(`Oportunidades garantidas geradas: ${guaranteed.length}`);
-      }
+      console.log(`🔄 ${crossExchangeOpportunities.length} oportunidades cross-exchange REAIS detectadas`);
       
       return new Response(JSON.stringify({
         success: true,
@@ -607,13 +433,9 @@ serve(async (req) => {
     }
     
     
-    // Se poucas oportunidades encontradas, gerar algumas garantidas
-    if (allOpportunities.length < 3) {
-      console.log('🔄 Poucas oportunidades encontradas, gerando oportunidades adicionais...');
-      const binancePricesData = await getBinancePrices();
-      const guaranteed = generateGuaranteedOpportunities(binancePricesData);
-      allOpportunities.push(...guaranteed);
-      console.log(`Oportunidades garantidas geradas: ${guaranteed.length}`);
+    // Apenas retornar oportunidades REAIS encontradas
+    if (allOpportunities.length === 0) {
+      console.log('⚠️ Nenhuma oportunidade real encontrada no momento');
     }
     
     // Ordenar por potencial de lucro e limitar
@@ -705,19 +527,15 @@ serve(async (req) => {
   } catch (error) {
     console.error('❌ Erro crítico na detecção:', error);
     
-    // Fallback final: sempre retornar pelo menos 2 oportunidades simuladas
-    const emergencyOpportunities = generateGuaranteedOpportunities(generateRealisticPrices());
-    
     return new Response(JSON.stringify({ 
-      success: true,
-      opportunities_found: emergencyOpportunities.length,
-      opportunities: emergencyOpportunities.slice(0, 3),
-      data_source: 'emergency_fallback',
-      error_recovered: true,
-      // @ts-ignore - Error type issue
-      original_error: error instanceof Error ? error.message : String(error),
+      success: false,
+      opportunities_found: 0,
+      opportunities: [],
+      error: error instanceof Error ? error.message : String(error),
+      message: 'Não foi possível detectar oportunidades no momento. Verifique suas credenciais e conexão com as exchanges.',
       timestamp: new Date().toISOString()
     }), {
+      status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
