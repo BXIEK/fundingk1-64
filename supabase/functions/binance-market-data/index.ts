@@ -363,8 +363,12 @@ async function getSpotTickers(binanceApiKey: string = '') {
       console.log('First spot ticker item structure:', JSON.stringify(processedData[0], null, 2));
     }
     
-    // Filter for major cryptocurrencies
-    const majorSymbols = ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'ADAUSDT', 'XRPUSDT', 'MATICUSDT', 'SOLUSDT', 'DOTUSDT'];
+    // Expandir lista de símbolos para incluir todos os whitelistados
+    const majorSymbols = [
+      'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'ADAUSDT', 'XRPUSDT', 'MATICUSDT', 'SOLUSDT', 'DOTUSDT',
+      'AVAXUSDT', 'LTCUSDT', 'LINKUSDT', 'UNIUSDT', 'ATOMUSDT', 'FILUSDT', 'TRXUSDT', 
+      'DOGEUSDT', 'SHIBUSDT', 'PEPEUSDT', 'FLOKIUSDT', 'WIFUSDT'
+    ];
     const filteredData = processedData.filter(item => majorSymbols.includes(item.symbol));
     
     console.log(`Successfully fetched ${filteredData.length} spot tickers from Binance`);

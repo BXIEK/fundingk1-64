@@ -209,8 +209,11 @@ async function getOKXPrices(userId?: string) {
     
     // Converter formato da OKX para nosso formato
     const prices: any = {};
-    if (data.prices && typeof data.prices === 'object') {
-      Object.entries(data.prices).forEach(([symbol, price]: [string, any]) => {
+    // A API OKX retorna em data.data, não em data.prices
+    const pricesData = data.data || data.prices;
+    
+    if (pricesData && typeof pricesData === 'object') {
+      Object.entries(pricesData).forEach(([symbol, price]: [string, any]) => {
         if (price && typeof price === 'number' && price > 0) {
           prices[symbol] = price;
         }
