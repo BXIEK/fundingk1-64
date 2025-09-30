@@ -123,6 +123,19 @@ const Index = () => {
   
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 p-2 sm:p-4">
+      {/* Supabase Link - Top Right */}
+      <div className="absolute top-4 right-4 z-50">
+        <Button 
+          variant="outline" 
+          size="sm"
+          onClick={() => window.open('https://supabase.com/dashboard/project/uxhcsjlfwkhwkvhfacho', '_blank')}
+          className="flex items-center gap-2 bg-background/95 backdrop-blur-sm border-border hover:bg-accent hover:text-accent-foreground shadow-lg"
+        >
+          <Globe className="h-4 w-4" />
+          <span className="hidden sm:inline">Supabase Dashboard</span>
+        </Button>
+      </div>
+
       <div className="mx-auto max-w-7xl">
         <div className="mb-4 sm:mb-8">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
