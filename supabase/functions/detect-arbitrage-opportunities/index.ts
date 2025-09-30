@@ -85,44 +85,41 @@ async function getBinanceFundingOpportunities(): Promise<ArbitrageOpportunity[]>
   try {
     console.log('🔄 Buscando oportunidades de funding arbitrage da Binance...');
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    
+    // Criar AbortController para timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
+    
     const response = await fetch('https://uxhcsjlfwkhwkvhfacho.supabase.co/functions/v1/binance-market-data/funding-arbitrage', {
       method: 'GET',
       headers: { 
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${supabaseKey}`
-      }
+      },
+      signal: controller.signal
+    }).catch(err => {
+      clearTimeout(timeoutId);
+      throw err;
     });
     
+    clearTimeout(timeoutId);
+    
     if (!response.ok) {
-      console.log(`⚠️ API Funding retornou status ${response.status}, tentando novamente...`);
-      // Segunda tentativa
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      const retryResponse = await fetch('https://uxhcsjlfwkhwkvhfacho.supabase.co/functions/v1/binance-market-data/funding-arbitrage', {
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${supabaseKey}`
-        }
-      });
-      if (!retryResponse.ok) {
-        throw new Error(`HTTP error! status: ${retryResponse.status}`);
-      }
-      const retryData = await retryResponse.json();
-      if (retryData.success && retryData.data) {
-        return processFundingData(retryData.data);
-      }
-      throw new Error('Retry também falhou');
+      console.log(`⚠️ API Funding retornou status ${response.status}, usando fallback`);
+      return []; // Retornar vazio ao invés de tentar retry
     }
     
     const data = await response.json();
     
     if (!data.success || !data.data) {
-      throw new Error(data.error || 'API Binance funding indisponível');
+      console.log('⚠️ API Funding sem dados válidos, usando fallback');
+      return [];
     }
     
     return processFundingData(data.data);
   } catch (error) {
     console.log('⚠️ Funding arbitrage da Binance indisponível:', error instanceof Error ? error.message : String(error));
-    return [];
+    return []; // Sempre retornar array vazio ao invés de falhar
   }
 }
 
@@ -165,13 +162,24 @@ async function getBinancePrices() {
   try {
     console.log('Tentando buscar preços reais da Binance...');
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    
+    // Criar AbortController para timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
+    
     const response = await fetch('https://uxhcsjlfwkhwkvhfacho.supabase.co/functions/v1/binance-market-data/tickers', {
       method: 'GET',
       headers: { 
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${supabaseKey}`
-      }
+      },
+      signal: controller.signal
+    }).catch(err => {
+      clearTimeout(timeoutId);
+      throw err;
     });
+    
+    clearTimeout(timeoutId);
     
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
@@ -208,6 +216,11 @@ async function getOKXPrices(userId?: string) {
   try {
     console.log('📡 Buscando preços reais da OKX...');
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    
+    // Criar AbortController para timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
+    
     const response = await fetch('https://uxhcsjlfwkhwkvhfacho.supabase.co/functions/v1/okx-api', {
       method: 'POST',
       headers: { 
@@ -217,8 +230,14 @@ async function getOKXPrices(userId?: string) {
       body: JSON.stringify({ 
         action: 'get_prices',
         user_id: userId
-      })
+      }),
+      signal: controller.signal
+    }).catch(err => {
+      clearTimeout(timeoutId);
+      throw err;
     });
+    
+    clearTimeout(timeoutId);
     
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);

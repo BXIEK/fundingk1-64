@@ -1,6 +1,5 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -63,10 +62,7 @@ const USER_AGENTS = [
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:121.0) Gecko/20100101 Firefox/121.0'
 ];
 
-// Inicializar cliente Supabase para usar o Smart Proxy Service
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+// Cliente Supabase removido - não usando mais Smart Proxy Service (desabilitado)
 
 // Cache simples para reduzir requisições
 const cache = new Map<string, { data: any; timestamp: number }>();
@@ -147,7 +143,7 @@ async function fetchWithProxySystem(endpoint: string, apiKey: string, type: 'spo
     ...(apiKey ? { 'X-MBX-APIKEY': apiKey } : {})
   };
 
-  // 1. Tentar URLs diretas da Binance primeiro
+  // 1. Tentar URLs diretas da Binance (sem proxy, retornar dados simulados em caso de erro)
   console.log(`🎯 Tentando URLs diretas da Binance para ${type}...`);
   for (const baseUrl of directUrls) {
     try {
@@ -185,32 +181,7 @@ async function fetchWithProxySystem(endpoint: string, apiKey: string, type: 'spo
     }
   }
 
-  // 2. Tentar Smart Proxy Service interno antes dos proxies públicos
-  try {
-    for (const baseUrl of directUrls.slice(0, 2)) {
-      const targetUrl = `${baseUrl}${endpoint}`;
-      console.log(`🧠 Tentando Smart Proxy Service -> ${targetUrl}`);
-      const { data, error } = await supabase.functions.invoke('smart-proxy-service', {
-        body: {
-          targetUrl,
-          strategy: 'stealth',
-          country: 'US',
-          headers: { 'X-MBX-APIKEY': apiKey || '' }
-        }
-      });
-      if (!error && data?.success && data?.data) {
-        setCachedData(cacheKey, data.data);
-        return new Response(JSON.stringify(data.data), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' }
-        });
-      }
-    }
-  } catch (e) {
-    console.log(`⚠️ Smart Proxy Service falhou: ${e instanceof Error ? e.message : String(e)}`);
-  }
-
-  // 3. Tentar sistema de proxy público se acima falharam
+  // 2. Tentar sistema de proxy público (Smart Proxy Service desabilitado)
   console.log(`🔄 URLs diretas falharam, tentando sistema de proxy...`);
   
   for (const proxyService of PROXY_SERVICES) {
