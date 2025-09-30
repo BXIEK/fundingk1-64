@@ -194,9 +194,13 @@ async function getBinancePrices() {
 async function getOKXPrices(userId?: string) {
   try {
     console.log('📡 Buscando preços reais da OKX...');
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const response = await fetch('https://uxhcsjlfwkhwkvhfacho.supabase.co/functions/v1/okx-api', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseKey}`
+      },
       body: JSON.stringify({ 
         action: 'get_prices',
         user_id: userId
