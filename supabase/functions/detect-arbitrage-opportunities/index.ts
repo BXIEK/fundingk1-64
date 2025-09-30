@@ -84,16 +84,25 @@ function generateRealisticPrices(allowedSymbols?: string[]) {
 async function getBinanceFundingOpportunities(): Promise<ArbitrageOpportunity[]> {
   try {
     console.log('🔄 Buscando oportunidades de funding arbitrage da Binance...');
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const response = await fetch('https://uxhcsjlfwkhwkvhfacho.supabase.co/functions/v1/binance-market-data/funding-arbitrage', {
       method: 'GET',
-      headers: { 'Content-Type': 'application/json' }
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseKey}`
+      }
     });
     
     if (!response.ok) {
       console.log(`⚠️ API Funding retornou status ${response.status}, tentando novamente...`);
       // Segunda tentativa
       await new Promise(resolve => setTimeout(resolve, 1000));
-      const retryResponse = await fetch('https://uxhcsjlfwkhwkvhfacho.supabase.co/functions/v1/binance-market-data/funding-arbitrage');
+      const retryResponse = await fetch('https://uxhcsjlfwkhwkvhfacho.supabase.co/functions/v1/binance-market-data/funding-arbitrage', {
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseKey}`
+        }
+      });
       if (!retryResponse.ok) {
         throw new Error(`HTTP error! status: ${retryResponse.status}`);
       }
@@ -155,9 +164,13 @@ function processFundingData(fundingData: any[]): ArbitrageOpportunity[] {
 async function getBinancePrices() {
   try {
     console.log('Tentando buscar preços reais da Binance...');
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const response = await fetch('https://uxhcsjlfwkhwkvhfacho.supabase.co/functions/v1/binance-market-data/tickers', {
       method: 'GET',
-      headers: { 'Content-Type': 'application/json' }
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseKey}`
+      }
     });
     
     if (!response.ok) {
@@ -497,9 +510,13 @@ serve(async (req) => {
       
       // Tentar buscar preços reais da Binance (opcional)
       try {
+        const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
         const response = await fetch('https://uxhcsjlfwkhwkvhfacho.supabase.co/functions/v1/binance-market-data/tickers', {
           method: 'GET',
-          headers: { 'Content-Type': 'application/json' }
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${supabaseKey}`
+          }
         });
         
         if (response.ok) {
