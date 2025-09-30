@@ -4858,7 +4858,14 @@ export type Database = {
         Returns: undefined
       }
       update_portfolio_balance: {
-        Args: { p_amount_change: number; p_symbol: string; p_user_id: string }
+        Args:
+          | {
+              p_amount_change: number
+              p_exchange?: string
+              p_symbol: string
+              p_user_id: string
+            }
+          | { p_amount_change: number; p_symbol: string; p_user_id: string }
         Returns: undefined
       }
       validate_access_code: {

@@ -24,12 +24,13 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     console.log('Fazendo parse do body da requisição...');
-    const { user_id, symbol, amount_change } = await req.json();
+    const { user_id, symbol, amount_change, exchange } = await req.json();
     
     console.log('Request data recebida:', {
       user_id,
       symbol,
       amount_change,
+      exchange,
       type: typeof amount_change
     });
     
@@ -45,13 +46,14 @@ serve(async (req) => {
       throw new Error('amount_change deve ser um número válido');
     }
     
-    console.log(`Atualizando saldo: ${symbol} ${numericAmount > 0 ? '+' : ''}${numericAmount} para usuário ${user_id}`);
+    console.log(`Atualizando saldo: ${symbol} ${numericAmount > 0 ? '+' : ''}${numericAmount} para usuário ${user_id} na exchange ${exchange || 'GLOBAL'}`);
     
     // Chamar função do banco para atualizar saldo
     const { data, error } = await supabase.rpc('update_portfolio_balance', {
       p_user_id: user_id,
       p_symbol: symbol,
-      p_amount_change: numericAmount
+      p_amount_change: numericAmount,
+      p_exchange: exchange || 'GLOBAL'
     });
     
     if (error) {
@@ -66,7 +68,8 @@ serve(async (req) => {
       .from('portfolios')
       .select('*')
       .eq('user_id', user_id)
-      .eq('symbol', symbol);
+      .eq('symbol', symbol)
+      .eq('exchange', exchange || 'GLOBAL');
     
     if (portfolioError) {
       console.warn('Aviso: Não foi possível buscar saldo atualizado:', portfolioError);
@@ -78,6 +81,7 @@ serve(async (req) => {
       data: {
         user_id,
         symbol,
+        exchange: exchange || 'GLOBAL',
         amount_change: numericAmount,
         updated_portfolio: portfolioData?.[0] || null
       },
