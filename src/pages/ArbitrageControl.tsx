@@ -422,11 +422,24 @@ export default function ArbitrageControl() {
         await loadRecentTrades();
         await loadPortfolioData();
       } else {
-        toast({
-          title: "Erro na Execução",
-          description: data.error || "Falha ao executar arbitragem",
-          variant: "destructive"
-        });
+        // Verificar se é erro de whitelist da OKX
+        const errorMsg = data.error || data.errorMessage || "Falha ao executar arbitragem";
+        
+        if (errorMsg.includes('verified address list') || errorMsg.includes('whitelist') || errorMsg.includes('AÇÃO NECESSÁRIA')) {
+          toast({
+            title: "⚠️ Endereço não verificado na OKX",
+            description: "Acesse OKX > Retirada > Gerenciar Endereços e adicione o endereço de depósito da Binance na whitelist.",
+            variant: "destructive",
+            duration: 10000
+          });
+          console.error("📋 Instruções completas:", errorMsg);
+        } else {
+          toast({
+            title: "Erro na Execução",
+            description: errorMsg.length > 100 ? errorMsg.substring(0, 100) + "..." : errorMsg,
+            variant: "destructive"
+          });
+        }
       }
     } catch (error: any) {
       console.error('❌ Erro ao executar arbitragem:', error);

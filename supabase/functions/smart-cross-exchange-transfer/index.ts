@@ -383,6 +383,27 @@ async function executeOKXWithdrawal(
   }
   
   const data = await response.json();
+  
+  // Verificar se houve erro na resposta (OKX retorna 200 mas com código de erro)
+  if (data.code !== '0') {
+    const errorMsg = data.msg || JSON.stringify(data);
+    
+    // Erro de endereço não verificado
+    if (errorMsg.includes('verified address list') || errorMsg.includes('address list')) {
+      throw new Error(`OKX Withdrawal Error: O endereço de destino não está na lista de endereços verificados da OKX. 
+
+⚠️ AÇÃO NECESSÁRIA:
+1. Acesse https://www.okx.com/balance/withdrawal-address
+2. Adicione o endereço: ${toAddress}
+3. Rede: ${okxChain}
+4. Complete a verificação (pode levar alguns minutos)
+5. Tente a operação novamente
+
+Nota: A OKX exige que todos os endereços de saque sejam previamente cadastrados e verificados por segurança.`);
+    }
+    
+    throw new Error(`OKX Withdrawal Error: ${errorMsg}`);
+  }
   if (data.code !== '0') {
     throw new Error(`OKX Withdrawal Error: ${data.msg}`);
   }
