@@ -157,9 +157,29 @@ serve(async (req) => {
           throw new Error('❌ Credenciais da OKX não fornecidas');
         }
         
-        // Dividir USDT entre as duas operações ($12.5 por ordem se total = $25)
-        const usdtPerOperation = usdtInvestment / 2;
-        console.log(`💵 Valor por operação: $${usdtPerOperation.toFixed(2)} USDT`);
+        // 🔥 VERIFICAR SALDO REAL DE USDT NA EXCHANGE DE ORIGEM
+        let actualUsdtInvestment = usdtInvestment;
+        try {
+          console.log(`🔍 Verificando saldo de USDT na ${buyExchange}...`);
+          const usdtBalance = await getExchangeBalance(buyExchange, 'USDT', { binanceApiKey, binanceSecretKey, okxApiKey, okxSecretKey, okxPassphrase });
+          console.log(`💰 Saldo USDT disponível na ${buyExchange}: $${usdtBalance.toFixed(2)}`);
+          
+          if (usdtBalance > 0) {
+            // Usar o menor entre o saldo disponível e um valor máximo seguro (95% do saldo para deixar margem)
+            const maxUsableUsdt = usdtBalance * 0.95;
+            actualUsdtInvestment = Math.min(maxUsableUsdt, Math.max(usdtInvestment, 50)); // Mínimo de $50 se tiver saldo
+            console.log(`💵 Valor ajustado para operação: $${actualUsdtInvestment.toFixed(2)} USDT`);
+          } else {
+            console.log(`⚠️ Sem saldo USDT disponível na ${buyExchange}. Usando valor configurado: $${usdtInvestment}`);
+          }
+        } catch (balanceError) {
+          console.error('⚠️ Erro ao verificar saldo USDT:', balanceError);
+          console.log('Usando valor configurado...');
+        }
+        
+        // Dividir USDT entre as duas operações
+        const usdtPerOperation = actualUsdtInvestment / 2;
+        console.log(`💵 Valor por operação: $${usdtPerOperation.toFixed(2)} USDT (Total: $${actualUsdtInvestment.toFixed(2)})`);
         
         // Calcular quantidade de crypto necessária
         const targetCryptoAmount = usdtPerOperation / buyPrice;
@@ -181,24 +201,55 @@ serve(async (req) => {
         const minWithdrawalAmount = minWithdrawalAmounts[symbol.replace('USDT', '')] || minWithdrawalAmounts['default'];
         console.log(`📏 Mínimo de withdrawal para ${symbol}: ${minWithdrawalAmount}`);
         
-        // VALIDAÇÃO CRÍTICA: Verificar se quantidade necessária é >= mínimo de withdrawal
-        if (targetCryptoAmount < minWithdrawalAmount) {
-          const requiredUsdtPerOperation = minWithdrawalAmount * buyPrice * 1.05; // +5% margem
-          const requiredTotalUsdt = requiredUsdtPerOperation * 2;
-          
-          console.log(`⚠️ VALOR INSUFICIENTE DETECTADO:`);
-          console.log(`   Quantidade necessária: ${targetCryptoAmount} ${symbol}`);
-          console.log(`   Mínimo de withdrawal: ${minWithdrawalAmount} ${symbol}`);
-          console.log(`   USDT por operação atual: $${usdtPerOperation.toFixed(2)}`);
-          console.log(`   USDT por operação necessário: $${requiredUsdtPerOperation.toFixed(2)}`);
-          console.log(`   USDT total necessário: $${requiredTotalUsdt.toFixed(2)}`);
-          
+        // 🔥 AJUSTE AUTOMÁTICO: Calcular valor mínimo necessário e ajustar se tiver saldo
+        const requiredUsdtPerOperation = minWithdrawalAmount * buyPrice * 1.1; // +10% margem de segurança
+        const requiredTotalUsdt = requiredUsdtPerOperation * 2;
+        
+        console.log(`📊 CÁLCULO DE VALOR MÍNIMO:`);
+        console.log(`   Mínimo withdrawal: ${minWithdrawalAmount} ${symbol}`);
+        console.log(`   Preço compra: $${buyPrice.toFixed(2)}`);
+        console.log(`   USDT necessário por operação: $${requiredUsdtPerOperation.toFixed(2)}`);
+        console.log(`   USDT total mínimo: $${requiredTotalUsdt.toFixed(2)}`);
+        
+        // Se o valor ajustado ainda for menor que o mínimo necessário, tentar usar o mínimo se houver saldo
+        if (actualUsdtInvestment < requiredTotalUsdt) {
+          try {
+            const usdtBalance = await getExchangeBalance(buyExchange, 'USDT', { binanceApiKey, binanceSecretKey, okxApiKey, okxSecretKey, okxPassphrase });
+            
+            if (usdtBalance >= requiredTotalUsdt) {
+              console.log(`✅ Saldo USDT suficiente detectado! Ajustando para valor mínimo necessário: $${requiredTotalUsdt.toFixed(2)}`);
+              actualUsdtInvestment = requiredTotalUsdt;
+            } else {
+              throw new Error(
+                `❌ Saldo USDT insuficiente para ${symbol}. ` +
+                `Necessário: $${requiredTotalUsdt.toFixed(2)} USDT, ` +
+                `Disponível: $${usdtBalance.toFixed(2)} USDT. ` +
+                `Faltam: $${(requiredTotalUsdt - usdtBalance).toFixed(2)} USDT.`
+              );
+            }
+          } catch (error) {
+            throw new Error(
+              `Valor de investimento muito baixo para ${symbol}. ` +
+              `Investimento configurado: $${usdtInvestment.toFixed(2)}. ` +
+              `Mínimo necessário: $${requiredTotalUsdt.toFixed(2)} USDT ` +
+              `(${minWithdrawalAmount} ${symbol} × $${buyPrice.toFixed(2)} × 2 operações + 10% margem).`
+            );
+          }
+        }
+        
+        // Recalcular com o valor ajustado
+        const finalUsdtPerOperation = actualUsdtInvestment / 2;
+        const finalTargetCryptoAmount = finalUsdtPerOperation / buyPrice;
+        
+        console.log(`✅ VALORES FINAIS AJUSTADOS:`);
+        console.log(`   Total USDT: $${actualUsdtInvestment.toFixed(2)}`);
+        console.log(`   USDT por operação: $${finalUsdtPerOperation.toFixed(2)}`);
+        console.log(`   Quantidade ${symbol}: ${finalTargetCryptoAmount.toFixed(4)} (Mínimo: ${minWithdrawalAmount})`);
+        
+        if (finalTargetCryptoAmount < minWithdrawalAmount) {
           throw new Error(
-            `Valor de investimento muito baixo para ${symbol}. ` +
-            `Investimento atual: $${usdtInvestment.toFixed(2)}. ` +
-            `Mínimo necessário: $${requiredTotalUsdt.toFixed(2)} USDT ` +
-            `(${minWithdrawalAmount} ${symbol} × $${buyPrice.toFixed(2)} × 2 operações). ` +
-            `Por favor, aumente o valor do investimento.`
+            `❌ ERRO DE CÁLCULO: Quantidade final ${finalTargetCryptoAmount.toFixed(4)} ${symbol} ` +
+            `ainda é menor que o mínimo ${minWithdrawalAmount}. Este é um erro de sistema.`
           );
         }
         
@@ -217,14 +268,14 @@ serve(async (req) => {
             console.log(`🚫 Saldo de ${availableBalance} ${symbol} é MENOR que o mínimo de withdrawal (${minWithdrawalAmount}).`);
             console.log(`💰 Ignorando saldo e fazendo COMPRA NOVA com USDT na ${buyExchange}...`);
             // usedExistingBalance permanece false para forçar compra
-          } else if (availableBalance >= targetCryptoAmount && availableBalance >= minWithdrawalAmount) {
+          } else if (availableBalance >= finalTargetCryptoAmount && availableBalance >= minWithdrawalAmount) {
             // Saldo completo e acima do mínimo - USAR
-            console.log(`✅ Saldo suficiente encontrado! Usando ${targetCryptoAmount} ${symbol} do saldo existente.`);
-            cryptoAmount = targetCryptoAmount;
+            console.log(`✅ Saldo suficiente encontrado! Usando ${finalTargetCryptoAmount} ${symbol} do saldo existente.`);
+            cryptoAmount = finalTargetCryptoAmount;
             usedExistingBalance = true;
-          } else if (availableBalance >= minWithdrawalAmount && availableBalance < targetCryptoAmount) {
+          } else if (availableBalance >= minWithdrawalAmount && availableBalance < finalTargetCryptoAmount) {
             // Saldo parcial mas acima do mínimo - USAR PARCIAL
-            console.log(`⚠️ Saldo parcial: ${availableBalance} ${symbol} (necessário: ${targetCryptoAmount}). Usando saldo disponível.`);
+            console.log(`⚠️ Saldo parcial: ${availableBalance} ${symbol} (necessário: ${finalTargetCryptoAmount}). Usando saldo disponível.`);
             cryptoAmount = availableBalance;
             usedExistingBalance = true;
           } else {
@@ -239,12 +290,12 @@ serve(async (req) => {
         // Step 1B: Executar compra apenas se não houver saldo disponível
         let buyResult: any = null;
         if (!usedExistingBalance) {
-          console.log(`🔄 PASSO 1 - COMPRA: $${usdtPerOperation} USDT → ${symbol} na ${buyExchange}...`);
-          buyResult = await executeBuyOrderUSDT(buyExchange, symbol, usdtPerOperation, buyPrice, { binanceApiKey, binanceSecretKey, okxApiKey, okxSecretKey, okxPassphrase });
+          console.log(`🔄 PASSO 1 - COMPRA: $${finalUsdtPerOperation.toFixed(2)} USDT → ${symbol} na ${buyExchange}...`);
+          buyResult = await executeBuyOrderUSDT(buyExchange, symbol, finalUsdtPerOperation, buyPrice, { binanceApiKey, binanceSecretKey, okxApiKey, okxSecretKey, okxPassphrase });
           console.log('✅ Compra executada:', JSON.stringify(buyResult));
           
           // Extrair quantidade de crypto comprada
-          cryptoAmount = buyResult.executedQty || (usdtPerOperation / buyPrice);
+          cryptoAmount = buyResult.executedQty || (finalUsdtPerOperation / buyPrice);
           console.log(`💎 Quantidade comprada: ${cryptoAmount} ${symbol}`);
           
           // Aguardar processamento da ordem de compra (saldo disponível para withdrawal)
@@ -272,10 +323,10 @@ serve(async (req) => {
           console.log(`💰 FORÇANDO COMPRA NOVA para garantir quantidade mínima...`);
           
           // Forçar compra mesmo com saldo existente
-          const forcedBuyResult = await executeBuyOrderUSDT(buyExchange, symbol, usdtPerOperation, buyPrice, { binanceApiKey, binanceSecretKey, okxApiKey, okxSecretKey, okxPassphrase });
+          const forcedBuyResult = await executeBuyOrderUSDT(buyExchange, symbol, finalUsdtPerOperation, buyPrice, { binanceApiKey, binanceSecretKey, okxApiKey, okxSecretKey, okxPassphrase });
           console.log('✅ Compra forçada executada:', JSON.stringify(forcedBuyResult));
           
-          cryptoAmount = forcedBuyResult.executedQty || (usdtPerOperation / buyPrice);
+          cryptoAmount = forcedBuyResult.executedQty || (finalUsdtPerOperation / buyPrice);
           console.log(`💎 Nova quantidade: ${cryptoAmount} ${symbol}`);
           buyResult = forcedBuyResult;
           
@@ -325,7 +376,7 @@ serve(async (req) => {
         
         // Step 3: Executar venda na exchange de venda (Crypto → USDT)
         console.log(`🔄 PASSO 3 - VENDA: ${cryptoAmount} ${symbol} → USDT na ${sellExchange}...`);
-        const sellResult = await executeSellOrderUSDT(sellExchange, symbol, usdtPerOperation, sellPrice, { binanceApiKey, binanceSecretKey, okxApiKey, okxSecretKey, okxPassphrase });
+        const sellResult = await executeSellOrderUSDT(sellExchange, symbol, finalUsdtPerOperation, sellPrice, { binanceApiKey, binanceSecretKey, okxApiKey, okxSecretKey, okxPassphrase });
         console.log('✅ Venda executada:', JSON.stringify(sellResult));
         
         realOperationResults = {
@@ -333,8 +384,8 @@ serve(async (req) => {
           sellOrder: sellResult,
           realExecutionTime: actual_execution_time,
           usdtOperationMode: true,
-          totalUsdtUsed: usdtInvestment,
-          usdtPerOperation: usdtPerOperation
+          totalUsdtUsed: actualUsdtInvestment,
+          usdtPerOperation: finalUsdtPerOperation
         };
         
         console.log('🎉 OPERAÇÃO REAL CONCLUÍDA COM SUCESSO!');
