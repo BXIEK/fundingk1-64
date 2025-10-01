@@ -136,8 +136,9 @@ export default function ArbitrageControl() {
         throw new Error(error.message);
       }
       console.log('Resultado da detecção:', result);
-      if (result.success && result.opportunities) {
-        const formattedOpportunities = result.opportunities.map((opp: any, index: number) => ({
+      let formattedOpportunities: ArbitrageOpportunity[] = [];
+      if (result?.success && Array.isArray(result.opportunities)) {
+        formattedOpportunities = result.opportunities.map((opp: any, index: number) => ({
           id: `${opp.symbol}-${index}`,
           symbol: opp.symbol,
           buy_exchange: opp.buy_exchange,
@@ -147,18 +148,69 @@ export default function ArbitrageControl() {
           spread: opp.spread_percentage,
           potential: opp.potential_profit,
           risk_level: opp.risk_level || 'MEDIUM',
-          last_updated: new Date().toISOString()
+          last_updated: new Date().toISOString(),
+          // Compat fields for other components
+          buyExchange: opp.buy_exchange,
+          sellExchange: opp.sell_exchange,
+          buyPrice: opp.buy_price,
+          sellPrice: opp.sell_price,
+          riskLevel: opp.risk_level || 'MEDIUM',
+          spreadPercentage: opp.spread_percentage,
+          liquidityBuy: opp.liquidity_buy ?? 0,
+          liquiditySell: opp.liquidity_sell ?? 0,
+          netProfitUsd: opp.potential_profit ?? 0,
+          expiresAt: opp.expiry_time ?? new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+          gasFeeEstimate: opp.transfer_fee ?? 0,
+          executionTimeEstimate: opp.execution_time_estimate ?? 0
         }));
-        setOpportunities(formattedOpportunities);
-      } else {
-        setOpportunities([]);
       }
+
+      // Fallback: carregar do banco se a detecção não retornar itens
+      if (formattedOpportunities.length === 0) {
+        const { data: dbData, error: dbError } = await supabase
+          .from('realtime_arbitrage_opportunities')
+          .select('*')
+          .eq('is_active', true)
+          .order('last_updated', { ascending: false })
+          .limit(20);
+        if (!dbError && Array.isArray(dbData)) {
+          formattedOpportunities = dbData
+            .filter((opp: any) => opp.buy_price > 0 && opp.sell_price > 0)
+            .map((opp: any, index: number) => ({
+              id: `${opp.symbol}-${opp.buy_exchange}-${opp.sell_exchange}-${index}`,
+              symbol: opp.symbol,
+              buy_exchange: opp.buy_exchange,
+              sell_exchange: opp.sell_exchange,
+              buy_price: opp.buy_price,
+              sell_price: opp.sell_price,
+              spread: opp.spread,
+              potential: opp.net_profit ?? opp.potential ?? 0,
+              risk_level: opp.risk_level || 'MEDIUM',
+              last_updated: opp.last_updated || new Date().toISOString(),
+              // Compat fields
+              buyExchange: opp.buy_exchange,
+              sellExchange: opp.sell_exchange,
+              buyPrice: opp.buy_price,
+              sellPrice: opp.sell_price,
+              riskLevel: opp.risk_level || 'MEDIUM',
+              spreadPercentage: opp.spread,
+              liquidityBuy: opp.liquidity_buy ?? 0,
+              liquiditySell: opp.liquidity_sell ?? 0,
+              netProfitUsd: opp.net_profit ?? opp.potential ?? 0,
+              expiresAt: opp.expires_at || new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+              gasFeeEstimate: opp.transfer_fee ?? 0,
+              executionTimeEstimate: (opp.transfer_time ?? 0) * 1000
+            }));
+        }
+      }
+
+      setOpportunities(formattedOpportunities);
     } catch (error) {
       console.error('Erro ao carregar oportunidades:', error);
       toast({
-        title: "Erro ao carregar oportunidades",
-        description: "Não foi possível carregar as oportunidades de arbitragem",
-        variant: "destructive"
+        title: 'Erro ao carregar oportunidades',
+        description: 'Não foi possível carregar as oportunidades de arbitragem',
+        variant: 'destructive'
       });
       setOpportunities([]);
     } finally {
