@@ -109,7 +109,7 @@ function processFundingData(fundingData: any[]): ArbitrageOpportunity[] {
       liquidity_sell: 95000 + Math.random() * 45000,
       execution_time_estimate: 300 + Math.random() * 200
     };
-  }).filter((opp: ArbitrageOpportunity) => opp.potential_profit > 0.3); // Filtrar apenas oportunidades com lucro > US$ 0.30
+  }).filter((opp: ArbitrageOpportunity) => opp.potential_profit > 0.05); // Filtrar apenas oportunidades com lucro > US$ 0.05
   
   console.log(`✅ ${fundingOpportunities.length} oportunidades de funding da Binance encontradas`);
   return fundingOpportunities;
@@ -231,7 +231,7 @@ async function getOKXPrices(userId?: string) {
 // Calcular oportunidades de arbitragem com critérios otimizados
 function calculateCrossExchangeOpportunities(binancePrices: any, okxPrices: any, whitelistedSymbols?: string[]): ArbitrageOpportunity[] {
   const opportunities: ArbitrageOpportunity[] = [];
-  const minSpread = 0.08; // Spread mínimo reduzido ainda mais
+  const minSpread = 0.05; // Spread mínimo ajustado para capturar mais oportunidades
   const maxSpread = 5.0;  // Spread máximo realístico
   
   // Função para normalizar símbolos entre exchanges
@@ -285,7 +285,7 @@ function calculateCrossExchangeOpportunities(binancePrices: any, okxPrices: any,
       const fees = standardInvestment * 0.002; // 0.2% do investimento (cross-exchange)
       const potentialProfit = Math.max(0, grossProfit - fees);
       
-      if (potentialProfit > 1.0) { // Lucro mínimo US$ 1.00 para cross-exchange
+      if (potentialProfit > 0.05) { // Lucro mínimo ajustado para US$ 0.05
         opportunities.push({
           symbol,
           buy_exchange: 'Binance',
@@ -316,7 +316,7 @@ function calculateCrossExchangeOpportunities(binancePrices: any, okxPrices: any,
       const fees = standardInvestment * 0.002; // 0.2% do investimento (cross-exchange)
       const potentialProfit = Math.max(0, grossProfit - fees);
       
-      if (potentialProfit > 1.0) { // Lucro mínimo US$ 1.00 para cross-exchange
+      if (potentialProfit > 0.05) { // Lucro mínimo ajustado para US$ 0.05
         opportunities.push({
           symbol,
           buy_exchange: 'OKX',
