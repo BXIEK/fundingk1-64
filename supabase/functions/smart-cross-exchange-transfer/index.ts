@@ -161,25 +161,30 @@ async function getBinanceDepositAddress(asset: string, apiKey: string, secretKey
   const timestamp = Date.now();
   
   // Mapeamento correto de ativos → redes na Binance
+  // PRIORIDADE: Arbitrum para tokens ERC-20 (mais rápido e barato)
   const networkMap: Record<string, string> = {
-    'USDT': 'ARBITRUM',      // USDT via Arbitrum (rápido e barato)
-    'BTC': 'BTC',            // Bitcoin mainnet
-    'ETH': 'ETH',            // Ethereum mainnet  
-    'DOT': 'DOT',            // Polkadot mainnet
-    'ADA': 'ADA',            // Cardano mainnet
-    'SOL': 'SOL',            // Solana mainnet
-    'AVAX': 'AVAXC',         // Avalanche C-Chain (AVAXC na Binance)
-    'ATOM': 'ATOM',          // Cosmos mainnet
-    'LINK': 'ETH',           // LINK é ERC-20
-    'UNI': 'ETH',            // UNI é ERC-20
-    'DOGE': 'DOGE',          // Dogecoin mainnet
-    'XRP': 'XRP',            // Ripple mainnet
-    'BNB': 'BSC',            // Binance Smart Chain
-    'PEPE': 'ETH',           // PEPE é ERC-20
-    'FLOKI': 'ETH',          // FLOKI é ERC-20
-    'WIF': 'SOL',            // WIF é token Solana
-    'FIL': 'FIL',            // Filecoin mainnet
-    'SHIB': 'ETH'            // SHIB é ERC-20
+    'USDT': 'ARBITRUM',      // USDT via Arbitrum (2-5 min)
+    'USDC': 'ARBITRUM',      // USDC via Arbitrum (2-5 min)
+    'ETH': 'ARBITRUM',       // ETH via Arbitrum (2-5 min)
+    'LINK': 'ARBITRUM',      // LINK via Arbitrum (2-5 min)
+    'UNI': 'ARBITRUM',       // UNI via Arbitrum (2-5 min)
+    'PEPE': 'ARBITRUM',      // PEPE via Arbitrum (2-5 min)
+    'SHIB': 'ARBITRUM',      // SHIB via Arbitrum (2-5 min)
+    
+    // Redes nativas (sem suporte Arbitrum)
+    'BTC': 'BTC',            // Bitcoin mainnet (10-60 min)
+    'DOT': 'DOT',            // Polkadot mainnet (2-5 min)
+    'ADA': 'ADA',            // Cardano mainnet (5-10 min)
+    'SOL': 'SOL',            // Solana mainnet (1-2 min)
+    'AVAX': 'AVAXC',         // Avalanche C-Chain (2-5 min)
+    'ATOM': 'ATOM',          // Cosmos mainnet (3-7 min)
+    'DOGE': 'DOGE',          // Dogecoin mainnet (5-10 min)
+    'XRP': 'XRP',            // Ripple mainnet (1-3 min)
+    'BNB': 'BSC',            // Binance Smart Chain (1-3 min)
+    'FLOKI': 'ETH',          // FLOKI via Ethereum (não tem Arbitrum)
+    'WIF': 'SOL',            // WIF é token Solana (1-2 min)
+    'FIL': 'FIL',            // Filecoin mainnet (5-10 min)
+    'LTC': 'LTC'             // Litecoin mainnet (5-15 min)
   };
   
   const network = networkMap[asset] || asset; // Fallback: usa o próprio asset como network
@@ -281,9 +286,17 @@ async function executeOKXWithdrawal(
   
   // Mapeamento por ASSET+NETWORK para OKX (formato: ASSET-Network)
   const getOKXChain = (asset: string, binanceNetwork: string): string => {
-    // Casos especiais por asset
+    // Casos especiais por asset + network (Arbitrum prioritário)
     const assetChainMap: Record<string, string> = {
       'USDT_ARBITRUM': 'USDT-Arbitrum One',
+      'USDC_ARBITRUM': 'USDC-Arbitrum One',
+      'ETH_ARBITRUM': 'ETH-Arbitrum One',
+      'LINK_ARBITRUM': 'LINK-Arbitrum One',
+      'UNI_ARBITRUM': 'UNI-Arbitrum One',
+      'PEPE_ARBITRUM': 'PEPE-Arbitrum One',
+      'SHIB_ARBITRUM': 'SHIB-Arbitrum One',
+      
+      // Ethereum mainnet (fallback)
       'USDT_ETH': 'USDT-ERC20',
       'LINK_ETH': 'LINK-ERC20',
       'UNI_ETH': 'UNI-ERC20',
@@ -299,6 +312,7 @@ async function executeOKXWithdrawal(
     
     // Mapeamento genérico de rede
     const genericNetworkMap: Record<string, string> = {
+      'ARBITRUM': 'ETH-Arbitrum One',
       'ETH': 'ETH-Ethereum',
       'BTC': 'BTC-Bitcoin',
       'DOT': 'DOT-Polkadot',
@@ -309,7 +323,8 @@ async function executeOKXWithdrawal(
       'DOGE': 'DOGE-Dogecoin',
       'XRP': 'XRP-Ripple',
       'BSC': 'BSC-BSC',
-      'FIL': 'FIL-Filecoin'
+      'FIL': 'FIL-Filecoin',
+      'LTC': 'LTC-Litecoin'
     };
     
     return genericNetworkMap[binanceNetwork] || `${asset}-${binanceNetwork}`;

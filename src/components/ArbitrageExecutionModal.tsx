@@ -203,6 +203,74 @@ const ArbitrageExecutionModal: React.FC<ArbitrageExecutionModalProps> = ({
             </CardContent>
           </Card>
 
+          {/* Network Information */}
+          <Card className="border-blue-200 bg-blue-50">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Clock className="h-4 w-4" />
+                Informações da Rede de Transferência
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <div className="text-muted-foreground">Rede Utilizada:</div>
+                  <div className="font-semibold text-blue-700">
+                    {(() => {
+                      const symbol = opportunity.symbol;
+                      if (['USDT', 'USDC', 'ETH', 'LINK', 'UNI', 'PEPE', 'SHIB'].includes(symbol)) {
+                        return '⚡ Arbitrum (Rápida)';
+                      }
+                      if (symbol === 'SOL' || symbol === 'WIF') return 'Solana';
+                      if (symbol === 'AVAX') return 'Avalanche C-Chain';
+                      if (symbol === 'BTC') return 'Bitcoin';
+                      if (symbol === 'DOT') return 'Polkadot';
+                      if (symbol === 'ADA') return 'Cardano';
+                      if (symbol === 'ATOM') return 'Cosmos';
+                      if (symbol === 'BNB') return 'BSC';
+                      if (symbol === 'LTC') return 'Litecoin';
+                      return 'Nativa';
+                    })()}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-muted-foreground">Tempo Estimado:</div>
+                  <div className="font-semibold text-blue-700">
+                    {(() => {
+                      const symbol = opportunity.symbol;
+                      if (['USDT', 'USDC', 'ETH', 'LINK', 'UNI', 'PEPE', 'SHIB'].includes(symbol)) {
+                        return '2-5 minutos';
+                      }
+                      if (symbol === 'SOL' || symbol === 'WIF') return '1-2 minutos';
+                      if (symbol === 'AVAX' || symbol === 'DOT') return '2-5 minutos';
+                      if (symbol === 'ATOM') return '3-7 minutos';
+                      if (symbol === 'BTC') return '10-60 minutos';
+                      if (symbol === 'ADA') return '5-10 minutos';
+                      return '5-10 minutos';
+                    })()}
+                  </div>
+                </div>
+              </div>
+              
+              <div className="p-2 bg-white rounded border border-blue-200">
+                <div className="text-xs text-blue-900 font-medium mb-1">
+                  💎 Tokens com suporte Arbitrum (mais rápido):
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {['USDT', 'USDC', 'ETH', 'LINK', 'UNI', 'PEPE', 'SHIB'].map(token => (
+                    <Badge 
+                      key={token} 
+                      variant={opportunity.symbol === token ? "default" : "outline"}
+                      className="text-xs"
+                    >
+                      {token}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Configuration */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Investment Amount */}
