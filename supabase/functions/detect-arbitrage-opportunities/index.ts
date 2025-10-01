@@ -357,6 +357,7 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    let dataSource: string = 'simulated';
     
     // Ler parâmetros da requisição
     let body: any = {};
@@ -409,7 +410,7 @@ serve(async (req) => {
       
       // Buscar preços reais da Binance (obrigatório)
       const binancePrices = await getBinancePrices();
-      const dataSource = 'binance_api';
+      dataSource = 'binance_api';
       console.log(`✅ Preços reais da Binance obtidos: ${Object.keys(binancePrices).length} símbolos`);
       
       // Buscar preços reais da OKX
@@ -422,24 +423,8 @@ serve(async (req) => {
       allOpportunities.push(...crossExchangeOpportunities);
       console.log(`🔄 ${crossExchangeOpportunities.length} oportunidades cross-exchange REAIS detectadas`);
       
-      return new Response(JSON.stringify({
-        success: true,
-        opportunities_found: allOpportunities.length,
-        opportunities: allOpportunities,
-        breakdown: {
-          binance_funding: 0,
-          cross_exchange: allOpportunities.length,
-          total: allOpportunities.length
-        },
-        data_source: dataSource,
-        binance_api_available: dataSource === 'binance_api',
-        binance_funding_available: false,
-        operation_type: 'CROSS_EXCHANGE_ARBITRAGE',
-        description: 'Operações entre diferentes exchanges (Binance ↔ Hyperliquid)',
-        timestamp: new Date().toISOString()
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      // Não retornar aqui; seguir para salvar no banco e resposta unificada
+      // Os dados já estão em allOpportunities e dataSource foi definido acima.
     }
     
     
