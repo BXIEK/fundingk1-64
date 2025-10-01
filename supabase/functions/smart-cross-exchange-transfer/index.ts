@@ -279,23 +279,43 @@ async function executeOKXWithdrawal(
   const method = 'POST';
   const requestPath = '/api/v5/asset/withdrawal';
   
-  // Mapeamento de redes Binance → OKX
-  const okxNetworkMap: Record<string, string> = {
-    'ARBITRUM': 'USDT-Arbitrum One',
-    'ETH': 'ETH-Ethereum',
-    'BTC': 'BTC-Bitcoin',
-    'DOT': 'DOT-Polkadot',
-    'ADA': 'ADA-Cardano',
-    'SOL': 'SOL-Solana',
-    'AVAXC': 'AVAX-Avalanche C-Chain',  // AVAXC (Binance) → AVAX (OKX)
-    'ATOM': 'ATOM-Cosmos',
-    'DOGE': 'DOGE-Dogecoin',
-    'XRP': 'XRP-Ripple',
-    'BSC': 'BSC-BSC',
-    'FIL': 'FIL-Filecoin'
+  // Mapeamento por ASSET+NETWORK para OKX (formato: ASSET-Network)
+  const getOKXChain = (asset: string, binanceNetwork: string): string => {
+    // Casos especiais por asset
+    const assetChainMap: Record<string, string> = {
+      'USDT_ARBITRUM': 'USDT-Arbitrum One',
+      'USDT_ETH': 'USDT-ERC20',
+      'LINK_ETH': 'LINK-ERC20',
+      'UNI_ETH': 'UNI-ERC20',
+      'PEPE_ETH': 'PEPE-ERC20',
+      'FLOKI_ETH': 'FLOKI-ERC20',
+      'SHIB_ETH': 'SHIB-ERC20',
+    };
+    
+    const key = `${asset}_${binanceNetwork}`;
+    if (assetChainMap[key]) {
+      return assetChainMap[key];
+    }
+    
+    // Mapeamento genérico de rede
+    const genericNetworkMap: Record<string, string> = {
+      'ETH': 'ETH-Ethereum',
+      'BTC': 'BTC-Bitcoin',
+      'DOT': 'DOT-Polkadot',
+      'ADA': 'ADA-Cardano',
+      'SOL': 'SOL-Solana',
+      'AVAXC': 'AVAX-Avalanche C-Chain',
+      'ATOM': 'ATOM-Cosmos',
+      'DOGE': 'DOGE-Dogecoin',
+      'XRP': 'XRP-Ripple',
+      'BSC': 'BSC-BSC',
+      'FIL': 'FIL-Filecoin'
+    };
+    
+    return genericNetworkMap[binanceNetwork] || `${asset}-${binanceNetwork}`;
   };
   
-  const okxChain = okxNetworkMap[network] || network;
+  const okxChain = getOKXChain(asset, network);
   console.log(`📤 OKX Withdrawal: ${asset} via ${okxChain}`);
   
   // Taxa de saque adaptativa
