@@ -139,8 +139,7 @@ const ArbitrageExecutionModal: React.FC<ArbitrageExecutionModalProps> = ({
 
     const projected = calculateProjectedResults();
     if (projected && projected.netProfit <= 0) {
-      toast.error("Configuração resultaria em prejuízo. Ajuste os parâmetros.");
-      return;
+      toast.warning("⚠️ Aviso: Esta operação pode resultar em prejuízo!");
     }
 
     onExecute(opportunity, config);
@@ -372,7 +371,7 @@ const ArbitrageExecutionModal: React.FC<ArbitrageExecutionModalProps> = ({
           </Button>
           <Button 
             onClick={handleExecute} 
-            disabled={isExecuting || (projected && projected.netProfit <= 0)}
+            disabled={isExecuting}
             className="min-w-32"
           >
             {isExecuting ? (
