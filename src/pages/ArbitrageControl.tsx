@@ -169,6 +169,34 @@ export default function ArbitrageControl() {
             executionTimeEstimate: (opp.transfer_time ?? 1) * 1000
           }));
         console.log(`📊 Oportunidades formatadas: ${formattedOpportunities.length}`);
+        
+        // Logs detalhados por exchange
+        const binanceOpps = formattedOpportunities.filter(o => 
+          o.buy_exchange === 'Binance' || o.sell_exchange === 'Binance'
+        );
+        const okxOpps = formattedOpportunities.filter(o => 
+          o.buy_exchange === 'OKX' || o.sell_exchange === 'OKX'
+        );
+        
+        console.log(`📊 EXCHANGES DETECTADAS:`);
+        console.log(`  🟢 Binance: ${binanceOpps.length} oportunidades`);
+        console.log(`  🔵 OKX: ${okxOpps.length} oportunidades`);
+        
+        // Mostrar exemplos de oportunidades OKX
+        if (okxOpps.length > 0) {
+          console.log(`\n🔵 EXEMPLOS OKX (primeiras 3):`);
+          okxOpps.slice(0, 3).forEach((opp, idx) => {
+            console.log(`  ${idx + 1}. ${opp.symbol}: ${opp.buy_exchange} ($${opp.buy_price}) → ${opp.sell_exchange} ($${opp.sell_price}) | Spread: ${opp.spread.toFixed(3)}%`);
+          });
+        }
+        
+        // Mostrar exemplos de oportunidades Binance
+        if (binanceOpps.length > 0) {
+          console.log(`\n🟢 EXEMPLOS BINANCE (primeiras 3):`);
+          binanceOpps.slice(0, 3).forEach((opp, idx) => {
+            console.log(`  ${idx + 1}. ${opp.symbol}: ${opp.buy_exchange} ($${opp.buy_price}) → ${opp.sell_exchange} ($${opp.sell_price}) | Spread: ${opp.spread.toFixed(3)}%`);
+          });
+        }
       } else {
         console.log('⚠️ Nenhuma oportunidade no banco, tentando API...');
         
@@ -211,6 +239,20 @@ export default function ArbitrageControl() {
       }
 
       console.log(`🎯 Total de oportunidades a exibir: ${formattedOpportunities.length}`);
+      
+      // Estatísticas finais por exchange
+      const finalBinanceCount = formattedOpportunities.filter(o => 
+        o.buy_exchange === 'Binance' || o.sell_exchange === 'Binance'
+      ).length;
+      const finalOkxCount = formattedOpportunities.filter(o => 
+        o.buy_exchange === 'OKX' || o.sell_exchange === 'OKX'
+      ).length;
+      
+      console.log(`📈 RESUMO FINAL DAS EXCHANGES:`);
+      console.log(`  🟢 Binance: ${finalBinanceCount} oportunidades ativas`);
+      console.log(`  🔵 OKX: ${finalOkxCount} oportunidades ativas`);
+      console.log(`  📊 Total combinado: ${formattedOpportunities.length}`);
+      
       setOpportunities(formattedOpportunities);
     } catch (error) {
       console.error('❌ Erro ao carregar oportunidades:', error);
