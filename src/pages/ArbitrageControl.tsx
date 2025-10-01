@@ -479,11 +479,11 @@ export default function ArbitrageControl() {
         });
 
         if (data?.config?.is_enabled) {
-          // Bot está ativo - executar ciclo
+          // Bot está ativo - executar ciclo (passar apenas userId)
           await supabase.functions.invoke('auto-arbitrage-bot', {
             body: { 
               action: 'execute-cycle',
-              config: { userId, ...data.config } 
+              config: { userId } 
             }
           });
         }
