@@ -81,6 +81,7 @@ export default function ArbitrageControl() {
   const [opportunities, setOpportunities] = useState<ArbitrageOpportunity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAutoTrading, setIsAutoTrading] = useState(false);
+  const [isExecuting, setIsExecuting] = useState(false);
   const [executingIds, setExecutingIds] = useState<Set<string>>(new Set());
   const [recentTrades, setRecentTrades] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -352,7 +353,90 @@ export default function ArbitrageControl() {
     setIsModalOpen(true);
   };
 
-  // Remaining functions and logic (executeAutomaticArbitrage, executeArbitrage, toggleAutoTrading, loadTradingConfig, etc.) would be here
+  const executeArbitrage = async (opportunity: any, config: any) => {
+    try {
+      console.log('🚀 Iniciando execução de arbitragem:', { opportunity, config });
+      setIsExecuting(true);
+
+      // Obter credenciais
+      const binanceCredentials = localStorage.getItem('binance_credentials');
+      const okxCredentials = localStorage.getItem('okx_credentials');
+      
+      if (!binanceCredentials || !okxCredentials) {
+        toast({
+          title: "Erro",
+          description: "Credenciais API não encontradas. Configure na página inicial.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const binanceCreds = JSON.parse(binanceCredentials);
+      const okxCreds = JSON.parse(okxCredentials);
+      const userId = await getUserId();
+
+      console.log('📡 Chamando edge function execute-cross-exchange-arbitrage...');
+
+      // Chamar edge function de execução
+      const { data, error } = await supabase.functions.invoke('execute-cross-exchange-arbitrage', {
+        body: {
+          symbol: opportunity.symbol,
+          buy_exchange: opportunity.buy_exchange,
+          sell_exchange: opportunity.sell_exchange,
+          buy_price: opportunity.buy_price,
+          sell_price: opportunity.sell_price,
+          amount: config.investmentAmount,
+          slippage: config.maxSlippage,
+          stop_loss: config.stopLossPercentage,
+          trading_mode: isRealMode ? 'real' : 'simulation',
+          user_id: userId,
+          binance_api_key: binanceCreds.apiKey,
+          binance_secret_key: binanceCreds.secretKey,
+          okx_api_key: okxCreds.apiKey,
+          okx_secret_key: okxCreds.secretKey,
+          okx_passphrase: okxCreds.passphrase
+        }
+      });
+
+      if (error) {
+        console.error('❌ Erro na edge function:', error);
+        throw error;
+      }
+
+      console.log('✅ Resposta da edge function:', data);
+
+      if (data.success) {
+        toast({
+          title: "Arbitragem Executada!",
+          description: `Trade ${opportunity.symbol} executado com sucesso. Lucro: $${data.result?.net_profit?.toFixed(2) || '0.00'}`,
+        });
+        
+        // Recarregar dados
+        await loadOpportunities();
+        await loadRecentTrades();
+        await loadPortfolioData();
+      } else {
+        toast({
+          title: "Erro na Execução",
+          description: data.error || "Falha ao executar arbitragem",
+          variant: "destructive"
+        });
+      }
+    } catch (error: any) {
+      console.error('❌ Erro ao executar arbitragem:', error);
+      toast({
+        title: "Erro",
+        description: error.message || "Erro desconhecido ao executar arbitragem",
+        variant: "destructive"
+      });
+    } finally {
+      setIsExecuting(false);
+      setIsModalOpen(false);
+      setSelectedOpportunity(null);
+    }
+  };
+
+  // Remaining functions and logic (executeAutomaticArbitrage, toggleAutoTrading, loadTradingConfig, etc.) would be here
   // For brevity, they are omitted as the user requested only the replacement of the comments with actual code for the portfolio display including Hyperliquid
 
   useEffect(() => {
@@ -744,17 +828,8 @@ export default function ArbitrageControl() {
             setIsModalOpen(false);
             setSelectedOpportunity(null);
           }}
-          onExecute={(opportunity, config) => {
-            // Handle arbitrage execution here
-            console.log('Executing arbitrage:', opportunity, config);
-            toast({
-              title: "Arbitragem Iniciada",
-              description: `Executando arbitragem para ${opportunity.symbol}...`
-            });
-            setIsModalOpen(false);
-            setSelectedOpportunity(null);
-          }}
-          isExecuting={executingIds.has(selectedOpportunity?.id || '')}
+          onExecute={executeArbitrage}
+          isExecuting={isExecuting}
         />
       )}
 
