@@ -915,6 +915,7 @@ export default function ArbitrageControl() {
           }}
           onExecute={executeArbitrage}
           isExecuting={isExecuting}
+          onRefreshOpportunities={loadOpportunities}
         />
       )}
 

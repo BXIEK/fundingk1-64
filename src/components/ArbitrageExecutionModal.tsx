@@ -7,7 +7,7 @@ import { Slider } from "@/components/ui/slider";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calculator, DollarSign, Percent, Clock, AlertTriangle, TrendingUp, Network } from "lucide-react";
+import { Calculator, DollarSign, Percent, Clock, AlertTriangle, TrendingUp, Network, RefreshCw } from "lucide-react";
 import { z } from 'zod';
 import { toast } from "sonner";
 
@@ -43,6 +43,7 @@ interface ArbitrageExecutionModalProps {
   opportunity: SyntheticPairOpportunity | null;
   onExecute: (opportunity: SyntheticPairOpportunity, config: ArbitrageConfig) => void;
   isExecuting: boolean;
+  onRefreshOpportunities?: () => Promise<void>;
 }
 
 const configSchema = z.object({
@@ -57,7 +58,8 @@ const ArbitrageExecutionModal: React.FC<ArbitrageExecutionModalProps> = ({
   onClose,
   opportunity,
   onExecute,
-  isExecuting
+  isExecuting,
+  onRefreshOpportunities
 }) => {
   const [config, setConfig] = useState<ArbitrageConfig>({
     investmentAmount: 25, // USDT (mínimo $25 para 2 ordens de $12.5)
@@ -69,6 +71,8 @@ const ArbitrageExecutionModal: React.FC<ArbitrageExecutionModalProps> = ({
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
 
   // Obter redes disponíveis para o token atual
   const getAvailableNetworks = (symbol: string): Array<{value: string, label: string, speed: string, fee: string}> => {
@@ -132,8 +136,33 @@ const ArbitrageExecutionModal: React.FC<ArbitrageExecutionModalProps> = ({
       // Selecionar Arbitrum se disponível, senão primeira opção
       const defaultNetwork = networks.find(n => n.value === 'ARBITRUM') || networks[0];
       setConfig(prev => ({ ...prev, selectedNetwork: defaultNetwork.value }));
+      setLastRefresh(new Date());
     }
   }, [opportunity]);
+
+  const handleRefreshOpportunities = async () => {
+    if (!onRefreshOpportunities) return;
+    
+    setIsRefreshing(true);
+    try {
+      await onRefreshOpportunities();
+      setLastRefresh(new Date());
+      toast.success("Oportunidades atualizadas!");
+    } catch (error) {
+      toast.error("Erro ao atualizar oportunidades");
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  const getTimeAgo = (date: Date) => {
+    const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
+    if (seconds < 60) return `${seconds}s atrás`;
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}min atrás`;
+    const hours = Math.floor(minutes / 60);
+    return `${hours}h atrás`;
+  };
 
   const validateConfig = () => {
     try {
@@ -248,13 +277,34 @@ const ArbitrageExecutionModal: React.FC<ArbitrageExecutionModalProps> = ({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Calculator className="h-5 w-5" />
-            Configurar Execução de Arbitragem
-          </DialogTitle>
-          <DialogDescription>
-            Configure os parâmetros para executar a arbitragem {opportunity.symbol}
-          </DialogDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <DialogTitle className="flex items-center gap-2">
+                <Calculator className="h-5 w-5" />
+                Configurar Execução de Arbitragem
+              </DialogTitle>
+              <DialogDescription>
+                Configure os parâmetros para executar a arbitragem {opportunity.symbol}
+              </DialogDescription>
+            </div>
+            {onRefreshOpportunities && (
+              <div className="flex flex-col items-end gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRefreshOpportunities}
+                  disabled={isRefreshing || isExecuting}
+                  className="gap-2"
+                >
+                  <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                  Atualizar
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  {getTimeAgo(lastRefresh)}
+                </span>
+              </div>
+            )}
+          </div>
         </DialogHeader>
 
         <div className="space-y-6">
@@ -281,6 +331,22 @@ const ArbitrageExecutionModal: React.FC<ArbitrageExecutionModalProps> = ({
                   <div className="font-semibold">{formatCurrency(opportunity.sell_price)}</div>
                 </div>
               </div>
+              
+              {/* Data freshness warning */}
+              {(() => {
+                const minutesAgo = Math.floor((new Date().getTime() - lastRefresh.getTime()) / 60000);
+                if (minutesAgo >= 2) {
+                  return (
+                    <div className="mt-3 p-2 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded flex items-center gap-2 text-sm">
+                      <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                      <span className="text-amber-700 dark:text-amber-300">
+                        Dados atualizados há {minutesAgo} minutos. Recomendamos atualizar antes de executar.
+                      </span>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
             </CardContent>
           </Card>
 
