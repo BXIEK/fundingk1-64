@@ -108,20 +108,9 @@ serve(async (req) => {
     let net_profit = Math.max(0, gross_profit - total_fees);
     const roi_percentage = usdtInvestment > 0 ? (net_profit / usdtInvestment) * 100 : 0;
 
-    // Verificar viabilidade
+    // Executar sempre, independentemente da lucratividade (validação já feita no frontend)
     let status = 'completed';
     let error_message = null;
-    
-    const minViableSpread = 0.05; // Mínimo de 0.05% de spread bruto
-    
-    // Verificar se o spread é suficiente para cobrir os custos
-    if (spread_percentage < minViableSpread) {
-      status = 'failed';
-      error_message = `Spread insuficiente: ${spread_percentage.toFixed(3)}% (mín. ${minViableSpread}%)`;
-    } else if (net_profit <= 0) {
-      status = 'failed';
-      error_message = `Operação não lucrativa após custos. Spread: ${spread_percentage.toFixed(3)}%, Custos: ${((total_fees / usdtInvestment) * 100).toFixed(3)}%`;
-    }
     
     // Simular algumas falhas ocasionais (2% de chance se lucrativo)
     if (status === 'completed' && Math.random() < 0.02) {
