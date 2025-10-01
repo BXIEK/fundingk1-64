@@ -254,14 +254,44 @@ const ArbitrageExecutionModal: React.FC<ArbitrageExecutionModalProps> = ({
               
               <div className="p-2 bg-white rounded border border-blue-200">
                 <div className="text-xs text-blue-900 font-medium mb-1">
-                  💎 Tokens com suporte Arbitrum (mais rápido):
+                  ⚡ Arbitrum (2-5 min, taxa $0.10):
                 </div>
-                <div className="flex flex-wrap gap-1">
+                <div className="flex flex-wrap gap-1 mb-3">
                   {['USDT', 'USDC', 'ETH', 'LINK', 'UNI', 'PEPE', 'SHIB'].map(token => (
                     <Badge 
                       key={token} 
                       variant={opportunity.symbol === token ? "default" : "outline"}
                       className="text-xs"
+                    >
+                      {token}
+                    </Badge>
+                  ))}
+                </div>
+                
+                <div className="text-xs text-blue-900 font-medium mb-1">
+                  🚀 Redes Rápidas (1-5 min):
+                </div>
+                <div className="flex flex-wrap gap-1 mb-3">
+                  {['SOL', 'BNB', 'AVAX', 'DOT'].map(token => (
+                    <Badge 
+                      key={token} 
+                      variant={opportunity.symbol === token ? "default" : "outline"}
+                      className="text-xs bg-purple-100 hover:bg-purple-200"
+                    >
+                      {token}
+                    </Badge>
+                  ))}
+                </div>
+                
+                <div className="text-xs text-blue-900 font-medium mb-1">
+                  ⏱️ Outras Redes (5-60 min):
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {['BTC', 'LTC', 'ADA', 'ATOM', 'DOGE'].map(token => (
+                    <Badge 
+                      key={token} 
+                      variant={opportunity.symbol === token ? "default" : "outline"}
+                      className="text-xs bg-amber-100 hover:bg-amber-200"
                     >
                       {token}
                     </Badge>
