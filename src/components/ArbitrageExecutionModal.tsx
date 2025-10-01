@@ -189,22 +189,18 @@ const ArbitrageExecutionModal: React.FC<ArbitrageExecutionModalProps> = ({
     // Spread real da oportunidade (%)
     const spreadPercentage = opportunity.spread;
     
-    // Calcular lucro bruto baseado no spread REAL (sem subtrair slippage)
-    // O slippage afeta os preços, mas o lucro base vem do spread
-    const grossProfit = (config.investmentAmount * spreadPercentage) / 100;
+    // CORREÇÃO: O slippage reduz o spread percentual, não é um custo em dólar
+    // Exemplo: spread 0.5% com slippage 0.1% = spread efetivo 0.4%
+    const effectiveSpreadPercentage = Math.max(0, spreadPercentage - config.maxSlippage);
     
-    // Impacto do slippage no lucro (reduz o lucro, mas não elimina o spread)
-    // Slippage afeta tanto a compra quanto a venda
-    const slippageImpact = (config.investmentAmount * config.maxSlippage) / 100;
-    
-    // Lucro bruto após considerar slippage
-    const grossProfitAfterSlippage = Math.max(0, grossProfit - slippageImpact);
+    // Lucro bruto baseado no spread efetivo
+    const grossProfit = (config.investmentAmount * effectiveSpreadPercentage) / 100;
     
     // Preços ajustados para exibição (apenas visual)
     const slippageMultiplier = config.maxSlippage / 100;
-    const adjustedBuyPrice = opportunity.buy_price * (1 + slippageMultiplier / 2);
-    const adjustedSellPrice = opportunity.sell_price * (1 - slippageMultiplier / 2);
-    const quantity = config.investmentAmount / opportunity.buy_price;
+    const adjustedBuyPrice = opportunity.buy_price * (1 + slippageMultiplier);
+    const adjustedSellPrice = opportunity.sell_price * (1 - slippageMultiplier);
+    const quantity = config.investmentAmount / adjustedBuyPrice;
     
     // Taxas de trading em ambas exchanges (compra + venda)
     // Taxa aplicada 2x: uma na compra (exchange origem) e outra na venda (exchange destino)
@@ -229,18 +225,19 @@ const ArbitrageExecutionModal: React.FC<ArbitrageExecutionModalProps> = ({
     // Total de taxas
     const totalFees = tradingFees + networkFee;
     
-    // Lucro líquido = lucro bruto (já considerando slippage) - taxas
-    const netProfit = grossProfitAfterSlippage - totalFees;
+    // Lucro líquido = lucro bruto - taxas
+    const netProfit = grossProfit - totalFees;
     
     // ROI
     const roi = (netProfit / config.investmentAmount) * 100;
     
-    // Spread mínimo necessário para break-even
-    // Precisa cobrir: taxas de trading (2x) + slippage + taxa de rede
-    const breakEvenSpread = (config.customFeeRate * 2) + config.maxSlippage + ((networkFee / config.investmentAmount) * 100);
+    // Spread mínimo necessário para break-even (em %)
+    // Precisa cobrir: taxas de trading (% × 2) + slippage (%) + taxa de rede (convertida em %)
+    const networkFeePercentage = (networkFee / config.investmentAmount) * 100;
+    const breakEvenSpread = (config.customFeeRate * 2) + config.maxSlippage + networkFeePercentage;
 
     return {
-      grossProfit: grossProfitAfterSlippage, // Já com slippage aplicado
+      grossProfit,
       tradingFees,
       networkFee,
       totalFees,
@@ -249,7 +246,8 @@ const ArbitrageExecutionModal: React.FC<ArbitrageExecutionModalProps> = ({
       breakEvenSpread,
       quantity,
       adjustedBuyPrice,
-      adjustedSellPrice
+      adjustedSellPrice,
+      effectiveSpreadPercentage
     };
   };
 
@@ -327,6 +325,11 @@ const ArbitrageExecutionModal: React.FC<ArbitrageExecutionModalProps> = ({
                 <div>
                   <div className="text-muted-foreground">Spread Atual</div>
                   <div className="font-semibold text-primary">{opportunity.spread.toFixed(3)}%</div>
+                  {projected && (
+                    <div className="text-xs text-muted-foreground">
+                      Efetivo: {projected.effectiveSpreadPercentage.toFixed(3)}%
+                    </div>
+                  )}
                 </div>
                 <div>
                   <div className="text-muted-foreground">Preço Compra</div>
