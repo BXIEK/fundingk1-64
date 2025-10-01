@@ -109,7 +109,7 @@ function processFundingData(fundingData: any[]): ArbitrageOpportunity[] {
       liquidity_sell: 95000 + Math.random() * 45000,
       execution_time_estimate: 300 + Math.random() * 200
     };
-  }).filter((opp: ArbitrageOpportunity) => opp.potential_profit > 0.01); // Filtrar apenas oportunidades com lucro > US$ 0.01
+  }); // Mostrar todas as oportunidades, mesmo sem lucro
   
   console.log(`✅ ${fundingOpportunities.length} oportunidades de funding da Binance encontradas`);
   return fundingOpportunities;
@@ -283,10 +283,10 @@ function calculateCrossExchangeOpportunities(binancePrices: any, okxPrices: any,
       const futuresValue = spotQuantity * okxPrice;
       const grossProfit = futuresValue - standardInvestment;
       const fees = standardInvestment * 0.0005; // 0.05% do investimento (cross-exchange)
-      const potentialProfit = Math.max(0, grossProfit - fees);
+      const potentialProfit = grossProfit - fees; // Permitir valores negativos
       
-      if (potentialProfit > 0.01) { // Lucro mínimo ajustado para US$ 0.01
-        opportunities.push({
+      // Mostrar todas as oportunidades, mesmo sem lucro
+      opportunities.push({
           symbol,
           buy_exchange: 'Binance',
           sell_exchange: 'OKX',
@@ -303,7 +303,6 @@ function calculateCrossExchangeOpportunities(binancePrices: any, okxPrices: any,
         });
         
         console.log(`✅ Oportunidade ${symbol}: Binance($${binancePrice.toFixed(4)}) -> OKX($${okxPrice.toFixed(4)}), spread=${spreadBinanceToOKX.toFixed(3)}%, lucro=$${potentialProfit.toFixed(2)}`);
-      }
     }
     
     // Verificar oportunidade OKX -> Binance  
@@ -314,10 +313,10 @@ function calculateCrossExchangeOpportunities(binancePrices: any, okxPrices: any,
       const futuresValue = spotQuantity * binancePrice;
       const grossProfit = futuresValue - standardInvestment;
       const fees = standardInvestment * 0.0005; // 0.05% do investimento (cross-exchange)
-      const potentialProfit = Math.max(0, grossProfit - fees);
+      const potentialProfit = grossProfit - fees; // Permitir valores negativos
       
-      if (potentialProfit > 0.01) { // Lucro mínimo ajustado para US$ 0.01
-        opportunities.push({
+      // Mostrar todas as oportunidades, mesmo sem lucro
+      opportunities.push({
           symbol,
           buy_exchange: 'OKX',
           sell_exchange: 'Binance',
@@ -334,7 +333,6 @@ function calculateCrossExchangeOpportunities(binancePrices: any, okxPrices: any,
         });
         
         console.log(`✅ Oportunidade ${symbol}: OKX($${okxPrice.toFixed(4)}) -> Binance($${binancePrice.toFixed(4)}), spread=${spreadOKXToBinance.toFixed(3)}%, lucro=$${potentialProfit.toFixed(2)}`);
-      }
     }
   });
   
