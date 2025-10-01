@@ -32,7 +32,8 @@ import {
   Activity,
   XCircle,
   Power,
-  Bot
+  Bot,
+  Zap
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import ArbitrageExecutionModal from '@/components/ArbitrageExecutionModal';
@@ -539,6 +540,44 @@ export default function ArbitrageControl() {
           </CardContent>
         </Card>
       )}
+
+      {/* Card do Bot Automático */}
+      <Card className="border-blue-200 bg-gradient-to-r from-blue-50 to-purple-50">
+        <CardContent className="p-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-blue-600 rounded-lg">
+                <Bot className="h-8 w-8 text-white" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-blue-900">Bot Automático de Arbitragem</h3>
+                <p className="text-sm text-blue-700 mt-1">
+                  Automação contínua de execução de arbitragens com reinvestimento inteligente
+                  e crescimento exponencial de lucros
+                </p>
+                <div className="flex gap-2 mt-2">
+                  <Badge variant="secondary" className="bg-blue-100 text-blue-700">
+                    <Zap className="h-3 w-3 mr-1" />
+                    Execução automática
+                  </Badge>
+                  <Badge variant="secondary" className="bg-purple-100 text-purple-700">
+                    <TrendingUp className="h-3 w-3 mr-1" />
+                    Compounding
+                  </Badge>
+                </div>
+              </div>
+            </div>
+            <Button 
+              onClick={() => navigate('/auto-bot')}
+              size="lg"
+              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+            >
+              <Bot className="h-5 w-5 mr-2" />
+              Configurar Bot
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Meus Saldos */}
       <Card>

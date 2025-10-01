@@ -357,6 +357,7 @@ export type Database = {
           compounding_enabled: boolean
           created_at: string
           daily_limit: number
+          daily_volume: number
           id: string
           is_enabled: boolean
           max_investment_per_trade: number
@@ -374,6 +375,7 @@ export type Database = {
           compounding_enabled?: boolean
           created_at?: string
           daily_limit?: number
+          daily_volume?: number
           id?: string
           is_enabled?: boolean
           max_investment_per_trade?: number
@@ -391,6 +393,7 @@ export type Database = {
           compounding_enabled?: boolean
           created_at?: string
           daily_limit?: number
+          daily_volume?: number
           id?: string
           is_enabled?: boolean
           max_investment_per_trade?: number

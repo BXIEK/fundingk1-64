@@ -97,14 +97,18 @@ export default function AutoArbitrageBot() {
   const loadRecentLogs = async () => {
     try {
       const userId = await getUserId();
+      // @ts-ignore - Tabela recém criada, types serão atualizados
       const { data, error } = await supabase
-        .from('bot_execution_logs' as any)
+        .from('bot_execution_logs')
         .select('*')
         .eq('user_id', userId)
         .order('executed_at', { ascending: false })
         .limit(5);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro ao carregar logs:', error);
+        return;
+      }
       setRecentLogs(data || []);
     } catch (error) {
       console.error('Erro ao carregar logs:', error);

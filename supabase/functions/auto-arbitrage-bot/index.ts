@@ -298,18 +298,50 @@ async function executeArbitrage(supabase: any, config: BotConfig, opportunity: a
 }
 
 async function updateBotState(supabase: any, userId: string, updates: any) {
-  const { error } = await supabase
-    .from('auto_arbitrage_states')
-    .upsert({
-      user_id: userId,
-      ...updates,
-      updated_at: new Date().toISOString()
-    }, {
-      onConflict: 'user_id'
-    });
+  try {
+    // Buscar estado atual
+    const { data: currentState } = await supabase
+      .from('auto_arbitrage_states')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
 
-  if (error) {
-    console.error('❌ Erro ao atualizar estado:', error);
+    // Calcular novos valores (se houver incrementos)
+    const newState: any = {
+      user_id: userId,
+      updated_at: new Date().toISOString()
+    };
+
+    if (updates.trades_executed?.increment) {
+      newState.trades_executed = (currentState?.trades_executed || 0) + updates.trades_executed.increment;
+    }
+    if (updates.total_profit?.increment) {
+      newState.total_profit = (currentState?.total_profit || 0) + updates.total_profit.increment;
+    }
+    if (updates.daily_volume?.increment) {
+      newState.daily_volume = (currentState?.daily_volume || 0) + updates.daily_volume.increment;
+    }
+    if (updates.last_execution_time) {
+      newState.last_execution_time = updates.last_execution_time;
+    }
+    if (updates.status) {
+      newState.status = updates.status;
+    }
+    if (updates.last_error) {
+      newState.last_error = updates.last_error;
+    }
+
+    const { error } = await supabase
+      .from('auto_arbitrage_states')
+      .upsert(newState, {
+        onConflict: 'user_id'
+      });
+
+    if (error) {
+      console.error('❌ Erro ao atualizar estado:', error);
+    }
+  } catch (err) {
+    console.error('❌ Erro crítico ao atualizar estado:', err);
   }
 }
 
