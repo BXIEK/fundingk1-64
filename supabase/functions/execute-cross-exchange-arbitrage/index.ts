@@ -181,6 +181,27 @@ serve(async (req) => {
         const minWithdrawalAmount = minWithdrawalAmounts[symbol.replace('USDT', '')] || minWithdrawalAmounts['default'];
         console.log(`📏 Mínimo de withdrawal para ${symbol}: ${minWithdrawalAmount}`);
         
+        // VALIDAÇÃO CRÍTICA: Verificar se quantidade necessária é >= mínimo de withdrawal
+        if (targetCryptoAmount < minWithdrawalAmount) {
+          const requiredUsdtPerOperation = minWithdrawalAmount * buyPrice * 1.05; // +5% margem
+          const requiredTotalUsdt = requiredUsdtPerOperation * 2;
+          
+          console.log(`⚠️ VALOR INSUFICIENTE DETECTADO:`);
+          console.log(`   Quantidade necessária: ${targetCryptoAmount} ${symbol}`);
+          console.log(`   Mínimo de withdrawal: ${minWithdrawalAmount} ${symbol}`);
+          console.log(`   USDT por operação atual: $${usdtPerOperation.toFixed(2)}`);
+          console.log(`   USDT por operação necessário: $${requiredUsdtPerOperation.toFixed(2)}`);
+          console.log(`   USDT total necessário: $${requiredTotalUsdt.toFixed(2)}`);
+          
+          throw new Error(
+            `Valor de investimento muito baixo para ${symbol}. ` +
+            `Investimento atual: $${usdtInvestment.toFixed(2)}. ` +
+            `Mínimo necessário: $${requiredTotalUsdt.toFixed(2)} USDT ` +
+            `(${minWithdrawalAmount} ${symbol} × $${buyPrice.toFixed(2)} × 2 operações). ` +
+            `Por favor, aumente o valor do investimento.`
+          );
+        }
+        
         // Step 1: Verificar saldo disponível de crypto na exchange de origem
         let cryptoAmount = 0;
         let usedExistingBalance = false;
