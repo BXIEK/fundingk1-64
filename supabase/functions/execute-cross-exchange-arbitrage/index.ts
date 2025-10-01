@@ -71,6 +71,90 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // ⭐ VERIFICAR E REBALANCEAR SALDOS AUTOMATICAMENTE
+    if (mode === 'real') {
+      try {
+        console.log('🔍 Verificando saldos nas exchanges...');
+        
+        // Obter saldos atuais
+        const balances = await checkExchangeBalances(buyExchange, sellExchange, { binanceApiKey, binanceSecretKey, okxApiKey, okxSecretKey, okxPassphrase });
+        console.log('💰 Saldos:', balances);
+        
+        const requiredAmount = config.investmentAmount / 2; // Metade em cada exchange
+        
+        // Verificar se precisa transferir
+        let needsTransfer = false;
+        let transferFrom = '';
+        let transferTo = '';
+        let transferAmount = 0;
+        
+        if (balances.buy < requiredAmount && balances.sell >= config.investmentAmount) {
+          needsTransfer = true;
+          transferFrom = sellExchange;
+          transferTo = buyExchange;
+          transferAmount = requiredAmount - balances.buy + 5; // +$5 de buffer
+        } else if (balances.sell < requiredAmount && balances.buy >= config.investmentAmount) {
+          needsTransfer = true;
+          transferFrom = buyExchange;
+          transferTo = sellExchange;
+          transferAmount = requiredAmount - balances.sell + 5;
+        } else if (balances.buy < requiredAmount && balances.sell < requiredAmount) {
+          throw new Error(`Saldo insuficiente em ambas exchanges. Necessário: $${requiredAmount} em cada. Disponível: ${buyExchange}=$${balances.buy}, ${sellExchange}=$${balances.sell}`);
+        }
+        
+        // Executar transferência se necessário
+        if (needsTransfer) {
+          console.log(`💱 Transferindo $${transferAmount} USDT de ${transferFrom} → ${transferTo}...`);
+          
+          const transferResponse = await fetch(`${supabaseUrl}/functions/v1/smart-cross-exchange-transfer`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${supabaseKey}`
+            },
+            body: JSON.stringify({
+              fromExchange: transferFrom,
+              toExchange: transferTo,
+              asset: 'USDT',
+              amount: transferAmount,
+              binanceApiKey,
+              binanceSecretKey,
+              okxApiKey,
+              okxSecretKey,
+              okxPassphrase
+            })
+          });
+          
+          if (!transferResponse.ok) {
+            const error = await transferResponse.text();
+            throw new Error(`Falha na transferência: ${error}`);
+          }
+          
+          const transferResult = await transferResponse.json();
+          if (!transferResult.success) {
+            throw new Error(`Transferência falhou: ${transferResult.error}`);
+          }
+          
+          console.log('✅ Transferência concluída:', transferResult);
+        }
+        
+      } catch (transferError) {
+        console.error('❌ Erro no rebalanceamento:', transferError);
+        
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: `Falha no rebalanceamento automático: ${transferError instanceof Error ? transferError.message : String(transferError)}`,
+            strategy: 'cross_exchange_arbitrage_usdt'
+          }),
+          {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
+      }
+    }
+
     // ⭐ NOVA LÓGICA USDT: Usar valor em USDT diretamente
     const usdtInvestment = config.investmentAmount;
     
@@ -519,4 +603,115 @@ function roundToStepSize(quantity: number, stepSize: number): number {
   const precision = Math.max(0, Math.ceil(Math.log10(1 / stepSize)));
   const rounded = Math.floor(quantity / stepSize) * stepSize;
   return parseFloat(rounded.toFixed(precision));
+}
+
+// Função para verificar saldos nas exchanges
+async function checkExchangeBalances(
+  buyExchange: string,
+  sellExchange: string,
+  credentials: {
+    binanceApiKey?: string;
+    binanceSecretKey?: string;
+    okxApiKey?: string;
+    okxSecretKey?: string;
+    okxPassphrase?: string;
+  }
+): Promise<{ buy: number; sell: number }> {
+  const balances = { buy: 0, sell: 0 };
+  
+  // Verificar saldo na exchange de compra
+  if (buyExchange === 'Binance') {
+    balances.buy = await getBinanceUSDTBalance(credentials.binanceApiKey!, credentials.binanceSecretKey!);
+  } else if (buyExchange === 'OKX') {
+    balances.buy = await getOKXUSDTBalance({ okxApiKey: credentials.okxApiKey, okxSecretKey: credentials.okxSecretKey, okxPassphrase: credentials.okxPassphrase });
+  }
+  
+  // Verificar saldo na exchange de venda
+  if (sellExchange === 'Binance') {
+    balances.sell = await getBinanceUSDTBalance(credentials.binanceApiKey!, credentials.binanceSecretKey!);
+  } else if (sellExchange === 'OKX') {
+    balances.sell = await getOKXUSDTBalance({ okxApiKey: credentials.okxApiKey, okxSecretKey: credentials.okxSecretKey, okxPassphrase: credentials.okxPassphrase });
+  }
+  
+  return balances;
+}
+
+async function getBinanceUSDTBalance(apiKey: string, secretKey: string): Promise<number> {
+  const timestamp = Date.now();
+  const queryString = `timestamp=${timestamp}`;
+  
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(secretKey),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  
+  const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(queryString));
+  const signatureHex = Array.from(new Uint8Array(signature))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+  
+  const response = await fetch(
+    `https://api.binance.com/api/v3/account?${queryString}&signature=${signatureHex}`,
+    {
+      headers: {
+        'X-MBX-APIKEY': apiKey,
+      }
+    }
+  );
+  
+  if (!response.ok) {
+    throw new Error('Erro ao obter saldo Binance');
+  }
+  
+  const data = await response.json();
+  const usdtBalance = data.balances.find((b: any) => b.asset === 'USDT');
+  return usdtBalance ? parseFloat(usdtBalance.free) : 0;
+}
+
+async function getOKXUSDTBalance(
+  credentials: { okxApiKey?: string; okxSecretKey?: string; okxPassphrase?: string }
+): Promise<number> {
+  const timestamp = new Date().toISOString();
+  const method = 'GET';
+  const requestPath = '/api/v5/account/balance';
+  
+  const prehash = timestamp + method + requestPath;
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(credentials.okxSecretKey!),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  
+  const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(prehash));
+  const signatureBase64 = btoa(String.fromCharCode(...new Uint8Array(signature)));
+  
+  const response = await fetch(`https://www.okx.com${requestPath}`, {
+    method: 'GET',
+    headers: {
+      'OK-ACCESS-KEY': credentials.okxApiKey!,
+      'OK-ACCESS-SIGN': signatureBase64,
+      'OK-ACCESS-TIMESTAMP': timestamp,
+      'OK-ACCESS-PASSPHRASE': credentials.okxPassphrase!,
+      'Content-Type': 'application/json'
+    }
+  });
+  
+  if (!response.ok) {
+    throw new Error('Erro ao obter saldo OKX');
+  }
+  
+  const data = await response.json();
+  if (data.code !== '0') {
+    throw new Error(`OKX API Error: ${data.msg}`);
+  }
+  
+  const usdtBalance = data.data[0].details.find((d: any) => d.ccy === 'USDT');
+  return usdtBalance ? parseFloat(usdtBalance.availBal) : 0;
 }

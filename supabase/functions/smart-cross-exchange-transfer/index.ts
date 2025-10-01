@@ -1,487 +1,463 @@
-// @ts-nocheck
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
-// @ts-nocheck
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface TransferAnalysis {
-  symbol: string;
+interface TransferRequest {
+  fromExchange: string;
+  toExchange: string;
+  asset: string;
   amount: number;
-  sourceExchange: string;
-  targetExchange: string;
-  arbitrageSpread: number;
-  transferCosts: TransferCosts;
-  netProfitAfterTransfer: number;
-  isWorthwhile: boolean;
-  estimatedTime: number;
-}
-
-interface TransferCosts {
-  withdrawalFee: number;
-  depositFee: number;
-  networkFee: number;
-  tradingFees: number;
-  totalCosts: number;
-  totalCostsPercentage: number;
-}
-
-interface ExchangeBalance {
-  symbol: string;
-  available: number;
-  locked: number;
-  exchange: string;
-}
-
-// Tabela de custos de transferência por símbolo e rede blockchain
-const TRANSFER_COSTS = {
-  'BTC': {
-    'BTC': {
-      withdrawal_fee: 0.0005,
-      network_fee: 0.0001,
-      deposit_fee: 0,
-      min_withdrawal: 0.001,
-      estimated_time: 30
-    }
-  },
-  'ETH': {
-    'ERC20': {
-      withdrawal_fee: 0.005,
-      network_fee: 0.002,
-      deposit_fee: 0,
-      min_withdrawal: 0.01,
-      estimated_time: 15
-    }
-  },
-  'BNB': {
-    'BEP20': {
-      withdrawal_fee: 0.0005,
-      network_fee: 0.0001,
-      deposit_fee: 0,
-      min_withdrawal: 0.01,
-      estimated_time: 3
-    },
-    'BEP2': {
-      withdrawal_fee: 0.000075,
-      network_fee: 0.000005,
-      deposit_fee: 0,
-      min_withdrawal: 0.01,
-      estimated_time: 1
-    }
-  },
-  'USDT': {
-    'ERC20': {
-      withdrawal_fee: 10.0,
-      network_fee: 2.0,
-      deposit_fee: 0,
-      min_withdrawal: 20,
-      estimated_time: 15
-    },
-    'TRC20': {
-      withdrawal_fee: 1.0,
-      network_fee: 0.1,
-      deposit_fee: 0,
-      min_withdrawal: 10,
-      estimated_time: 3
-    },
-    'BEP20': {
-      withdrawal_fee: 0.8,
-      network_fee: 0.1,
-      deposit_fee: 0,
-      min_withdrawal: 10,
-      estimated_time: 3
-    },
-    'POLYGON': {
-      withdrawal_fee: 0.1,
-      network_fee: 0.05,
-      deposit_fee: 0,
-      min_withdrawal: 5,
-      estimated_time: 2
-    }
-  },
-  'SOL': {
-    'SOL': {
-      withdrawal_fee: 0.01,
-      network_fee: 0.000005,
-      deposit_fee: 0,
-      min_withdrawal: 0.01,
-      estimated_time: 1
-    }
-  },
-  'XRP': {
-    'XRP': {
-      withdrawal_fee: 0.25,
-      network_fee: 0.00001,
-      deposit_fee: 0,
-      min_withdrawal: 20,
-      estimated_time: 3
-    }
-  }
-};
-
-// Calcular custos de transferência baseado na rede
-function calculateTransferCosts(symbol: string, network: string, amount: number, currentPrice: number): TransferCosts {
-  const costs = TRANSFER_COSTS[symbol]?.[network] || {
-    withdrawal_fee: currentPrice * 0.001, // 0.1% como fallback
-    network_fee: currentPrice * 0.0001,
-    deposit_fee: 0,
-    min_withdrawal: currentPrice * 0.01,
-    estimated_time: 15
-  };
-
-  const withdrawalFeeUsd = costs.withdrawal_fee * currentPrice;
-  const networkFeeUsd = costs.network_fee * currentPrice;
-  const depositFeeUsd = costs.deposit_fee;
-  
-  // Taxa de trading (assumindo 0.1% em cada exchange)
-  const tradingFeesUsd = (amount * currentPrice) * 0.002; // 0.1% + 0.1%
-  
-  const totalCostsUsd = withdrawalFeeUsd + networkFeeUsd + depositFeeUsd + tradingFeesUsd;
-  const totalCostsPercentage = (totalCostsUsd / (amount * currentPrice)) * 100;
-
-  return {
-    withdrawalFee: withdrawalFeeUsd,
-    depositFee: depositFeeUsd,
-    networkFee: networkFeeUsd,
-    tradingFees: tradingFeesUsd,
-    totalCosts: totalCostsUsd,
-    totalCostsPercentage: totalCostsPercentage
-  };
-}
-
-// Buscar saldos nas exchanges
-async function getExchangeBalances(userId: string, symbol: string, supabase: any): Promise<{binance: ExchangeBalance, pionex: ExchangeBalance}> {
-  try {
-    // Buscar saldos do portfólio
-    const { data: portfolioData, error } = await supabase
-      .from('portfolios')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('symbol', symbol);
-
-    if (error) {
-      console.error('Erro ao buscar saldos:', error);
-      throw error;
-    }
-
-    let binanceBalance = { symbol, available: 0, locked: 0, exchange: 'binance' };
-    let pionexBalance = { symbol, available: 0, locked: 0, exchange: 'pionex' };
-
-    // Somar saldos por exchange
-    portfolioData?.forEach(balance => {
-      const available = balance.balance - (balance.locked_balance || 0);
-      
-      if (balance.exchange?.toLowerCase() === 'binance' || !balance.exchange) {
-        binanceBalance.available += available;
-        binanceBalance.locked += balance.locked_balance || 0;
-      } else if (balance.exchange?.toLowerCase() === 'pionex') {
-        pionexBalance.available += available;
-        pionexBalance.locked += balance.locked_balance || 0;
-      }
-    });
-
-    return { binance: binanceBalance, pionex: pionexBalance };
-  } catch (error) {
-    console.error('Erro ao buscar saldos das exchanges:', error);
-    return {
-      binance: { symbol, available: 0, locked: 0, exchange: 'binance' },
-      pionex: { symbol, available: 0, locked: 0, exchange: 'pionex' }
-    };
-  }
-}
-
-// Executar transferência da Binance para Pionex
-async function executeBinanceToPionexTransfer(
-  symbol: string,
-  amount: number,
-  binanceApiKey: string,
-  binanceSecretKey: string,
-  pionexAddress: string
-): Promise<{success: boolean, txId?: string, error?: string}> {
-  
-  console.log(`💸 Executando transferência: ${amount} ${symbol} da Binance para Pionex`);
-  
-  try {
-    const timestamp = Date.now();
-    const params = {
-      coin: symbol,
-      address: pionexAddress,
-      amount: amount.toString(),
-      timestamp: timestamp
-    };
-
-    // Criar query string para assinatura
-    const queryString = Object.entries(params)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([key, value]) => `${key}=${value}`)
-      .join('&');
-
-    // Gerar assinatura HMAC-SHA256
-    const encoder = new TextEncoder();
-    const key = await crypto.subtle.importKey(
-      'raw',
-      encoder.encode(binanceSecretKey),
-      { name: 'HMAC', hash: 'SHA-256' },
-      false,
-      ['sign']
-    );
-    
-    const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(queryString));
-    const signatureHex = Array.from(new Uint8Array(signature))
-      .map(b => b.toString(16).padStart(2, '0'))
-      .join('');
-
-    const fullUrl = `https://api.binance.com/sapi/v1/capital/withdraw/apply?${queryString}&signature=${signatureHex}`;
-    
-    const response = await fetch(fullUrl, {
-      method: 'POST',
-      headers: {
-        'X-MBX-APIKEY': binanceApiKey,
-        'Content-Type': 'application/x-www-form-urlencoded'
-      }
-    });
-
-    const result = await response.json();
-    
-    if (!response.ok) {
-      console.error('❌ Erro na transferência Binance:', result);
-      return {
-        success: false,
-        error: result.msg || `Erro HTTP: ${response.status}`
-      };
-    }
-
-    console.log(`✅ Transferência iniciada com sucesso: ${result.id}`);
-    
-    return {
-      success: true,
-      txId: result.id
-    };
-
-  } catch (error) {
-    console.error(`❌ Erro na transferência ${symbol}:`, error);
-    return {
-      success: false,
-      error: error.message
-    };
-  }
-}
-
-// Analisar se vale a pena fazer transferência para arbitragem
-async function analyzeTransferWorthiness(
-  symbol: string,
-  network: string,
-  requiredAmount: number,
-  currentPrice: number,
-  arbitrageSpreadPercent: number,
-  balances: {binance: ExchangeBalance, pionex: ExchangeBalance}
-): Promise<TransferAnalysis> {
-  
-  console.log(`🔍 Analisando viabilidade de transferência para ${symbol}`);
-  
-  // Verificar se há saldo suficiente na Binance
-  const availableInBinance = balances.binance.available;
-  const availableInPionex = balances.pionex.available;
-  const shortfall = Math.max(0, requiredAmount - availableInPionex);
-  
-  console.log(`💰 Saldos: Binance: ${availableInBinance}, Pionex: ${availableInPionex}, Necessário: ${requiredAmount}`);
-  
-  if (shortfall === 0) {
-    return {
-      symbol,
-      amount: requiredAmount,
-      sourceExchange: 'binance',
-      targetExchange: 'pionex',
-      arbitrageSpread: arbitrageSpreadPercent,
-      transferCosts: { withdrawalFee: 0, depositFee: 0, networkFee: 0, tradingFees: 0, totalCosts: 0, totalCostsPercentage: 0 },
-      netProfitAfterTransfer: (requiredAmount * currentPrice * arbitrageSpreadPercent) / 100,
-      isWorthwhile: true,
-      estimatedTime: 0
-    };
-  }
-
-  if (availableInBinance < shortfall) {
-    console.log(`❌ Saldo insuficiente na Binance para transferência`);
-    return {
-      symbol,
-      amount: shortfall,
-      sourceExchange: 'binance',
-      targetExchange: 'pionex',
-      arbitrageSpread: arbitrageSpreadPercent,
-      transferCosts: { withdrawalFee: 0, depositFee: 0, networkFee: 0, tradingFees: 0, totalCosts: 0, totalCostsPercentage: 0 },
-      netProfitAfterTransfer: -1,
-      isWorthwhile: false,
-      estimatedTime: 0
-    };
-  }
-
-  // Calcular custos de transferência
-  const transferCosts = calculateTransferCosts(symbol, network, shortfall, currentPrice);
-  
-  // Calcular lucro bruto da arbitragem
-  const grossProfitUsd = (requiredAmount * currentPrice * arbitrageSpreadPercent) / 100;
-  
-  // Lucro líquido após custos de transferência
-  const netProfitAfterTransfer = grossProfitUsd - transferCosts.totalCosts;
-  
-  // Vale a pena se o lucro líquido for positivo e maior que $2
-  const isWorthwhile = netProfitAfterTransfer > 2.0;
-  
-  const costs = TRANSFER_COSTS[symbol]?.[network];
-  const estimatedTime = costs?.estimated_time || 15;
-  
-  console.log(`📊 Análise de transferência:`);
-  console.log(`   Spread: ${arbitrageSpreadPercent.toFixed(2)}%`);
-  console.log(`   Lucro bruto: $${grossProfitUsd.toFixed(2)}`);
-  console.log(`   Custos transferência: $${transferCosts.totalCosts.toFixed(2)} (${transferCosts.totalCostsPercentage.toFixed(2)}%)`);
-  console.log(`   Lucro líquido: $${netProfitAfterTransfer.toFixed(2)}`);
-  console.log(`   Vale a pena: ${isWorthwhile ? '✅' : '❌'}`);
-
-  return {
-    symbol,
-    amount: shortfall,
-    sourceExchange: 'binance',
-    targetExchange: 'pionex',
-    arbitrageSpread: arbitrageSpreadPercent,
-    transferCosts,
-    netProfitAfterTransfer,
-    isWorthwhile,
-    estimatedTime
-  };
+  binanceApiKey?: string;
+  binanceSecretKey?: string;
+  okxApiKey?: string;
+  okxSecretKey?: string;
+  okxPassphrase?: string;
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    console.log('=== SMART CROSS-EXCHANGE TRANSFER INICIADO ===');
-    
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? ''
-    );
-
-    const body = await req.json();
-    console.log('Dados recebidos:', body);
-
     const {
-      user_id,
-      symbol,
-      network,
-      required_amount,
-      current_price,
-      arbitrage_spread_percent,
-      binance_api_key,
-      binance_secret_key,
-      pionex_deposit_address,
-      execute = false
-    } = body;
+      fromExchange,
+      toExchange,
+      asset,
+      amount,
+      binanceApiKey,
+      binanceSecretKey,
+      okxApiKey,
+      okxSecretKey,
+      okxPassphrase
+    }: TransferRequest = await req.json();
 
-    // Validar dados obrigatórios
-    if (!user_id || !symbol || !network || !required_amount || !current_price || !arbitrage_spread_percent) {
-      return new Response(JSON.stringify({
-        success: false,
-        error: 'Dados obrigatórios: user_id, symbol, network, required_amount, current_price, arbitrage_spread_percent'
-      }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+    console.log(`💱 TRANSFERÊNCIA AUTOMÁTICA: ${amount} ${asset} de ${fromExchange} → ${toExchange}`);
+    console.log(`⚠️ ATENÇÃO: Transferências blockchain levam tempo (5-30 min). Aguarde...`);
+
+    // Validar credenciais
+    if (fromExchange === 'Binance' || toExchange === 'Binance') {
+      if (!binanceApiKey || !binanceSecretKey) {
+        throw new Error('Credenciais da Binance são obrigatórias');
+      }
     }
-
-    // Buscar saldos nas exchanges
-    const balances = await getExchangeBalances(user_id, symbol, supabase);
     
-    // Analisar viabilidade da transferência
-    const analysis = await analyzeTransferWorthiness(
-      symbol,
-      network,
-      required_amount,
-      current_price,
-      arbitrage_spread_percent,
-      balances
-    );
-
-    // Se foi solicitado para executar e é viável
-    if (execute && analysis.isWorthwhile && analysis.amount > 0) {
-      if (!binance_api_key || !binance_secret_key || !pionex_deposit_address) {
-        return new Response(JSON.stringify({
-          success: false,
-          error: 'API keys da Binance e endereço de depósito da Pionex são obrigatórios para execução'
-        }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
+    if (fromExchange === 'OKX' || toExchange === 'OKX') {
+      if (!okxApiKey || !okxSecretKey || !okxPassphrase) {
+        throw new Error('Credenciais da OKX são obrigatórias');
       }
-
-      console.log('🚀 Executando transferência automática...');
-      
-      const transferResult = await executeBinanceToPionexTransfer(
-        symbol,
-        analysis.amount,
-        binance_api_key,
-        binance_secret_key,
-        pionex_deposit_address
-      );
-
-      // Registrar a transferência no banco
-      if (transferResult.success) {
-        await supabase.from('wallet_rebalance_operations').insert({
-          user_id,
-          symbol,
-          amount: analysis.amount,
-          from_exchange: 'binance',
-          to_exchange: 'pionex',
-          status: 'pending',
-          withdrawal_tx_id: transferResult.txId,
-          reason: `Transferência automática para arbitragem (spread: ${arbitrage_spread_percent.toFixed(2)}%)`,
-          mode: 'real',
-          priority: 'high'
-        });
-      }
-
-      return new Response(JSON.stringify({
-        success: true,
-        analysis,
-        transfer_executed: transferResult.success,
-        transfer_id: transferResult.txId,
-        transfer_error: transferResult.error,
-        estimated_arrival_time: analysis.estimatedTime,
-        message: transferResult.success 
-          ? `Transferência de ${analysis.amount} ${symbol} iniciada com sucesso. Aguarde ${analysis.estimatedTime} minutos para processamento.`
-          : `Análise concluída, mas transferência falhou: ${transferResult.error}`
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
     }
 
-    // Retornar apenas análise
-    return new Response(JSON.stringify({
-      success: true,
-      analysis,
-      transfer_executed: false,
-      message: analysis.isWorthwhile 
-        ? `Transferência recomendada: Lucro líquido estimado de $${analysis.netProfitAfterTransfer.toFixed(2)}`
-        : `Transferência não recomendada: ${analysis.netProfitAfterTransfer < 0 ? 'Custos excedem lucros' : 'Lucro insuficiente'}`
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    let transferResult: any;
+    let depositAddress: any;
+
+    // Executar transferência baseada nas exchanges
+    if (fromExchange === 'OKX' && toExchange === 'Binance') {
+      console.log('📤 Passo 1/3: Obtendo endereço de depósito Binance...');
+      depositAddress = await getBinanceDepositAddress(asset, binanceApiKey!, binanceSecretKey!);
+      console.log(`📍 Endereço: ${depositAddress.address} (rede: ${depositAddress.network})`);
+      
+      console.log('📤 Passo 2/3: Iniciando saque da OKX...');
+      transferResult = await executeOKXWithdrawal(
+        asset,
+        amount,
+        depositAddress.address,
+        depositAddress.network,
+        { okxApiKey, okxSecretKey, okxPassphrase }
+      );
+      console.log(`✅ Saque iniciado! ID: ${transferResult.wdId}`);
+      
+      console.log('⏳ Passo 3/3: Aguardando confirmação (pode levar até 10 minutos)...');
+      const confirmed = await waitForTransferConfirmation(
+        toExchange,
+        asset,
+        amount,
+        binanceApiKey,
+        binanceSecretKey,
+        10 * 60 * 1000
+      );
+      
+      if (!confirmed) {
+        throw new Error('Timeout aguardando confirmação. Verifique manualmente nas exchanges.');
+      }
+      
+    } else if (fromExchange === 'Binance' && toExchange === 'OKX') {
+      console.log('📤 Passo 1/3: Obtendo endereço de depósito OKX...');
+      depositAddress = await getOKXDepositAddress(asset, { okxApiKey, okxSecretKey, okxPassphrase });
+      console.log(`📍 Endereço: ${depositAddress.address} (rede: ${depositAddress.network})`);
+      
+      console.log('📤 Passo 2/3: Iniciando saque da Binance...');
+      transferResult = await executeBinanceWithdrawal(
+        asset,
+        amount,
+        depositAddress.address,
+        depositAddress.network,
+        binanceApiKey!,
+        binanceSecretKey!
+      );
+      console.log(`✅ Saque iniciado! ID: ${transferResult.id}`);
+      
+      console.log('⏳ Passo 3/3: Aguardando confirmação (pode levar até 10 minutos)...');
+      const confirmed = await waitForTransferConfirmation(
+        toExchange,
+        asset,
+        amount,
+        undefined,
+        undefined,
+        10 * 60 * 1000,
+        { okxApiKey, okxSecretKey, okxPassphrase }
+      );
+      
+      if (!confirmed) {
+        throw new Error('Timeout aguardando confirmação. Verifique manualmente nas exchanges.');
+      }
+      
+    } else {
+      throw new Error(`Transferência ${fromExchange} → ${toExchange} não suportada`);
+    }
+
+    console.log('🎉 TRANSFERÊNCIA CONCLUÍDA COM SUCESSO!');
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        transferId: transferResult.wdId || transferResult.id,
+        fromExchange,
+        toExchange,
+        asset,
+        amount,
+        status: 'confirmed',
+        depositAddress: depositAddress.address,
+        network: depositAddress.network,
+        timestamp: new Date().toISOString()
+      }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
 
   } catch (error) {
-    console.error('❌ Erro no sistema de transferência inteligente:', error);
-    
-    return new Response(JSON.stringify({
-      success: false,
-      error: error.message || 'Erro interno do sistema'
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    console.error('❌ ERRO NA TRANSFERÊNCIA:', error);
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : String(error)
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
   }
 });
+
+// FUNÇÕES AUXILIARES
+
+async function getBinanceDepositAddress(asset: string, apiKey: string, secretKey: string) {
+  const timestamp = Date.now();
+  const network = asset === 'USDT' ? 'TRX' : 'ETH'; // USDT via TRON (menor taxa)
+  const queryString = `coin=${asset}&network=${network}&timestamp=${timestamp}`;
+  
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(secretKey),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  
+  const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(queryString));
+  const signatureHex = Array.from(new Uint8Array(signature))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+  
+  const response = await fetch(
+    `https://api.binance.com/sapi/v1/capital/deposit/address?${queryString}&signature=${signatureHex}`,
+    {
+      headers: { 'X-MBX-APIKEY': apiKey }
+    }
+  );
+  
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Erro Binance deposit address: ${error}`);
+  }
+  
+  const data = await response.json();
+  return {
+    address: data.address,
+    network: network
+  };
+}
+
+async function getOKXDepositAddress(
+  asset: string,
+  credentials: { okxApiKey?: string; okxSecretKey?: string; okxPassphrase?: string }
+) {
+  const timestamp = new Date().toISOString();
+  const method = 'GET';
+  const requestPath = `/api/v5/asset/deposit-address?ccy=${asset}`;
+  
+  const prehash = timestamp + method + requestPath;
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(credentials.okxSecretKey!),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  
+  const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(prehash));
+  const signatureBase64 = btoa(String.fromCharCode(...new Uint8Array(signature)));
+  
+  const response = await fetch(`https://www.okx.com${requestPath}`, {
+    method: 'GET',
+    headers: {
+      'OK-ACCESS-KEY': credentials.okxApiKey!,
+      'OK-ACCESS-SIGN': signatureBase64,
+      'OK-ACCESS-TIMESTAMP': timestamp,
+      'OK-ACCESS-PASSPHRASE': credentials.okxPassphrase!,
+      'Content-Type': 'application/json'
+    }
+  });
+  
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Erro OKX deposit address: ${error}`);
+  }
+  
+  const data = await response.json();
+  if (data.code !== '0') {
+    throw new Error(`OKX API Error: ${data.msg}`);
+  }
+  
+  return {
+    address: data.data[0].addr,
+    network: data.data[0].chain
+  };
+}
+
+async function executeOKXWithdrawal(
+  asset: string,
+  amount: number,
+  toAddress: string,
+  network: string,
+  credentials: { okxApiKey?: string; okxSecretKey?: string; okxPassphrase?: string }
+) {
+  const timestamp = new Date().toISOString();
+  const method = 'POST';
+  const requestPath = '/api/v5/asset/withdrawal';
+  
+  // Taxa de saque (1 USDT para rede TRX)
+  const fee = asset === 'USDT' && network === 'TRX' ? '1' : '0.01';
+  
+  const body = JSON.stringify({
+    ccy: asset,
+    amt: amount.toString(),
+    dest: '4', // On-chain
+    toAddr: toAddress,
+    fee: fee,
+    chain: network === 'TRX' ? 'USDT-TRC20' : network
+  });
+  
+  const prehash = timestamp + method + requestPath + body;
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(credentials.okxSecretKey!),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  
+  const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(prehash));
+  const signatureBase64 = btoa(String.fromCharCode(...new Uint8Array(signature)));
+  
+  const response = await fetch(`https://www.okx.com${requestPath}`, {
+    method: 'POST',
+    headers: {
+      'OK-ACCESS-KEY': credentials.okxApiKey!,
+      'OK-ACCESS-SIGN': signatureBase64,
+      'OK-ACCESS-TIMESTAMP': timestamp,
+      'OK-ACCESS-PASSPHRASE': credentials.okxPassphrase!,
+      'Content-Type': 'application/json'
+    },
+    body
+  });
+  
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Erro OKX withdrawal: ${error}`);
+  }
+  
+  const data = await response.json();
+  if (data.code !== '0') {
+    throw new Error(`OKX Withdrawal Error: ${data.msg}`);
+  }
+  
+  return data.data[0];
+}
+
+async function executeBinanceWithdrawal(
+  asset: string,
+  amount: number,
+  toAddress: string,
+  network: string,
+  apiKey: string,
+  secretKey: string
+) {
+  const timestamp = Date.now();
+  const queryString = `coin=${asset}&network=${network}&address=${toAddress}&amount=${amount}&timestamp=${timestamp}`;
+  
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(secretKey),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  
+  const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(queryString));
+  const signatureHex = Array.from(new Uint8Array(signature))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+  
+  const response = await fetch(
+    `https://api.binance.com/sapi/v1/capital/withdraw/apply?${queryString}&signature=${signatureHex}`,
+    {
+      method: 'POST',
+      headers: { 'X-MBX-APIKEY': apiKey }
+    }
+  );
+  
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Erro Binance withdrawal: ${error}`);
+  }
+  
+  return await response.json();
+}
+
+async function waitForTransferConfirmation(
+  exchange: string,
+  asset: string,
+  expectedAmount: number,
+  binanceApiKey?: string,
+  binanceSecretKey?: string,
+  timeout: number = 600000,
+  okxCredentials?: { okxApiKey?: string; okxSecretKey?: string; okxPassphrase?: string }
+): Promise<boolean> {
+  const startTime = Date.now();
+  const checkInterval = 30000; // Verificar a cada 30s
+  let checks = 0;
+  const maxChecks = Math.floor(timeout / checkInterval);
+  
+  console.log(`⏳ Aguardando ${expectedAmount} ${asset} na ${exchange}...`);
+  
+  while (Date.now() - startTime < timeout) {
+    checks++;
+    console.log(`🔍 Verificação ${checks}/${maxChecks}...`);
+    
+    try {
+      let balance = 0;
+      
+      if (exchange === 'Binance' && binanceApiKey && binanceSecretKey) {
+        balance = await getBinanceBalance(asset, binanceApiKey, binanceSecretKey);
+      } else if (exchange === 'OKX' && okxCredentials) {
+        balance = await getOKXBalance(asset, okxCredentials);
+      }
+      
+      console.log(`💰 Saldo ${asset}: ${balance} (esperado: ${expectedAmount})`);
+      
+      if (balance >= expectedAmount * 0.95) { // 95% do esperado (considera taxas)
+        console.log('✅ Transferência confirmada!');
+        return true;
+      }
+      
+    } catch (error) {
+      console.error('⚠️ Erro ao verificar saldo:', error);
+    }
+    
+    await new Promise(resolve => setTimeout(resolve, checkInterval));
+  }
+  
+  return false;
+}
+
+async function getBinanceBalance(asset: string, apiKey: string, secretKey: string): Promise<number> {
+  const timestamp = Date.now();
+  const queryString = `timestamp=${timestamp}`;
+  
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(secretKey),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  
+  const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(queryString));
+  const signatureHex = Array.from(new Uint8Array(signature))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+  
+  const response = await fetch(
+    `https://api.binance.com/api/v3/account?${queryString}&signature=${signatureHex}`,
+    { headers: { 'X-MBX-APIKEY': apiKey } }
+  );
+  
+  if (!response.ok) throw new Error('Erro ao obter saldo Binance');
+  
+  const data = await response.json();
+  const assetBalance = data.balances.find((b: any) => b.asset === asset);
+  return assetBalance ? parseFloat(assetBalance.free) : 0;
+}
+
+async function getOKXBalance(
+  asset: string,
+  credentials: { okxApiKey?: string; okxSecretKey?: string; okxPassphrase?: string }
+): Promise<number> {
+  const timestamp = new Date().toISOString();
+  const method = 'GET';
+  const requestPath = '/api/v5/account/balance';
+  
+  const prehash = timestamp + method + requestPath;
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(credentials.okxSecretKey!),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  
+  const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(prehash));
+  const signatureBase64 = btoa(String.fromCharCode(...new Uint8Array(signature)));
+  
+  const response = await fetch(`https://www.okx.com${requestPath}`, {
+    method: 'GET',
+    headers: {
+      'OK-ACCESS-KEY': credentials.okxApiKey!,
+      'OK-ACCESS-SIGN': signatureBase64,
+      'OK-ACCESS-TIMESTAMP': timestamp,
+      'OK-ACCESS-PASSPHRASE': credentials.okxPassphrase!,
+      'Content-Type': 'application/json'
+    }
+  });
+  
+  if (!response.ok) throw new Error('Erro ao obter saldo OKX');
+  
+  const data = await response.json();
+  if (data.code !== '0') throw new Error(`OKX API Error: ${data.msg}`);
+  
+  const assetBalance = data.data[0].details.find((d: any) => d.ccy === asset);
+  return assetBalance ? parseFloat(assetBalance.availBal) : 0;
+}
