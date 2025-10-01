@@ -254,6 +254,7 @@ function calculateCrossExchangeOpportunities(binancePrices: any, okxPrices: any,
     : ['BTC', 'ETH', 'BNB', 'SOL', 'ADA', 'XRP', 'MATIC', 'DOT', 'DOGE', 'SHIB', 'PEPE', 'FLOKI', 'WIF'];
   
   console.log(`🎯 Analisando símbolos whitelistados: ${analysisSymbols.join(', ')}`);
+  console.log(`📊 Preços disponíveis - Binance: ${Object.keys(binancePrices).slice(0, 5).join(', ')}..., OKX: ${Object.keys(okxPrices).slice(0, 5).join(', ')}...`);
   
   analysisSymbols.forEach(symbol => {
     // Binance: BTCUSDT, OKX: BTC (sem sufixo nem hífen)
@@ -268,7 +269,7 @@ function calculateCrossExchangeOpportunities(binancePrices: any, okxPrices: any,
       return;
     }
     
-    console.log(`✅ ${symbol} válido: Binance=$${binancePrice.toFixed(2)}, OKX=$${okxPrice.toFixed(2)}`);
+    console.log(`✅ ${symbol} com preços válidos: Binance=$${binancePrice.toFixed(2)}, OKX=$${okxPrice.toFixed(2)}, spread=${(Math.abs(binancePrice - okxPrice) / binancePrice * 100).toFixed(3)}%`);
     
     // Calcular spreads bidirecionais
     const spreadBinanceToOKX = ((okxPrice - binancePrice) / binancePrice) * 100;
