@@ -37,7 +37,7 @@ serve(async (req) => {
     }: TransferRequest = await req.json();
 
     console.log(`💱 TRANSFERÊNCIA AUTOMÁTICA: ${amount} ${asset} de ${fromExchange} → ${toExchange}`);
-    console.log(`⚠️ ATENÇÃO: Transferências blockchain levam tempo (5-30 min). Aguarde...`);
+    console.log(`⚡ Usando rede Arbitrum (rápido: 2-5 min). Aguarde...`);
 
     // Validar credenciais
     if (fromExchange === 'Binance' || toExchange === 'Binance') {
@@ -71,14 +71,14 @@ serve(async (req) => {
       );
       console.log(`✅ Saque iniciado! ID: ${transferResult.wdId}`);
       
-      console.log('⏳ Passo 3/3: Aguardando confirmação (pode levar até 10 minutos)...');
+      console.log('⏳ Passo 3/3: Aguardando confirmação Arbitrum (2-5 minutos)...');
       const confirmed = await waitForTransferConfirmation(
         toExchange,
         asset,
         amount,
         binanceApiKey,
         binanceSecretKey,
-        10 * 60 * 1000
+        8 * 60 * 1000 // 8 minutos timeout (Arbitrum é mais rápido)
       );
       
       if (!confirmed) {
@@ -101,14 +101,14 @@ serve(async (req) => {
       );
       console.log(`✅ Saque iniciado! ID: ${transferResult.id}`);
       
-      console.log('⏳ Passo 3/3: Aguardando confirmação (pode levar até 10 minutos)...');
+      console.log('⏳ Passo 3/3: Aguardando confirmação Arbitrum (2-5 minutos)...');
       const confirmed = await waitForTransferConfirmation(
         toExchange,
         asset,
         amount,
         undefined,
         undefined,
-        10 * 60 * 1000,
+        8 * 60 * 1000, // 8 minutos timeout (Arbitrum é mais rápido)
         { okxApiKey, okxSecretKey, okxPassphrase }
       );
       
@@ -159,7 +159,7 @@ serve(async (req) => {
 
 async function getBinanceDepositAddress(asset: string, apiKey: string, secretKey: string) {
   const timestamp = Date.now();
-  const network = asset === 'USDT' ? 'TRX' : 'ETH'; // USDT via TRON (menor taxa)
+  const network = asset === 'USDT' ? 'ARBITRUM' : 'ARBITRUM'; // USDT via Arbitrum (rápido e barato)
   const queryString = `coin=${asset}&network=${network}&timestamp=${timestamp}`;
   
   const encoder = new TextEncoder();
@@ -254,8 +254,8 @@ async function executeOKXWithdrawal(
   const method = 'POST';
   const requestPath = '/api/v5/asset/withdrawal';
   
-  // Taxa de saque (1 USDT para rede TRX)
-  const fee = asset === 'USDT' && network === 'TRX' ? '1' : '0.01';
+  // Taxa de saque (0.1 USDT para rede Arbitrum)
+  const fee = asset === 'USDT' && network === 'ARBITRUM' ? '0.1' : '0.01';
   
   const body = JSON.stringify({
     ccy: asset,
@@ -263,7 +263,7 @@ async function executeOKXWithdrawal(
     dest: '4', // On-chain
     toAddr: toAddress,
     fee: fee,
-    chain: network === 'TRX' ? 'USDT-TRC20' : network
+    chain: network === 'ARBITRUM' ? 'USDT-Arbitrum One' : network
   });
   
   const prehash = timestamp + method + requestPath + body;
