@@ -227,6 +227,42 @@ const ArbitrageExecutionModal: React.FC<ArbitrageExecutionModalProps> = ({
               <p className="text-xs text-muted-foreground">
                 💰 Valor em USDT - moeda base universal das exchanges
               </p>
+              
+              {/* Tabela de referência: Spread mínimo por investimento */}
+              <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="text-xs font-medium text-blue-900 mb-2">
+                  📊 Spread mínimo necessário para lucro (com taxa Arbitrum $0.10):
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <span className="text-blue-700">$30 →</span>
+                    <span className="ml-1 font-semibold text-blue-900">~1.2% spread</span>
+                  </div>
+                  <div>
+                    <span className="text-blue-700">$50 →</span>
+                    <span className="ml-1 font-semibold text-blue-900">~0.85% spread</span>
+                  </div>
+                  <div>
+                    <span className="text-blue-700">$100 →</span>
+                    <span className="ml-1 font-semibold text-blue-900">~0.65% spread</span>
+                  </div>
+                  <div>
+                    <span className="text-blue-700">$200 →</span>
+                    <span className="ml-1 font-semibold text-blue-900">~0.52% spread</span>
+                  </div>
+                  <div>
+                    <span className="text-blue-700">$500 →</span>
+                    <span className="ml-1 font-semibold text-blue-900">~0.45% spread</span>
+                  </div>
+                  <div>
+                    <span className="text-blue-700">$1000 →</span>
+                    <span className="ml-1 font-semibold text-blue-900">~0.42% spread</span>
+                  </div>
+                </div>
+                <p className="text-xs text-blue-600 mt-2">
+                  ⚡ Quanto maior o investimento, menor o spread necessário (taxa fixa $0.10 é diluída)
+                </p>
+              </div>
             </div>
 
             {/* Max Slippage */}
@@ -368,6 +404,9 @@ const ArbitrageExecutionModal: React.FC<ArbitrageExecutionModalProps> = ({
                     </div>
                     <p className="text-sm text-red-600 mt-1">
                       Spread necessário para lucro: {projected.breakEvenSpread.toFixed(2)}%
+                    </p>
+                    <p className="text-xs text-red-500 mt-1">
+                      💡 Para aproveitar este spread de {opportunity.spread.toFixed(2)}%, aumente o investimento para ${Math.ceil((0.10 + (config.investmentAmount * 0.002)) / ((opportunity.spread / 100) - 0.002))} ou mais
                     </p>
                   </div>
                 )}
