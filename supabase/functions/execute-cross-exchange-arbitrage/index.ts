@@ -161,18 +161,67 @@ serve(async (req) => {
         const usdtPerOperation = usdtInvestment / 2;
         console.log(`💵 Valor por operação: $${usdtPerOperation.toFixed(2)} USDT`);
         
-        // Step 1: Executar compra na exchange de compra (USDT → Crypto)
-        console.log(`🔄 PASSO 1 - COMPRA: $${usdtPerOperation} USDT → ${symbol} na ${buyExchange}...`);
-        const buyResult = await executeBuyOrderUSDT(buyExchange, symbol, usdtPerOperation, buyPrice, { binanceApiKey, binanceSecretKey, okxApiKey, okxSecretKey, okxPassphrase });
-        console.log('✅ Compra executada:', JSON.stringify(buyResult));
+        // Calcular quantidade de crypto necessária
+        const targetCryptoAmount = usdtPerOperation / buyPrice;
+        console.log(`🎯 Quantidade necessária: ${targetCryptoAmount} ${symbol}`);
         
-        // Extrair quantidade de crypto comprada
-        const cryptoAmount = buyResult.executedQty || (usdtPerOperation / buyPrice);
-        console.log(`💎 Quantidade comprada: ${cryptoAmount} ${symbol}`);
+        // Step 1: Verificar saldo disponível de crypto na exchange de origem
+        let cryptoAmount = 0;
+        let usedExistingBalance = false;
         
-        // Aguardar processamento da ordem de compra (saldo disponível para withdrawal)
-        console.log('⏳ Aguardando processamento da ordem de compra (3s)...');
-        await new Promise(resolve => setTimeout(resolve, 3000));
+        try {
+          console.log(`🔍 Verificando saldo de ${symbol} na ${buyExchange}...`);
+          const availableBalance = await getExchangeBalance(buyExchange, symbol.replace('USDT', ''), { binanceApiKey, binanceSecretKey, okxApiKey, okxSecretKey, okxPassphrase });
+          console.log(`💰 Saldo disponível: ${availableBalance} ${symbol}`);
+          
+          if (availableBalance >= targetCryptoAmount) {
+            // Usar saldo existente - PULAR COMPRA
+            console.log(`✅ Saldo suficiente encontrado! Usando ${targetCryptoAmount} ${symbol} do saldo existente.`);
+            cryptoAmount = targetCryptoAmount;
+            usedExistingBalance = true;
+          } else if (availableBalance > 0) {
+            // Usar saldo parcial existente
+            console.log(`⚠️ Saldo parcial: ${availableBalance} ${symbol} (necessário: ${targetCryptoAmount}). Usando saldo existente.`);
+            cryptoAmount = availableBalance;
+            usedExistingBalance = true;
+          } else {
+            // Sem saldo - precisa comprar
+            console.log(`📉 Sem saldo disponível de ${symbol}. Executando compra...`);
+          }
+        } catch (balanceError) {
+          console.error('⚠️ Erro ao verificar saldo:', balanceError);
+          console.log('Continuando com compra normal...');
+        }
+        
+        // Step 1B: Executar compra apenas se não houver saldo disponível
+        let buyResult: any = null;
+        if (!usedExistingBalance) {
+          console.log(`🔄 PASSO 1 - COMPRA: $${usdtPerOperation} USDT → ${symbol} na ${buyExchange}...`);
+          buyResult = await executeBuyOrderUSDT(buyExchange, symbol, usdtPerOperation, buyPrice, { binanceApiKey, binanceSecretKey, okxApiKey, okxSecretKey, okxPassphrase });
+          console.log('✅ Compra executada:', JSON.stringify(buyResult));
+          
+          // Extrair quantidade de crypto comprada
+          cryptoAmount = buyResult.executedQty || (usdtPerOperation / buyPrice);
+          console.log(`💎 Quantidade comprada: ${cryptoAmount} ${symbol}`);
+          
+          // Aguardar processamento da ordem de compra (saldo disponível para withdrawal)
+          console.log('⏳ Aguardando processamento da ordem de compra (3s)...');
+          await new Promise(resolve => setTimeout(resolve, 3000));
+        } else {
+          console.log(`⚡ PULANDO COMPRA - Usando ${cryptoAmount} ${symbol} do saldo existente`);
+          // Criar um buyResult simulado para manter compatibilidade
+          buyResult = {
+            success: true,
+            orderId: 'EXISTING_BALANCE',
+            symbol: symbol,
+            side: 'BUY',
+            executedQty: cryptoAmount,
+            executedUsdtValue: cryptoAmount * buyPrice,
+            price: buyPrice,
+            timestamp: Date.now(),
+            operationMode: 'EXISTING_BALANCE'
+          };
+        }
         
         // Step 2: TRANSFERIR crypto da exchange de compra para exchange de venda
         console.log(`🔄 PASSO 2 - TRANSFERÊNCIA: ${cryptoAmount} ${symbol} da ${buyExchange} → ${sellExchange}...`);
@@ -643,6 +692,42 @@ async function getBinanceUSDTBalance(apiKey: string, secretKey: string): Promise
   return usdtBalance ? parseFloat(usdtBalance.free) : 0;
 }
 
+async function getBinanceCryptoBalance(asset: string, apiKey: string, secretKey: string): Promise<number> {
+  const timestamp = Date.now();
+  const queryString = `timestamp=${timestamp}`;
+  
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(secretKey),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  
+  const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(queryString));
+  const signatureHex = Array.from(new Uint8Array(signature))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+  
+  const response = await fetch(
+    `https://api.binance.com/api/v3/account?${queryString}&signature=${signatureHex}`,
+    {
+      headers: {
+        'X-MBX-APIKEY': apiKey,
+      }
+    }
+  );
+  
+  if (!response.ok) {
+    throw new Error('Erro ao obter saldo Binance');
+  }
+  
+  const data = await response.json();
+  const cryptoBalance = data.balances.find((b: any) => b.asset === asset);
+  return cryptoBalance ? parseFloat(cryptoBalance.free) : 0;
+}
+
 async function getOKXUSDTBalance(
   credentials: { okxApiKey?: string; okxSecretKey?: string; okxPassphrase?: string }
 ): Promise<number> {
@@ -679,10 +764,67 @@ async function getOKXUSDTBalance(
   }
   
   const data = await response.json();
-  if (data.code !== '0') {
-    throw new Error(`OKX API Error: ${data.msg}`);
-  }
-  
   const usdtBalance = data.data[0].details.find((d: any) => d.ccy === 'USDT');
   return usdtBalance ? parseFloat(usdtBalance.availBal) : 0;
+}
+
+async function getOKXCryptoBalance(
+  asset: string,
+  credentials: { okxApiKey?: string; okxSecretKey?: string; okxPassphrase?: string }
+): Promise<number> {
+  const timestamp = new Date().toISOString();
+  const method = 'GET';
+  const requestPath = '/api/v5/account/balance';
+  
+  const prehash = timestamp + method + requestPath;
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(credentials.okxSecretKey!),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  
+  const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(prehash));
+  const signatureBase64 = btoa(String.fromCharCode(...new Uint8Array(signature)));
+  
+  const response = await fetch(`https://www.okx.com${requestPath}`, {
+    method: 'GET',
+    headers: {
+      'OK-ACCESS-KEY': credentials.okxApiKey!,
+      'OK-ACCESS-SIGN': signatureBase64,
+      'OK-ACCESS-TIMESTAMP': timestamp,
+      'OK-ACCESS-PASSPHRASE': credentials.okxPassphrase!,
+      'Content-Type': 'application/json'
+    }
+  });
+  
+  if (!response.ok) {
+    throw new Error('Erro ao obter saldo OKX');
+  }
+  
+  const data = await response.json();
+  const cryptoBalance = data.data[0].details.find((d: any) => d.ccy === asset);
+  return cryptoBalance ? parseFloat(cryptoBalance.availBal) : 0;
+}
+
+async function getExchangeBalance(
+  exchange: string,
+  asset: string,
+  credentials: {
+    binanceApiKey?: string;
+    binanceSecretKey?: string;
+    okxApiKey?: string;
+    okxSecretKey?: string;
+    okxPassphrase?: string;
+  }
+): Promise<number> {
+  if (exchange === 'Binance') {
+    return await getBinanceCryptoBalance(asset, credentials.binanceApiKey!, credentials.binanceSecretKey!);
+  } else if (exchange === 'OKX') {
+    return await getOKXCryptoBalance(asset, { okxApiKey: credentials.okxApiKey, okxSecretKey: credentials.okxSecretKey, okxPassphrase: credentials.okxPassphrase });
+  } else {
+    throw new Error(`Exchange não suportada: ${exchange}`);
+  }
 }
