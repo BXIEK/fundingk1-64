@@ -170,7 +170,7 @@ export const HybridStrategyDashboard: React.FC = () => {
 
     loadData();
 
-    // Configurar listeners para mudanças nas configurações
+    // Configurar listeners para mudanças nas configurações com tratamento de erro
     const fundingChannel = supabase
       .channel('funding-config-changes')
       .on(
@@ -185,7 +185,11 @@ export const HybridStrategyDashboard: React.FC = () => {
           loadConfigurations();
         }
       )
-      .subscribe();
+      .subscribe((status, err) => {
+        if (status === 'CHANNEL_ERROR') {
+          console.warn('⚠️ Realtime funding channel error (não crítico):', err);
+        }
+      });
 
     const crossExchangeChannel = supabase
       .channel('cross-exchange-config-changes')
@@ -201,7 +205,11 @@ export const HybridStrategyDashboard: React.FC = () => {
           loadConfigurations();
         }
       )
-      .subscribe();
+      .subscribe((status, err) => {
+        if (status === 'CHANNEL_ERROR') {
+          console.warn('⚠️ Realtime cross-exchange channel error (não crítico):', err);
+        }
+      });
 
     const tradesChannel = supabase
       .channel('trades-changes')
@@ -217,12 +225,17 @@ export const HybridStrategyDashboard: React.FC = () => {
           loadRecentTrades();
         }
       )
-      .subscribe();
+      .subscribe((status, err) => {
+        if (status === 'CHANNEL_ERROR') {
+          console.warn('⚠️ Realtime trades channel error (não crítico):', err);
+        }
+      });
 
     return () => {
-      supabase.removeChannel(fundingChannel);
-      supabase.removeChannel(crossExchangeChannel);
-      supabase.removeChannel(tradesChannel);
+      // Limpar channels ao desmontar
+      supabase.removeChannel(fundingChannel).catch(() => {});
+      supabase.removeChannel(crossExchangeChannel).catch(() => {});
+      supabase.removeChannel(tradesChannel).catch(() => {});
     };
   }, []);
 
