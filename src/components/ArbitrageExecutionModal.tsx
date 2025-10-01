@@ -110,8 +110,14 @@ const ArbitrageExecutionModal: React.FC<ArbitrageExecutionModalProps> = ({
     // Taxas de trading em ambas exchanges (compra + venda)
     const tradingFees = (config.investmentAmount * config.customFeeRate / 100);
     
+    // Taxa fixa da rede Arbitrum para transferência
+    const arbitrumFee = 0.10;
+    
+    // Total de taxas
+    const totalFees = tradingFees + arbitrumFee;
+    
     // Lucro líquido
-    const netProfit = grossProfit - tradingFees;
+    const netProfit = grossProfit - totalFees;
     
     // ROI
     const roi = (netProfit / config.investmentAmount) * 100;
@@ -122,6 +128,8 @@ const ArbitrageExecutionModal: React.FC<ArbitrageExecutionModalProps> = ({
     return {
       grossProfit,
       tradingFees,
+      arbitrumFee,
+      totalFees,
       netProfit,
       roi,
       breakEvenSpread,
@@ -332,7 +340,10 @@ const ArbitrageExecutionModal: React.FC<ArbitrageExecutionModalProps> = ({
                   <div>
                     <div className="text-muted-foreground">Taxas Total</div>
                     <div className="font-semibold text-red-600">
-                      -{formatCurrency(projected.tradingFees)}
+                      -{formatCurrency(projected.totalFees)}
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      Trading: ${projected.tradingFees.toFixed(2)} + Arbitrum: $0.10
                     </div>
                   </div>
                   <div>
