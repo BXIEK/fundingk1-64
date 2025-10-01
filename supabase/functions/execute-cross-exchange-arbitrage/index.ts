@@ -30,6 +30,7 @@ interface ExecuteCrossExchangeRequest {
     customFeeRate: number;
     stopLossPercentage: number;
     prioritizeSpeed: boolean;
+    selectedNetwork?: string;
   };
 }
 
@@ -183,6 +184,7 @@ serve(async (req) => {
             toExchange: sellExchange,
             asset: symbol.replace('USDT', ''), // Remove USDT do símbolo (ex: DOTUSDT → DOT)
             amount: cryptoAmount,
+            networkOverride: config.selectedNetwork, // Rede selecionada pelo usuário
             binanceApiKey,
             binanceSecretKey,
             okxApiKey,

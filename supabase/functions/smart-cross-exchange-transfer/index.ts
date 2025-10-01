@@ -11,6 +11,7 @@ interface TransferRequest {
   toExchange: string;
   asset: string;
   amount: number;
+  networkOverride?: string; // Rede customizada selecionada pelo usuário
   binanceApiKey?: string;
   binanceSecretKey?: string;
   okxApiKey?: string;
@@ -29,6 +30,7 @@ serve(async (req) => {
       toExchange,
       asset,
       amount,
+      networkOverride, // Rede customizada
       binanceApiKey,
       binanceSecretKey,
       okxApiKey,
@@ -37,7 +39,11 @@ serve(async (req) => {
     }: TransferRequest = await req.json();
 
     console.log(`💱 TRANSFERÊNCIA AUTOMÁTICA: ${amount} ${asset} de ${fromExchange} → ${toExchange}`);
-    console.log(`⚡ Usando rede Arbitrum (rápido: 2-5 min). Aguarde...`);
+    if (networkOverride) {
+      console.log(`🎯 Rede customizada selecionada: ${networkOverride}`);
+    } else {
+      console.log(`⚡ Usando rede padrão (Arbitrum para ERC-20, ou nativa)`);
+    }
 
     // Validar credenciais
     if (fromExchange === 'Binance' || toExchange === 'Binance') {
@@ -58,7 +64,7 @@ serve(async (req) => {
     // Executar transferência baseada nas exchanges
     if (fromExchange === 'OKX' && toExchange === 'Binance') {
       console.log('📤 Passo 1/3: Obtendo endereço de depósito Binance...');
-      depositAddress = await getBinanceDepositAddress(asset, binanceApiKey!, binanceSecretKey!);
+      depositAddress = await getBinanceDepositAddress(asset, binanceApiKey!, binanceSecretKey!, networkOverride);
       console.log(`📍 Endereço: ${depositAddress.address} (rede: ${depositAddress.network})`);
       
       console.log('📤 Passo 2/3: Iniciando saque da OKX...');
@@ -157,7 +163,7 @@ serve(async (req) => {
 
 // FUNÇÕES AUXILIARES
 
-async function getBinanceDepositAddress(asset: string, apiKey: string, secretKey: string) {
+async function getBinanceDepositAddress(asset: string, apiKey: string, secretKey: string, networkOverride?: string) {
   const timestamp = Date.now();
   
   // Mapeamento correto de ativos → redes na Binance
@@ -187,8 +193,9 @@ async function getBinanceDepositAddress(asset: string, apiKey: string, secretKey
     'LTC': 'LTC'             // Litecoin mainnet (5-15 min)
   };
   
-  const network = networkMap[asset] || asset; // Fallback: usa o próprio asset como network
-  console.log(`📡 Buscando endereço de depósito Binance: ${asset} na rede ${network}`);
+  // Usar rede customizada se fornecida, senão usar mapeamento padrão
+  const network = networkOverride || networkMap[asset] || asset;
+  console.log(`📡 Buscando endereço de depósito Binance: ${asset} na rede ${network}${networkOverride ? ' (customizada)' : ''}`);
   
   const queryString = `coin=${asset}&network=${network}&timestamp=${timestamp}`;
   

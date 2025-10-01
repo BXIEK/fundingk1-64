@@ -6,7 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Calculator, DollarSign, Percent, Clock, AlertTriangle, TrendingUp } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Calculator, DollarSign, Percent, Clock, AlertTriangle, TrendingUp, Network } from "lucide-react";
 import { z } from 'zod';
 import { toast } from "sonner";
 
@@ -33,6 +34,7 @@ interface ArbitrageConfig {
   customFeeRate: number;
   stopLossPercentage: number;
   prioritizeSpeed: boolean;
+  selectedNetwork?: string;
 }
 
 interface ArbitrageExecutionModalProps {
@@ -62,10 +64,76 @@ const ArbitrageExecutionModal: React.FC<ArbitrageExecutionModalProps> = ({
     maxSlippage: 0.10, // Mínimo 0.10% para execução precisa
     customFeeRate: 0.2,
     stopLossPercentage: 2.0,
-    prioritizeSpeed: true
+    prioritizeSpeed: true,
+    selectedNetwork: undefined
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Obter redes disponíveis para o token atual
+  const getAvailableNetworks = (symbol: string): Array<{value: string, label: string, speed: string, fee: string}> => {
+    const networks: Record<string, Array<{value: string, label: string, speed: string, fee: string}>> = {
+      'USDT': [
+        { value: 'ARBITRUM', label: 'Arbitrum', speed: '2-5 min', fee: '$0.10' },
+        { value: 'ETH', label: 'Ethereum (ERC-20)', speed: '5-15 min', fee: '$2-5' },
+        { value: 'BSC', label: 'BSC (BEP-20)', speed: '1-3 min', fee: '$0.20' },
+        { value: 'TRON', label: 'Tron (TRC-20)', speed: '1-3 min', fee: '$1' }
+      ],
+      'USDC': [
+        { value: 'ARBITRUM', label: 'Arbitrum', speed: '2-5 min', fee: '$0.10' },
+        { value: 'ETH', label: 'Ethereum (ERC-20)', speed: '5-15 min', fee: '$2-5' },
+        { value: 'BSC', label: 'BSC (BEP-20)', speed: '1-3 min', fee: '$0.20' }
+      ],
+      'ETH': [
+        { value: 'ARBITRUM', label: 'Arbitrum', speed: '2-5 min', fee: '$0.10' },
+        { value: 'ETH', label: 'Ethereum Mainnet', speed: '5-15 min', fee: '$2-5' }
+      ],
+      'LINK': [
+        { value: 'ARBITRUM', label: 'Arbitrum', speed: '2-5 min', fee: '$0.10' },
+        { value: 'ETH', label: 'Ethereum (ERC-20)', speed: '5-15 min', fee: '$2-5' }
+      ],
+      'UNI': [
+        { value: 'ARBITRUM', label: 'Arbitrum', speed: '2-5 min', fee: '$0.10' },
+        { value: 'ETH', label: 'Ethereum (ERC-20)', speed: '5-15 min', fee: '$2-5' }
+      ],
+      'PEPE': [
+        { value: 'ARBITRUM', label: 'Arbitrum', speed: '2-5 min', fee: '$0.10' },
+        { value: 'ETH', label: 'Ethereum (ERC-20)', speed: '5-15 min', fee: '$2-5' }
+      ],
+      'SHIB': [
+        { value: 'ARBITRUM', label: 'Arbitrum', speed: '2-5 min', fee: '$0.10' },
+        { value: 'ETH', label: 'Ethereum (ERC-20)', speed: '5-15 min', fee: '$2-5' }
+      ],
+      'BTC': [{ value: 'BTC', label: 'Bitcoin', speed: '10-60 min', fee: '$1-3' }],
+      'SOL': [{ value: 'SOL', label: 'Solana', speed: '1-2 min', fee: '$0.01' }],
+      'AVAX': [{ value: 'AVAXC', label: 'Avalanche C-Chain', speed: '2-5 min', fee: '$0.15' }],
+      'DOT': [{ value: 'DOT', label: 'Polkadot', speed: '2-5 min', fee: '$0.05' }],
+      'ADA': [{ value: 'ADA', label: 'Cardano', speed: '5-10 min', fee: '$0.17' }],
+      'ATOM': [{ value: 'ATOM', label: 'Cosmos', speed: '3-7 min', fee: '$0.01' }],
+      'BNB': [
+        { value: 'BSC', label: 'BSC', speed: '1-3 min', fee: '$0.20' },
+        { value: 'BEP2', label: 'Binance Chain', speed: '1-2 min', fee: '$0.05' }
+      ],
+      'LTC': [{ value: 'LTC', label: 'Litecoin', speed: '5-15 min', fee: '$0.01' }],
+      'DOGE': [{ value: 'DOGE', label: 'Dogecoin', speed: '5-10 min', fee: '$0.50' }],
+      'XRP': [{ value: 'XRP', label: 'Ripple', speed: '1-3 min', fee: '$0.01' }],
+      'FLOKI': [{ value: 'ETH', label: 'Ethereum (ERC-20)', speed: '5-15 min', fee: '$2-5' }],
+      'WIF': [{ value: 'SOL', label: 'Solana', speed: '1-2 min', fee: '$0.01' }],
+      'FIL': [{ value: 'FIL', label: 'Filecoin', speed: '5-10 min', fee: '$0.01' }]
+    };
+    
+    return networks[symbol] || [{ value: symbol, label: symbol, speed: '5-10 min', fee: '$0.50' }];
+  };
+
+  // Auto-selecionar rede padrão quando oportunidade mudar
+  React.useEffect(() => {
+    if (opportunity) {
+      const networks = getAvailableNetworks(opportunity.symbol);
+      // Selecionar Arbitrum se disponível, senão primeira opção
+      const defaultNetwork = networks.find(n => n.value === 'ARBITRUM') || networks[0];
+      setConfig(prev => ({ ...prev, selectedNetwork: defaultNetwork.value }));
+    }
+  }, [opportunity]);
 
   const validateConfig = () => {
     try {
@@ -200,6 +268,72 @@ const ArbitrageExecutionModal: React.FC<ArbitrageExecutionModalProps> = ({
                   <div className="font-semibold">{formatCurrency(opportunity.sell_price)}</div>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Network Selection */}
+          <Card className="border-purple-200 bg-purple-50 dark:bg-slate-800 dark:border-slate-700">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Network className="h-4 w-4" />
+                Seleção de Rede Blockchain
+              </CardTitle>
+              <CardDescription>
+                Escolha a rede para transferência entre exchanges
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="space-y-2">
+                <Label htmlFor="network">Rede de Transferência</Label>
+                <Select
+                  value={config.selectedNetwork}
+                  onValueChange={(value) => setConfig(prev => ({ ...prev, selectedNetwork: value }))}
+                >
+                  <SelectTrigger id="network">
+                    <SelectValue placeholder="Selecione a rede" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {getAvailableNetworks(opportunity?.symbol || '').map((network) => (
+                      <SelectItem key={network.value} value={network.value}>
+                        <div className="flex items-center justify-between w-full">
+                          <span className="font-medium">{network.label}</span>
+                          <div className="flex gap-2 text-xs text-muted-foreground ml-4">
+                            <span>⏱️ {network.speed}</span>
+                            <span>💰 {network.fee}</span>
+                          </div>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  ⚡ Recomendação: Arbitrum oferece melhor custo-benefício para tokens ERC-20
+                </p>
+              </div>
+
+              {/* Network details */}
+              {config.selectedNetwork && (() => {
+                const selectedNetworkDetails = getAvailableNetworks(opportunity?.symbol || '')
+                  .find(n => n.value === config.selectedNetwork);
+                return selectedNetworkDetails && (
+                  <div className="p-3 bg-white dark:bg-slate-900 rounded border border-purple-200 dark:border-slate-600">
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <div className="text-muted-foreground">Tempo Estimado:</div>
+                        <div className="font-semibold text-purple-700 dark:text-purple-400">
+                          {selectedNetworkDetails.speed}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-muted-foreground">Taxa Aproximada:</div>
+                        <div className="font-semibold text-purple-700 dark:text-purple-400">
+                          {selectedNetworkDetails.fee}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
             </CardContent>
           </Card>
 
