@@ -159,7 +159,32 @@ serve(async (req) => {
 
 async function getBinanceDepositAddress(asset: string, apiKey: string, secretKey: string) {
   const timestamp = Date.now();
-  const network = asset === 'USDT' ? 'ARBITRUM' : 'ARBITRUM'; // USDT via Arbitrum (rápido e barato)
+  
+  // Mapeamento correto de ativos → redes na Binance
+  const networkMap: Record<string, string> = {
+    'USDT': 'ARBITRUM',      // USDT via Arbitrum (rápido e barato)
+    'BTC': 'BTC',            // Bitcoin mainnet
+    'ETH': 'ETH',            // Ethereum mainnet  
+    'DOT': 'DOT',            // Polkadot mainnet
+    'ADA': 'ADA',            // Cardano mainnet
+    'SOL': 'SOL',            // Solana mainnet
+    'AVAX': 'AVAX',          // Avalanche C-Chain
+    'ATOM': 'ATOM',          // Cosmos mainnet
+    'LINK': 'ETH',           // LINK é ERC-20
+    'UNI': 'ETH',            // UNI é ERC-20
+    'DOGE': 'DOGE',          // Dogecoin mainnet
+    'XRP': 'XRP',            // Ripple mainnet
+    'BNB': 'BSC',            // Binance Smart Chain
+    'PEPE': 'ETH',           // PEPE é ERC-20
+    'FLOKI': 'ETH',          // FLOKI é ERC-20
+    'WIF': 'SOL',            // WIF é token Solana
+    'FIL': 'FIL',            // Filecoin mainnet
+    'SHIB': 'ETH'            // SHIB é ERC-20
+  };
+  
+  const network = networkMap[asset] || asset; // Fallback: usa o próprio asset como network
+  console.log(`📡 Buscando endereço de depósito Binance: ${asset} na rede ${network}`);
+  
   const queryString = `coin=${asset}&network=${network}&timestamp=${timestamp}`;
   
   const encoder = new TextEncoder();
@@ -254,7 +279,26 @@ async function executeOKXWithdrawal(
   const method = 'POST';
   const requestPath = '/api/v5/asset/withdrawal';
   
-  // Taxa de saque (0.1 USDT para rede Arbitrum)
+  // Mapeamento de redes Binance → OKX
+  const okxNetworkMap: Record<string, string> = {
+    'ARBITRUM': 'USDT-Arbitrum One',
+    'ETH': 'ETH-Ethereum',
+    'BTC': 'BTC-Bitcoin',
+    'DOT': 'DOT-Polkadot',
+    'ADA': 'ADA-Cardano',
+    'SOL': 'SOL-Solana',
+    'AVAX': 'AVAX-Avalanche C-Chain',
+    'ATOM': 'ATOM-Cosmos',
+    'DOGE': 'DOGE-Dogecoin',
+    'XRP': 'XRP-Ripple',
+    'BSC': 'BSC-BSC',
+    'FIL': 'FIL-Filecoin'
+  };
+  
+  const okxChain = okxNetworkMap[network] || network;
+  console.log(`📤 OKX Withdrawal: ${asset} via ${okxChain}`);
+  
+  // Taxa de saque adaptativa
   const fee = asset === 'USDT' && network === 'ARBITRUM' ? '0.1' : '0.01';
   
   const body = JSON.stringify({
@@ -263,7 +307,7 @@ async function executeOKXWithdrawal(
     dest: '4', // On-chain
     toAddr: toAddress,
     fee: fee,
-    chain: network === 'ARBITRUM' ? 'USDT-Arbitrum One' : network
+    chain: okxChain
   });
   
   const prehash = timestamp + method + requestPath + body;
