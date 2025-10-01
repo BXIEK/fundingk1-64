@@ -125,34 +125,48 @@ async function runBotLoop(supabase: any, config: BotConfig) {
   console.log('🔄 Executando ciclo do bot');
 
   try {
-    // Verificar se o bot ainda está ativo
-    const { data: botConfig } = await supabase
+    // Buscar configuração completa do banco
+    const { data: dbConfig } = await supabase
       .from('auto_arbitrage_configs')
-      .select('is_enabled, daily_volume, daily_limit')
+      .select('*')
       .eq('user_id', config.userId)
       .single();
 
-    if (!botConfig?.is_enabled) {
+    if (!dbConfig?.is_enabled) {
       console.log('⏸️ Bot desativado pelo usuário');
       return;
     }
 
+    // Mapear campos do banco (snake_case) para o config (camelCase)
+    const fullConfig: BotConfig = {
+      userId: config.userId,
+      isEnabled: dbConfig.is_enabled,
+      minSpread: dbConfig.min_spread,
+      maxInvestmentPerTrade: dbConfig.max_investment_per_trade,
+      minProfitThreshold: dbConfig.min_profit_threshold,
+      stopLossPercentage: dbConfig.stop_loss_percentage,
+      dailyLimit: dbConfig.daily_limit,
+      checkIntervalSeconds: dbConfig.check_interval_seconds,
+      reinvestProfits: dbConfig.reinvest_profits,
+      compoundingEnabled: dbConfig.compounding_enabled
+    };
+
     // Verificar limite diário
-    if (botConfig.daily_volume >= botConfig.daily_limit) {
+    if (dbConfig.daily_volume >= dbConfig.daily_limit) {
       console.log('⚠️ Limite diário atingido');
       await updateBotState(supabase, config.userId, { status: 'daily_limit_reached' });
       return;
     }
 
-    // Buscar oportunidades lucrativas
-    const opportunities = await findProfitableOpportunities(supabase, config);
+    // Buscar oportunidades lucrativas usando config completo
+    const opportunities = await findProfitableOpportunities(supabase, fullConfig);
 
     if (opportunities.length > 0) {
       console.log(`✅ ${opportunities.length} oportunidades encontradas`);
 
       // Executar a melhor oportunidade
       const bestOpp = opportunities[0];
-      await executeArbitrage(supabase, config, bestOpp);
+      await executeArbitrage(supabase, fullConfig, bestOpp);
     } else {
       console.log('⏳ Nenhuma oportunidade lucrativa no momento');
     }
