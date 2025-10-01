@@ -245,6 +245,24 @@ serve(async (req) => {
           };
         }
         
+        // VALIDAÇÃO CRÍTICA: Se cryptoAmount for menor que o mínimo de withdrawal, FORÇAR COMPRA
+        if (cryptoAmount < minWithdrawalAmount) {
+          console.log(`🚨 ERRO: Quantidade ${cryptoAmount} ${symbol} é MENOR que o mínimo de withdrawal ${minWithdrawalAmount}`);
+          console.log(`💰 FORÇANDO COMPRA NOVA para garantir quantidade mínima...`);
+          
+          // Forçar compra mesmo com saldo existente
+          const forcedBuyResult = await executeBuyOrderUSDT(buyExchange, symbol, usdtPerOperation, buyPrice, { binanceApiKey, binanceSecretKey, okxApiKey, okxSecretKey, okxPassphrase });
+          console.log('✅ Compra forçada executada:', JSON.stringify(forcedBuyResult));
+          
+          cryptoAmount = forcedBuyResult.executedQty || (usdtPerOperation / buyPrice);
+          console.log(`💎 Nova quantidade: ${cryptoAmount} ${symbol}`);
+          buyResult = forcedBuyResult;
+          
+          // Aguardar processamento
+          console.log('⏳ Aguardando processamento da ordem de compra (3s)...');
+          await new Promise(resolve => setTimeout(resolve, 3000));
+        }
+        
         // Step 2: TRANSFERIR crypto da exchange de compra para exchange de venda
         console.log(`🔄 PASSO 2 - TRANSFERÊNCIA: ${cryptoAmount} ${symbol} da ${buyExchange} → ${sellExchange}...`);
         
