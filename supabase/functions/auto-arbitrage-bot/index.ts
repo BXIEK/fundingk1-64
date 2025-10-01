@@ -126,13 +126,23 @@ async function runBotLoop(supabase: any, config: BotConfig) {
 
   try {
     // Buscar configuração completa do banco
-    const { data: dbConfig } = await supabase
+    const { data: dbConfig, error: configError } = await supabase
       .from('auto_arbitrage_configs')
       .select('*')
       .eq('user_id', config.userId)
       .single();
 
-    if (!dbConfig?.is_enabled) {
+    if (configError) {
+      console.error('❌ Erro ao buscar config:', configError);
+      return;
+    }
+
+    if (!dbConfig) {
+      console.log('⚠️ Nenhuma configuração encontrada para o usuário');
+      return;
+    }
+
+    if (!dbConfig.is_enabled) {
       console.log('⏸️ Bot desativado pelo usuário');
       return;
     }
@@ -141,15 +151,17 @@ async function runBotLoop(supabase: any, config: BotConfig) {
     const fullConfig: BotConfig = {
       userId: config.userId,
       isEnabled: dbConfig.is_enabled,
-      minSpread: dbConfig.min_spread,
-      maxInvestmentPerTrade: dbConfig.max_investment_per_trade,
-      minProfitThreshold: dbConfig.min_profit_threshold,
-      stopLossPercentage: dbConfig.stop_loss_percentage,
-      dailyLimit: dbConfig.daily_limit,
-      checkIntervalSeconds: dbConfig.check_interval_seconds,
-      reinvestProfits: dbConfig.reinvest_profits,
-      compoundingEnabled: dbConfig.compounding_enabled
+      minSpread: dbConfig.min_spread ?? 0.5,
+      maxInvestmentPerTrade: dbConfig.max_investment_per_trade ?? 50,
+      minProfitThreshold: dbConfig.min_profit_threshold ?? 0.1,
+      stopLossPercentage: dbConfig.stop_loss_percentage ?? 2,
+      dailyLimit: dbConfig.daily_limit ?? 5000,
+      checkIntervalSeconds: dbConfig.check_interval_seconds ?? 30,
+      reinvestProfits: dbConfig.reinvest_profits ?? true,
+      compoundingEnabled: dbConfig.compounding_enabled ?? true
     };
+
+    console.log(`✅ Config carregado: minSpread=${fullConfig.minSpread}%, maxInvestment=$${fullConfig.maxInvestmentPerTrade}`);
 
     // Verificar limite diário
     if (dbConfig.daily_volume >= dbConfig.daily_limit) {
