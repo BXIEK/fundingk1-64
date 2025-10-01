@@ -422,17 +422,32 @@ export default function ArbitrageControl() {
         await loadRecentTrades();
         await loadPortfolioData();
       } else {
-        // Verificar se é erro de whitelist da OKX
+        // Verificar se é erro de whitelist
         const errorMsg = data.error || data.errorMessage || "Falha ao executar arbitragem";
         
-        if (errorMsg.includes('verified address list') || errorMsg.includes('whitelist') || errorMsg.includes('AÇÃO NECESSÁRIA')) {
+        if (errorMsg.includes('verified address list') || 
+            errorMsg.includes('whitelist') || 
+            errorMsg.includes('AÇÃO NECESSÁRIA') ||
+            errorMsg.includes('address not in whitelist')) {
+          
+          // Determinar qual exchange tem o problema
+          const isOKX = errorMsg.includes('OKX') || errorMsg.toLowerCase().includes('okx');
+          const isBinance = errorMsg.includes('Binance') || errorMsg.toLowerCase().includes('binance');
+          
+          const exchangeName = isOKX ? 'OKX' : isBinance ? 'Binance' : 'Exchange';
+          const whitelistUrl = isOKX 
+            ? 'https://www.okx.com/balance/withdrawal-address'
+            : 'https://www.binance.com/en/my/security/address-management';
+          
           toast({
-            title: "⚠️ Endereço não verificado na OKX",
-            description: "Acesse OKX > Retirada > Gerenciar Endereços e adicione o endereço de depósito da Binance na whitelist.",
+            title: `⚠️ Endereço não verificado na ${exchangeName}`,
+            description: `Acesse ${exchangeName} > Retirada > Gerenciar Endereços e adicione o endereço de depósito na whitelist.`,
             variant: "destructive",
-            duration: 10000
+            duration: 12000
           });
-          console.error("📋 Instruções completas:", errorMsg);
+          
+          console.error(`📋 Instruções completas de whitelist ${exchangeName}:`, errorMsg);
+          console.log(`🔗 Link direto: ${whitelistUrl}`);
         } else {
           toast({
             title: "Erro na Execução",

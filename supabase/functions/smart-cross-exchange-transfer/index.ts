@@ -449,7 +449,36 @@ async function executeBinanceWithdrawal(
     throw new Error(`Erro Binance withdrawal: ${error}`);
   }
   
-  return await response.json();
+  const data = await response.json();
+  
+  // Verificar se houve erro na resposta da Binance
+  if (data.code && data.code !== 200) {
+    const errorMsg = data.msg || JSON.stringify(data);
+    
+    // Erro de endereço não whitelistado
+    if (errorMsg.includes('address not in whitelist') || 
+        errorMsg.includes('not in the address whitelist') ||
+        errorMsg.includes('address whitelist') ||
+        data.code === -5002 || // Código específico da Binance para whitelist
+        data.code === -4012) {  // Outro código de whitelist
+      throw new Error(`Binance Withdrawal Error: O endereço de destino não está na whitelist da Binance.
+
+⚠️ AÇÃO NECESSÁRIA:
+1. Acesse https://www.binance.com/en/my/security/address-management
+2. Clique em "Add Withdrawal Address"
+3. Selecione o token: ${asset}
+4. Selecione a rede: ${network}
+5. Cole o endereço: ${toAddress}
+6. Complete a verificação (pode levar até 24h para aprovação)
+7. Tente a operação novamente
+
+Nota: A Binance exige que todos os endereços de saque sejam previamente cadastrados e verificados por segurança. A verificação pode levar até 24 horas.`);
+    }
+    
+    throw new Error(`Binance Withdrawal Error: ${errorMsg}`);
+  }
+  
+  return data;
 }
 
 async function waitForTransferConfirmation(
