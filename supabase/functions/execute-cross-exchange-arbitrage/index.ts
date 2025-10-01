@@ -165,6 +165,22 @@ serve(async (req) => {
         const targetCryptoAmount = usdtPerOperation / buyPrice;
         console.log(`🎯 Quantidade necessária: ${targetCryptoAmount} ${symbol}`);
         
+        // Definir valor mínimo de withdrawal por ativo (OKX tem limites mínimos)
+        const minWithdrawalAmounts: Record<string, number> = {
+          'DOT': 10,      // 10 DOT mínimo
+          'ATOM': 0.2,    // 0.2 ATOM mínimo
+          'ETH': 0.01,    // 0.01 ETH mínimo
+          'BTC': 0.001,   // 0.001 BTC mínimo
+          'SOL': 0.1,     // 0.1 SOL mínimo
+          'AVAX': 0.1,    // 0.1 AVAX mínimo
+          'LINK': 0.2,    // 0.2 LINK mínimo
+          'UNI': 1,       // 1 UNI mínimo
+          'default': 0.5  // Default para outros ativos
+        };
+        
+        const minWithdrawalAmount = minWithdrawalAmounts[symbol.replace('USDT', '')] || minWithdrawalAmounts['default'];
+        console.log(`📏 Mínimo de withdrawal para ${symbol}: ${minWithdrawalAmount}`);
+        
         // Step 1: Verificar saldo disponível de crypto na exchange de origem
         let cryptoAmount = 0;
         let usedExistingBalance = false;
@@ -174,14 +190,18 @@ serve(async (req) => {
           const availableBalance = await getExchangeBalance(buyExchange, symbol.replace('USDT', ''), { binanceApiKey, binanceSecretKey, okxApiKey, okxSecretKey, okxPassphrase });
           console.log(`💰 Saldo disponível: ${availableBalance} ${symbol}`);
           
-          if (availableBalance >= targetCryptoAmount) {
+          // IMPORTANTE: Só usar saldo existente se for MAIOR que o mínimo de withdrawal
+          if (availableBalance >= targetCryptoAmount && availableBalance >= minWithdrawalAmount) {
             // Usar saldo existente - PULAR COMPRA
             console.log(`✅ Saldo suficiente encontrado! Usando ${targetCryptoAmount} ${symbol} do saldo existente.`);
             cryptoAmount = targetCryptoAmount;
             usedExistingBalance = true;
+          } else if (availableBalance > 0 && availableBalance < minWithdrawalAmount) {
+            // Saldo muito pequeno - IGNORAR e fazer compra nova
+            console.log(`⚠️ Saldo de ${availableBalance} ${symbol} é menor que o mínimo de withdrawal (${minWithdrawalAmount}). Ignorando e fazendo compra nova.`);
           } else if (availableBalance > 0) {
-            // Usar saldo parcial existente
-            console.log(`⚠️ Saldo parcial: ${availableBalance} ${symbol} (necessário: ${targetCryptoAmount}). Usando saldo existente.`);
+            // Saldo parcial mas acima do mínimo - usar parcial
+            console.log(`⚠️ Saldo parcial: ${availableBalance} ${symbol} (necessário: ${targetCryptoAmount}). Usando saldo disponível.`);
             cryptoAmount = availableBalance;
             usedExistingBalance = true;
           } else {
