@@ -189,11 +189,16 @@ const ArbitrageExecutionModal: React.FC<ArbitrageExecutionModalProps> = ({
     // Spread real da oportunidade (%)
     const spreadPercentage = opportunity.spread;
     
-    // Slippage reduz o spread efetivo (não dobra o impacto)
-    const effectiveSpread = Math.max(0, spreadPercentage - config.maxSlippage);
+    // Calcular lucro bruto baseado no spread REAL (sem subtrair slippage)
+    // O slippage afeta os preços, mas o lucro base vem do spread
+    const grossProfit = (config.investmentAmount * spreadPercentage) / 100;
     
-    // Lucro bruto baseado no spread efetivo
-    const grossProfit = (config.investmentAmount * effectiveSpread) / 100;
+    // Impacto do slippage no lucro (reduz o lucro, mas não elimina o spread)
+    // Slippage afeta tanto a compra quanto a venda
+    const slippageImpact = (config.investmentAmount * config.maxSlippage) / 100;
+    
+    // Lucro bruto após considerar slippage
+    const grossProfitAfterSlippage = Math.max(0, grossProfit - slippageImpact);
     
     // Preços ajustados para exibição (apenas visual)
     const slippageMultiplier = config.maxSlippage / 100;
@@ -224,8 +229,8 @@ const ArbitrageExecutionModal: React.FC<ArbitrageExecutionModalProps> = ({
     // Total de taxas
     const totalFees = tradingFees + networkFee;
     
-    // Lucro líquido
-    const netProfit = grossProfit - totalFees;
+    // Lucro líquido = lucro bruto (já considerando slippage) - taxas
+    const netProfit = grossProfitAfterSlippage - totalFees;
     
     // ROI
     const roi = (netProfit / config.investmentAmount) * 100;
@@ -235,7 +240,7 @@ const ArbitrageExecutionModal: React.FC<ArbitrageExecutionModalProps> = ({
     const breakEvenSpread = (config.customFeeRate * 2) + config.maxSlippage + ((networkFee / config.investmentAmount) * 100);
 
     return {
-      grossProfit,
+      grossProfit: grossProfitAfterSlippage, // Já com slippage aplicado
       tradingFees,
       networkFee,
       totalFees,
