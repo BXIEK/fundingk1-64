@@ -202,7 +202,8 @@ const ArbitrageExecutionModal: React.FC<ArbitrageExecutionModalProps> = ({
     const quantity = config.investmentAmount / opportunity.buy_price;
     
     // Taxas de trading em ambas exchanges (compra + venda)
-    const tradingFees = (config.investmentAmount * config.customFeeRate / 100);
+    // Taxa aplicada 2x: uma na compra (exchange origem) e outra na venda (exchange destino)
+    const tradingFees = (config.investmentAmount * config.customFeeRate / 100) * 2;
     
     // Taxa da rede selecionada para transferência
     const networkFee = (() => {
@@ -230,8 +231,8 @@ const ArbitrageExecutionModal: React.FC<ArbitrageExecutionModalProps> = ({
     const roi = (netProfit / config.investmentAmount) * 100;
     
     // Spread mínimo necessário para break-even
-    // Precisa cobrir: taxas de trading + slippage + taxa de rede
-    const breakEvenSpread = config.customFeeRate + config.maxSlippage + ((networkFee / config.investmentAmount) * 100);
+    // Precisa cobrir: taxas de trading (2x) + slippage + taxa de rede
+    const breakEvenSpread = (config.customFeeRate * 2) + config.maxSlippage + ((networkFee / config.investmentAmount) * 100);
 
     return {
       grossProfit,
@@ -448,31 +449,31 @@ const ArbitrageExecutionModal: React.FC<ArbitrageExecutionModalProps> = ({
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div>
                     <span className="text-blue-700 dark:text-blue-400">$30 →</span>
-                    <span className="ml-1 font-semibold text-blue-900 dark:text-blue-200">~{(config.customFeeRate + config.maxSlippage + ((projected?.networkFee || 0.10) / 30) * 100).toFixed(2)}% spread</span>
+                    <span className="ml-1 font-semibold text-blue-900 dark:text-blue-200">~{((config.customFeeRate * 2) + config.maxSlippage + ((projected?.networkFee || 0.10) / 30) * 100).toFixed(2)}% spread</span>
                   </div>
                   <div>
                     <span className="text-blue-700 dark:text-blue-400">$50 →</span>
-                    <span className="ml-1 font-semibold text-blue-900 dark:text-blue-200">~{(config.customFeeRate + config.maxSlippage + ((projected?.networkFee || 0.10) / 50) * 100).toFixed(2)}% spread</span>
+                    <span className="ml-1 font-semibold text-blue-900 dark:text-blue-200">~{((config.customFeeRate * 2) + config.maxSlippage + ((projected?.networkFee || 0.10) / 50) * 100).toFixed(2)}% spread</span>
                   </div>
                   <div>
                     <span className="text-blue-700 dark:text-blue-400">$100 →</span>
-                    <span className="ml-1 font-semibold text-blue-900 dark:text-blue-200">~{(config.customFeeRate + config.maxSlippage + ((projected?.networkFee || 0.10) / 100) * 100).toFixed(2)}% spread</span>
+                    <span className="ml-1 font-semibold text-blue-900 dark:text-blue-200">~{((config.customFeeRate * 2) + config.maxSlippage + ((projected?.networkFee || 0.10) / 100) * 100).toFixed(2)}% spread</span>
                   </div>
                   <div>
                     <span className="text-blue-700 dark:text-blue-400">$200 →</span>
-                    <span className="ml-1 font-semibold text-blue-900 dark:text-blue-200">~{(config.customFeeRate + config.maxSlippage + ((projected?.networkFee || 0.10) / 200) * 100).toFixed(2)}% spread</span>
+                    <span className="ml-1 font-semibold text-blue-900 dark:text-blue-200">~{((config.customFeeRate * 2) + config.maxSlippage + ((projected?.networkFee || 0.10) / 200) * 100).toFixed(2)}% spread</span>
                   </div>
                   <div>
                     <span className="text-blue-700 dark:text-blue-400">$500 →</span>
-                    <span className="ml-1 font-semibold text-blue-900 dark:text-blue-200">~{(config.customFeeRate + config.maxSlippage + ((projected?.networkFee || 0.10) / 500) * 100).toFixed(2)}% spread</span>
+                    <span className="ml-1 font-semibold text-blue-900 dark:text-blue-200">~{((config.customFeeRate * 2) + config.maxSlippage + ((projected?.networkFee || 0.10) / 500) * 100).toFixed(2)}% spread</span>
                   </div>
                   <div>
                     <span className="text-blue-700 dark:text-blue-400">$1000 →</span>
-                    <span className="ml-1 font-semibold text-blue-900 dark:text-blue-200">~{(config.customFeeRate + config.maxSlippage + ((projected?.networkFee || 0.10) / 1000) * 100).toFixed(2)}% spread</span>
+                    <span className="ml-1 font-semibold text-blue-900 dark:text-blue-200">~{((config.customFeeRate * 2) + config.maxSlippage + ((projected?.networkFee || 0.10) / 1000) * 100).toFixed(2)}% spread</span>
                   </div>
                 </div>
                 <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">
-                  ⚡ Fórmula: Taxa Trading ({config.customFeeRate}%) + Slippage ({config.maxSlippage}%) + Taxa de Rede (${projected?.networkFee.toFixed(2) || '0.10'} ÷ investimento)
+                  ⚡ Fórmula: Taxa Trading ({config.customFeeRate}% × 2 exchanges) + Slippage ({config.maxSlippage}%) + Taxa de Rede (${projected?.networkFee.toFixed(2) || '0.10'} ÷ investimento)
                 </p>
               </div>
             </div>
