@@ -48,7 +48,7 @@ export const BinanceFundingArbitrage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [selectedOpportunity, setSelectedOpportunity] = useState<FundingArbitrageOpportunity | null>(null);
-  const [investmentAmount, setInvestmentAmount] = useState<number>(10); // USDT
+  const [investmentAmount, setInvestmentAmount] = useState<number>(25); // USDT (mínimo)
   const [isExecuting, setIsExecuting] = useState(false);
   const [executionResults, setExecutionResults] = useState<any>(null);
 

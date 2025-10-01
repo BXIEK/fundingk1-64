@@ -75,9 +75,25 @@ serve(async (req) => {
     const usdtInvestment = config.investmentAmount;
     
     // 🔥 VALIDAR VALOR MÍNIMO NOTIONAL (previne erro -1013)
-    const minNotional = 10; // Mínimo da Binance = $10 USDT
+    // Binance exige $10 USDT mínimo POR ORDEM, como dividimos por 2, precisamos de $25 total
+    const minNotional = 25; // $25 USDT total = $12.5 por ordem (acima do mínimo de $10)
     if (usdtInvestment < minNotional) {
-      throw new Error(`Valor de investimento muito baixo: $${usdtInvestment} < $${minNotional} USDT (mínimo da Binance)`);
+      const errorMsg = `⚠️ Valor muito baixo: $${usdtInvestment} < $${minNotional} USDT (mínimo: $10/ordem × 2 ordens)`;
+      console.error(errorMsg);
+      
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'MINIMUM_NOTIONAL',
+          message: errorMsg,
+          required_minimum: minNotional,
+          your_amount: usdtInvestment
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400
+        }
+      );
     }
     const adjustedSpread = Math.abs((sellPrice - buyPrice) / buyPrice * 100);
     const slippageAdjustedSpread = Math.max(0, adjustedSpread - config.maxSlippage);
@@ -131,31 +147,59 @@ serve(async (req) => {
     if (mode === 'real' && status === 'completed') {
       try {
         console.log('💰 EXECUTANDO OPERAÇÃO REAL COM PADRÃO USDT...');
+        console.log(`📊 Credenciais: Binance=${!!binanceApiKey}, OKX=${!!okxApiKey}`);
         
-        // Dividir USDT entre as duas operações
+        // Validar credenciais necessárias
+        const needsBinance = buyExchange === 'Binance' || sellExchange === 'Binance';
+        const needsOKX = buyExchange === 'OKX' || sellExchange === 'OKX';
+        
+        if (needsBinance && (!binanceApiKey || !binanceSecretKey)) {
+          throw new Error('❌ Credenciais da Binance não fornecidas');
+        }
+        if (needsOKX && (!okxApiKey || !okxSecretKey || !okxPassphrase)) {
+          throw new Error('❌ Credenciais da OKX não fornecidas');
+        }
+        
+        // Dividir USDT entre as duas operações ($12.5 por ordem se total = $25)
         const usdtPerOperation = usdtInvestment / 2;
+        console.log(`💵 Valor por operação: $${usdtPerOperation.toFixed(2)} USDT`);
         
         // Step 1: Executar compra na exchange de compra (USDT → Crypto)
-        console.log(`🔄 COMPRA: $${usdtPerOperation} USDT → ${symbol} na ${buyExchange}...`);
+        console.log(`🔄 PASSO 1 - COMPRA: $${usdtPerOperation} USDT → ${symbol} na ${buyExchange}...`);
         const buyResult = await executeBuyOrderUSDT(buyExchange, symbol, usdtPerOperation, buyPrice, { binanceApiKey, binanceSecretKey, okxApiKey, okxSecretKey, okxPassphrase });
-        console.log('✅ Compra USDT executada:', buyResult);
+        console.log('✅ Compra USDT executada:', JSON.stringify(buyResult));
         
         // Step 2: Executar venda na exchange de venda (Crypto → USDT)
-        console.log(`🔄 VENDA: ${symbol} → $${usdtPerOperation} USDT na ${sellExchange}...`);
+        console.log(`🔄 PASSO 2 - VENDA: ${symbol} → $${usdtPerOperation} USDT na ${sellExchange}...`);
         const sellResult = await executeSellOrderUSDT(sellExchange, symbol, usdtPerOperation, sellPrice, { binanceApiKey, binanceSecretKey, okxApiKey, okxSecretKey, okxPassphrase });
-        console.log('✅ Venda USDT executada:', sellResult);
+        console.log('✅ Venda USDT executada:', JSON.stringify(sellResult));
         
         realOperationResults = {
           buyOrder: buyResult,
           sellOrder: sellResult,
           realExecutionTime: actual_execution_time,
-          usdtOperationMode: true
+          usdtOperationMode: true,
+          totalUsdtUsed: usdtInvestment,
+          usdtPerOperation: usdtPerOperation
         };
         
+        console.log('🎉 OPERAÇÃO REAL CONCLUÍDA COM SUCESSO!');
+        
       } catch (realError) {
-        console.error('❌ Erro na execução real:', realError);
+        console.error('❌ ERRO NA EXECUÇÃO REAL:', realError);
+        console.error('Stack:', realError instanceof Error ? realError.stack : 'N/A');
+        
         status = 'failed';
-        error_message = `Falha na execução real: ${realError instanceof Error ? realError.message : String(realError)}`;
+        const errorMessage = realError instanceof Error ? realError.message : String(realError);
+        
+        // Identificar tipo de erro
+        if (errorMessage.includes('IP') && errorMessage.includes('whitelist')) {
+          error_message = `Erro OKX: ${errorMessage}. Configure seu IP na whitelist: https://www.okx.com/account/my-api`;
+        } else if (errorMessage.includes('NOTIONAL')) {
+          error_message = `Erro Binance: Valor mínimo não atingido. Use mínimo $25 USDT.`;
+        } else {
+          error_message = `Falha na execução real: ${errorMessage}`;
+        }
         net_profit = 0;
       }
     }

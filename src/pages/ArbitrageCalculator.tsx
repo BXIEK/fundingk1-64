@@ -18,7 +18,7 @@ export default function ArbitrageCalculator() {
   const navigate = useNavigate();
   const { toast } = useToast();
   
-  const [investmentAmount, setInvestmentAmount] = useState<number>(10);
+  const [investmentAmount, setInvestmentAmount] = useState<number>(25);
   const [opportunity, setOpportunity] = useState<ArbitrageOpportunity | null>(null);
   const [isExecuting, setIsExecuting] = useState<boolean>(false);
   const [isRealMode, setIsRealMode] = useState<boolean>(false);
