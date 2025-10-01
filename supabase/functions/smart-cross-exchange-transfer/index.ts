@@ -280,12 +280,82 @@ async function getOKXDepositAddress(
   };
 }
 
+async function getOKXTradingAccountBalance(
+  asset: string,
+  credentials: { okxApiKey?: string; okxSecretKey?: string; okxPassphrase?: string }
+): Promise<number> {
+  const timestamp = new Date().toISOString();
+  const method = 'GET';
+  const requestPath = `/api/v5/account/balance?ccy=${asset}`;
+  
+  const prehash = timestamp + method + requestPath;
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(credentials.okxSecretKey!),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  
+  const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(prehash));
+  const signatureBase64 = btoa(String.fromCharCode(...new Uint8Array(signature)));
+  
+  const response = await fetch(`https://www.okx.com${requestPath}`, {
+    method: 'GET',
+    headers: {
+      'OK-ACCESS-KEY': credentials.okxApiKey!,
+      'OK-ACCESS-SIGN': signatureBase64,
+      'OK-ACCESS-TIMESTAMP': timestamp,
+      'OK-ACCESS-PASSPHRASE': credentials.okxPassphrase!,
+      'Content-Type': 'application/json'
+    }
+  });
+  
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Erro ao buscar saldo OKX Trading Account: ${error}`);
+  }
+  
+  const data = await response.json();
+  if (data.code !== '0' || !data.data || data.data.length === 0) {
+    return 0;
+  }
+  
+  // Buscar o saldo do asset específico
+  const details = data.data[0].details || [];
+  const assetDetail = details.find((d: any) => d.ccy === asset);
+  
+  if (!assetDetail) {
+    return 0;
+  }
+  
+  // availBal = saldo disponível para trading e transferências
+  return parseFloat(assetDetail.availBal || '0');
+}
+
 async function transferOKXTradingToFunding(
   asset: string,
   amount: number,
   credentials: { okxApiKey?: string; okxSecretKey?: string; okxPassphrase?: string }
 ) {
   console.log(`🔄 Transferindo ${amount} ${asset} de Trading → Funding na OKX...`);
+  
+  // 🔍 VERIFICAR SALDO NA TRADING ACCOUNT ANTES DE TENTAR TRANSFERIR
+  try {
+    const tradingBalance = await getOKXTradingAccountBalance(asset, credentials);
+    console.log(`💰 Saldo na Trading Account: ${tradingBalance} ${asset} (necessário: ${amount})`);
+    
+    if (tradingBalance < amount) {
+      throw new Error(
+        `Saldo insuficiente na Trading Account da OKX: disponível ${tradingBalance} ${asset}, necessário ${amount} ${asset}. ` +
+        `Aguarde alguns segundos para a ordem de compra ser processada completamente.`
+      );
+    }
+  } catch (balanceError) {
+    console.error('⚠️ Erro ao verificar saldo na Trading Account:', balanceError);
+    throw balanceError;
+  }
   
   const timestamp = new Date().toISOString();
   const method = 'POST';
@@ -393,16 +463,29 @@ async function executeOKXWithdrawal(
   credentials: { okxApiKey?: string; okxSecretKey?: string; okxPassphrase?: string }
 ) {
   // PASSO 1: Transferir da conta de Trading para Funding
+  console.log(`🔄 PASSO 1: Transferindo ${amount} ${asset} de Trading → Funding...`);
+  
   try {
-    console.log(`🔄 PASSO 1: Transferindo ${amount} ${asset} de Trading → Funding...`);
     await transferOKXTradingToFunding(asset, amount, credentials);
     console.log('✅ Transferência interna concluída');
     
-    // Aguardar processamento
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    // Aguardar processamento interno da OKX
+    console.log('⏳ Aguardando processamento interno da OKX (3 segundos)...');
+    await new Promise(resolve => setTimeout(resolve, 3000));
   } catch (transferError) {
-    console.error('⚠️ Erro na transferência interna:', transferError);
-    console.log('Continuando com withdrawal (talvez o saldo já esteja na Funding)...');
+    console.error('❌ ERRO CRÍTICO na transferência interna OKX:', transferError);
+    
+    // Verificar se é erro de saldo insuficiente na Trading Account
+    const errorMsg = transferError instanceof Error ? transferError.message : String(transferError);
+    if (errorMsg.includes('Insufficient balance')) {
+      throw new Error(
+        `Saldo insuficiente na conta de Trading da OKX para transferir ${amount} ${asset}. ` +
+        `Verifique se a ordem de compra foi processada corretamente. ` +
+        `Erro original: ${errorMsg}`
+      );
+    }
+    
+    throw new Error(`Falha na transferência interna Trading → Funding: ${errorMsg}`);
   }
   
   // PASSO 2: Verificar saldo disponível na conta de Funding

@@ -298,9 +298,15 @@ serve(async (req) => {
           cryptoAmount = buyResult.executedQty || (finalUsdtPerOperation / buyPrice);
           console.log(`💎 Quantidade comprada: ${cryptoAmount} ${symbol}`);
           
-          // Aguardar processamento da ordem de compra (saldo disponível para withdrawal)
-          console.log('⏳ Aguardando processamento da ordem de compra (3s)...');
-          await new Promise(resolve => setTimeout(resolve, 3000));
+          // 🔥 CRÍTICO: OKX precisa de mais tempo para processar ordens antes de transferência interna
+          if (buyExchange === 'OKX') {
+            console.log('⏳ [OKX] Aguardando processamento da ordem na Trading Account (8 segundos)...');
+            await new Promise(resolve => setTimeout(resolve, 8000));
+            console.log('✅ Ordem processada, saldo agora disponível para transferência interna');
+          } else {
+            console.log('⏳ Aguardando processamento da ordem de compra (3s)...');
+            await new Promise(resolve => setTimeout(resolve, 3000));
+          }
         } else {
           console.log(`⚡ PULANDO COMPRA - Usando ${cryptoAmount} ${symbol} do saldo existente`);
           // Criar um buyResult simulado para manter compatibilidade
@@ -330,9 +336,14 @@ serve(async (req) => {
           console.log(`💎 Nova quantidade: ${cryptoAmount} ${symbol}`);
           buyResult = forcedBuyResult;
           
-          // Aguardar processamento
-          console.log('⏳ Aguardando processamento da ordem de compra (3s)...');
-          await new Promise(resolve => setTimeout(resolve, 3000));
+          // 🔥 CRÍTICO: OKX precisa de mais tempo
+          if (buyExchange === 'OKX') {
+            console.log('⏳ [OKX] Aguardando processamento da ordem forçada (8 segundos)...');
+            await new Promise(resolve => setTimeout(resolve, 8000));
+          } else {
+            console.log('⏳ Aguardando processamento da ordem de compra (3s)...');
+            await new Promise(resolve => setTimeout(resolve, 3000));
+          }
         }
         
         // Step 2: TRANSFERIR crypto da exchange de compra para exchange de venda
