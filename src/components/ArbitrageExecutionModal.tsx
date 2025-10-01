@@ -175,11 +175,24 @@ const ArbitrageExecutionModal: React.FC<ArbitrageExecutionModalProps> = ({
     // Taxas de trading em ambas exchanges (compra + venda)
     const tradingFees = (config.investmentAmount * config.customFeeRate / 100);
     
-    // Taxa fixa da rede Arbitrum para transferência
-    const arbitrumFee = 0.10;
+    // Taxa da rede selecionada para transferência
+    const networkFee = (() => {
+      if (!config.selectedNetwork) return 0.10;
+      const selectedNetworkDetails = getAvailableNetworks(opportunity?.symbol || '')
+        .find(n => n.value === config.selectedNetwork);
+      if (!selectedNetworkDetails) return 0.10;
+      
+      // Extrair valor numérico da taxa (ex: "$0.10" -> 0.10, "$2-5" -> 3.5)
+      const feeStr = selectedNetworkDetails.fee.replace('$', '');
+      if (feeStr.includes('-')) {
+        const [min, max] = feeStr.split('-').map(Number);
+        return (min + max) / 2; // Média
+      }
+      return Number(feeStr) || 0.10;
+    })();
     
     // Total de taxas
-    const totalFees = tradingFees + arbitrumFee;
+    const totalFees = tradingFees + networkFee;
     
     // Lucro líquido
     const netProfit = grossProfit - totalFees;
@@ -188,13 +201,13 @@ const ArbitrageExecutionModal: React.FC<ArbitrageExecutionModalProps> = ({
     const roi = (netProfit / config.investmentAmount) * 100;
     
     // Spread mínimo necessário para break-even
-    // Precisa cobrir: taxas de trading + slippage + taxa Arbitrum
-    const breakEvenSpread = config.customFeeRate + config.maxSlippage + ((arbitrumFee / config.investmentAmount) * 100);
+    // Precisa cobrir: taxas de trading + slippage + taxa de rede
+    const breakEvenSpread = config.customFeeRate + config.maxSlippage + ((networkFee / config.investmentAmount) * 100);
 
     return {
       grossProfit,
       tradingFees,
-      arbitrumFee,
+      networkFee,
       totalFees,
       netProfit,
       roi,
@@ -337,103 +350,6 @@ const ArbitrageExecutionModal: React.FC<ArbitrageExecutionModalProps> = ({
             </CardContent>
           </Card>
 
-          {/* Network Information */}
-          <Card className="border-blue-200 bg-blue-50 dark:bg-slate-800 dark:border-slate-700">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Clock className="h-4 w-4" />
-                Informações da Rede de Transferência
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div>
-                  <div className="text-muted-foreground">Rede Utilizada:</div>
-                  <div className="font-semibold text-blue-700 dark:text-blue-400">
-                    {(() => {
-                      const symbol = opportunity.symbol;
-                      if (['USDT', 'USDC', 'ETH', 'LINK', 'UNI', 'PEPE', 'SHIB'].includes(symbol)) {
-                        return '⚡ Arbitrum (Rápida)';
-                      }
-                      if (symbol === 'SOL' || symbol === 'WIF') return 'Solana';
-                      if (symbol === 'AVAX') return 'Avalanche C-Chain';
-                      if (symbol === 'BTC') return 'Bitcoin';
-                      if (symbol === 'DOT') return 'Polkadot';
-                      if (symbol === 'ADA') return 'Cardano';
-                      if (symbol === 'ATOM') return 'Cosmos';
-                      if (symbol === 'BNB') return 'BSC';
-                      if (symbol === 'LTC') return 'Litecoin';
-                      return 'Nativa';
-                    })()}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-muted-foreground">Tempo Estimado:</div>
-                  <div className="font-semibold text-blue-700 dark:text-blue-400">
-                    {(() => {
-                      const symbol = opportunity.symbol;
-                      if (['USDT', 'USDC', 'ETH', 'LINK', 'UNI', 'PEPE', 'SHIB'].includes(symbol)) {
-                        return '2-5 minutos';
-                      }
-                      if (symbol === 'SOL' || symbol === 'WIF') return '1-2 minutos';
-                      if (symbol === 'AVAX' || symbol === 'DOT') return '2-5 minutos';
-                      if (symbol === 'ATOM') return '3-7 minutos';
-                      if (symbol === 'BTC') return '10-60 minutos';
-                      if (symbol === 'ADA') return '5-10 minutos';
-                      return '5-10 minutos';
-                    })()}
-                  </div>
-                </div>
-              </div>
-              
-              <div className="p-2 bg-white dark:bg-slate-900 rounded border border-blue-200 dark:border-slate-600">
-                <div className="text-xs text-blue-900 dark:text-blue-300 font-medium mb-1">
-                  ⚡ Arbitrum (2-5 min, taxa $0.10):
-                </div>
-                <div className="flex flex-wrap gap-1 mb-3">
-                  {['USDT', 'USDC', 'ETH', 'LINK', 'UNI', 'PEPE', 'SHIB'].map(token => (
-                    <Badge 
-                      key={token} 
-                      variant={opportunity.symbol === token ? "default" : "outline"}
-                      className="text-xs"
-                    >
-                      {token}
-                    </Badge>
-                  ))}
-                </div>
-                
-                <div className="text-xs text-blue-900 dark:text-blue-300 font-medium mb-1">
-                  🚀 Redes Rápidas (1-5 min):
-                </div>
-                <div className="flex flex-wrap gap-1 mb-3">
-                  {['SOL', 'BNB', 'AVAX', 'DOT'].map(token => (
-                    <Badge 
-                      key={token} 
-                      variant={opportunity.symbol === token ? "default" : "outline"}
-                      className="text-xs bg-purple-100 hover:bg-purple-200 dark:bg-purple-900 dark:hover:bg-purple-800"
-                    >
-                      {token}
-                    </Badge>
-                  ))}
-                </div>
-                
-                <div className="text-xs text-blue-900 dark:text-blue-300 font-medium mb-1">
-                  ⏱️ Outras Redes (5-60 min):
-                </div>
-                <div className="flex flex-wrap gap-1">
-                  {['BTC', 'LTC', 'ADA', 'ATOM', 'DOGE'].map(token => (
-                    <Badge 
-                      key={token} 
-                      variant={opportunity.symbol === token ? "default" : "outline"}
-                      className="text-xs bg-amber-100 hover:bg-amber-200 dark:bg-amber-900 dark:hover:bg-amber-800"
-                    >
-                      {token}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
 
           {/* Configuration */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -461,36 +377,36 @@ const ArbitrageExecutionModal: React.FC<ArbitrageExecutionModalProps> = ({
               {/* Tabela de referência: Spread mínimo por investimento */}
               <div className="mt-3 p-3 bg-blue-50 dark:bg-slate-800 border border-blue-200 dark:border-slate-600 rounded-lg">
                 <div className="text-xs font-medium text-blue-900 dark:text-blue-300 mb-2">
-                  📊 Spread mínimo necessário para lucro (com slippage {config.maxSlippage}% + Arbitrum $0.10):
+                  📊 Spread mínimo necessário para lucro (com slippage {config.maxSlippage}% + taxa de rede):
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div>
                     <span className="text-blue-700 dark:text-blue-400">$30 →</span>
-                    <span className="ml-1 font-semibold text-blue-900 dark:text-blue-200">~1.03% spread</span>
+                    <span className="ml-1 font-semibold text-blue-900 dark:text-blue-200">~{(config.customFeeRate + config.maxSlippage + ((projected?.networkFee || 0.10) / 30) * 100).toFixed(2)}% spread</span>
                   </div>
                   <div>
                     <span className="text-blue-700 dark:text-blue-400">$50 →</span>
-                    <span className="ml-1 font-semibold text-blue-900 dark:text-blue-200">~0.90% spread</span>
+                    <span className="ml-1 font-semibold text-blue-900 dark:text-blue-200">~{(config.customFeeRate + config.maxSlippage + ((projected?.networkFee || 0.10) / 50) * 100).toFixed(2)}% spread</span>
                   </div>
                   <div>
                     <span className="text-blue-700 dark:text-blue-400">$100 →</span>
-                    <span className="ml-1 font-semibold text-blue-900 dark:text-blue-200">~0.80% spread</span>
+                    <span className="ml-1 font-semibold text-blue-900 dark:text-blue-200">~{(config.customFeeRate + config.maxSlippage + ((projected?.networkFee || 0.10) / 100) * 100).toFixed(2)}% spread</span>
                   </div>
                   <div>
                     <span className="text-blue-700 dark:text-blue-400">$200 →</span>
-                    <span className="ml-1 font-semibold text-blue-900 dark:text-blue-200">~0.75% spread</span>
+                    <span className="ml-1 font-semibold text-blue-900 dark:text-blue-200">~{(config.customFeeRate + config.maxSlippage + ((projected?.networkFee || 0.10) / 200) * 100).toFixed(2)}% spread</span>
                   </div>
                   <div>
                     <span className="text-blue-700 dark:text-blue-400">$500 →</span>
-                    <span className="ml-1 font-semibold text-blue-900 dark:text-blue-200">~0.72% spread</span>
+                    <span className="ml-1 font-semibold text-blue-900 dark:text-blue-200">~{(config.customFeeRate + config.maxSlippage + ((projected?.networkFee || 0.10) / 500) * 100).toFixed(2)}% spread</span>
                   </div>
                   <div>
                     <span className="text-blue-700 dark:text-blue-400">$1000 →</span>
-                    <span className="ml-1 font-semibold text-blue-900 dark:text-blue-200">~0.71% spread</span>
+                    <span className="ml-1 font-semibold text-blue-900 dark:text-blue-200">~{(config.customFeeRate + config.maxSlippage + ((projected?.networkFee || 0.10) / 1000) * 100).toFixed(2)}% spread</span>
                   </div>
                 </div>
                 <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">
-                  ⚡ Fórmula: Taxa Trading (0.20%) + Slippage ({config.maxSlippage}%) + Taxa Arbitrum ($0.10 ÷ investimento)
+                  ⚡ Fórmula: Taxa Trading ({config.customFeeRate}%) + Slippage ({config.maxSlippage}%) + Taxa de Rede (${projected?.networkFee.toFixed(2) || '0.10'} ÷ investimento)
                 </p>
               </div>
             </div>
@@ -612,7 +528,7 @@ const ArbitrageExecutionModal: React.FC<ArbitrageExecutionModalProps> = ({
                       -{formatCurrency(projected.totalFees)}
                     </div>
                     <div className="text-xs text-muted-foreground mt-1">
-                      Trading: ${projected.tradingFees.toFixed(2)} + Arbitrum: $0.10
+                      Trading: ${projected.tradingFees.toFixed(2)} + Rede: ${projected.networkFee.toFixed(2)}
                     </div>
                   </div>
                   <div>
