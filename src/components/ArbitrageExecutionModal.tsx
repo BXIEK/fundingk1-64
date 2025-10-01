@@ -204,7 +204,7 @@ const ArbitrageExecutionModal: React.FC<ArbitrageExecutionModalProps> = ({
           </Card>
 
           {/* Network Information */}
-          <Card className="border-blue-200 bg-blue-50">
+          <Card className="border-blue-200 bg-blue-50 dark:bg-slate-800 dark:border-slate-700">
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
                 <Clock className="h-4 w-4" />
@@ -215,7 +215,7 @@ const ArbitrageExecutionModal: React.FC<ArbitrageExecutionModalProps> = ({
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
                   <div className="text-muted-foreground">Rede Utilizada:</div>
-                  <div className="font-semibold text-blue-700">
+                  <div className="font-semibold text-blue-700 dark:text-blue-400">
                     {(() => {
                       const symbol = opportunity.symbol;
                       if (['USDT', 'USDC', 'ETH', 'LINK', 'UNI', 'PEPE', 'SHIB'].includes(symbol)) {
@@ -235,7 +235,7 @@ const ArbitrageExecutionModal: React.FC<ArbitrageExecutionModalProps> = ({
                 </div>
                 <div>
                   <div className="text-muted-foreground">Tempo Estimado:</div>
-                  <div className="font-semibold text-blue-700">
+                  <div className="font-semibold text-blue-700 dark:text-blue-400">
                     {(() => {
                       const symbol = opportunity.symbol;
                       if (['USDT', 'USDC', 'ETH', 'LINK', 'UNI', 'PEPE', 'SHIB'].includes(symbol)) {
@@ -252,8 +252,8 @@ const ArbitrageExecutionModal: React.FC<ArbitrageExecutionModalProps> = ({
                 </div>
               </div>
               
-              <div className="p-2 bg-white rounded border border-blue-200">
-                <div className="text-xs text-blue-900 font-medium mb-1">
+              <div className="p-2 bg-white dark:bg-slate-900 rounded border border-blue-200 dark:border-slate-600">
+                <div className="text-xs text-blue-900 dark:text-blue-300 font-medium mb-1">
                   ⚡ Arbitrum (2-5 min, taxa $0.10):
                 </div>
                 <div className="flex flex-wrap gap-1 mb-3">
@@ -268,7 +268,7 @@ const ArbitrageExecutionModal: React.FC<ArbitrageExecutionModalProps> = ({
                   ))}
                 </div>
                 
-                <div className="text-xs text-blue-900 font-medium mb-1">
+                <div className="text-xs text-blue-900 dark:text-blue-300 font-medium mb-1">
                   🚀 Redes Rápidas (1-5 min):
                 </div>
                 <div className="flex flex-wrap gap-1 mb-3">
@@ -276,14 +276,14 @@ const ArbitrageExecutionModal: React.FC<ArbitrageExecutionModalProps> = ({
                     <Badge 
                       key={token} 
                       variant={opportunity.symbol === token ? "default" : "outline"}
-                      className="text-xs bg-purple-100 hover:bg-purple-200"
+                      className="text-xs bg-purple-100 hover:bg-purple-200 dark:bg-purple-900 dark:hover:bg-purple-800"
                     >
                       {token}
                     </Badge>
                   ))}
                 </div>
                 
-                <div className="text-xs text-blue-900 font-medium mb-1">
+                <div className="text-xs text-blue-900 dark:text-blue-300 font-medium mb-1">
                   ⏱️ Outras Redes (5-60 min):
                 </div>
                 <div className="flex flex-wrap gap-1">
@@ -291,7 +291,7 @@ const ArbitrageExecutionModal: React.FC<ArbitrageExecutionModalProps> = ({
                     <Badge 
                       key={token} 
                       variant={opportunity.symbol === token ? "default" : "outline"}
-                      className="text-xs bg-amber-100 hover:bg-amber-200"
+                      className="text-xs bg-amber-100 hover:bg-amber-200 dark:bg-amber-900 dark:hover:bg-amber-800"
                     >
                       {token}
                     </Badge>
@@ -325,37 +325,37 @@ const ArbitrageExecutionModal: React.FC<ArbitrageExecutionModalProps> = ({
               </p>
               
               {/* Tabela de referência: Spread mínimo por investimento */}
-              <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <div className="text-xs font-medium text-blue-900 mb-2">
+              <div className="mt-3 p-3 bg-blue-50 dark:bg-slate-800 border border-blue-200 dark:border-slate-600 rounded-lg">
+                <div className="text-xs font-medium text-blue-900 dark:text-blue-300 mb-2">
                   📊 Spread mínimo necessário para lucro (com slippage {config.maxSlippage}% + Arbitrum $0.10):
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div>
-                    <span className="text-blue-700">$30 →</span>
-                    <span className="ml-1 font-semibold text-blue-900">~1.03% spread</span>
+                    <span className="text-blue-700 dark:text-blue-400">$30 →</span>
+                    <span className="ml-1 font-semibold text-blue-900 dark:text-blue-200">~1.03% spread</span>
                   </div>
                   <div>
-                    <span className="text-blue-700">$50 →</span>
-                    <span className="ml-1 font-semibold text-blue-900">~0.90% spread</span>
+                    <span className="text-blue-700 dark:text-blue-400">$50 →</span>
+                    <span className="ml-1 font-semibold text-blue-900 dark:text-blue-200">~0.90% spread</span>
                   </div>
                   <div>
-                    <span className="text-blue-700">$100 →</span>
-                    <span className="ml-1 font-semibold text-blue-900">~0.80% spread</span>
+                    <span className="text-blue-700 dark:text-blue-400">$100 →</span>
+                    <span className="ml-1 font-semibold text-blue-900 dark:text-blue-200">~0.80% spread</span>
                   </div>
                   <div>
-                    <span className="text-blue-700">$200 →</span>
-                    <span className="ml-1 font-semibold text-blue-900">~0.75% spread</span>
+                    <span className="text-blue-700 dark:text-blue-400">$200 →</span>
+                    <span className="ml-1 font-semibold text-blue-900 dark:text-blue-200">~0.75% spread</span>
                   </div>
                   <div>
-                    <span className="text-blue-700">$500 →</span>
-                    <span className="ml-1 font-semibold text-blue-900">~0.72% spread</span>
+                    <span className="text-blue-700 dark:text-blue-400">$500 →</span>
+                    <span className="ml-1 font-semibold text-blue-900 dark:text-blue-200">~0.72% spread</span>
                   </div>
                   <div>
-                    <span className="text-blue-700">$1000 →</span>
-                    <span className="ml-1 font-semibold text-blue-900">~0.71% spread</span>
+                    <span className="text-blue-700 dark:text-blue-400">$1000 →</span>
+                    <span className="ml-1 font-semibold text-blue-900 dark:text-blue-200">~0.71% spread</span>
                   </div>
                 </div>
-                <p className="text-xs text-blue-600 mt-2">
+                <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">
                   ⚡ Fórmula: Taxa Trading (0.20%) + Slippage ({config.maxSlippage}%) + Taxa Arbitrum ($0.10 ÷ investimento)
                 </p>
               </div>
@@ -430,7 +430,10 @@ const ArbitrageExecutionModal: React.FC<ArbitrageExecutionModalProps> = ({
 
           {/* Projected Results */}
           {projected && (
-            <Card className={projected.netProfit > 0 ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"}>
+            <Card className={projected.netProfit > 0 
+              ? "border-green-200 bg-green-50 dark:bg-green-950 dark:border-green-800" 
+              : "border-red-200 bg-red-50 dark:bg-red-950 dark:border-red-800"
+            }>
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
                   <TrendingUp className="h-4 w-4" />
@@ -493,15 +496,15 @@ const ArbitrageExecutionModal: React.FC<ArbitrageExecutionModalProps> = ({
                 </div>
                 
                 {projected.netProfit <= 0 && (
-                  <div className="mt-3 p-3 bg-red-100 border border-red-200 rounded-lg">
-                    <div className="flex items-center gap-2 text-red-700">
+                  <div className="mt-3 p-3 bg-red-100 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg">
+                    <div className="flex items-center gap-2 text-red-700 dark:text-red-400">
                       <AlertTriangle className="h-4 w-4" />
                       <span className="font-medium">Atenção: Configuração resultaria em prejuízo</span>
                     </div>
-                    <p className="text-sm text-red-600 mt-1">
+                    <p className="text-sm text-red-600 dark:text-red-400 mt-1">
                       Spread necessário para lucro: {projected.breakEvenSpread.toFixed(2)}%
                     </p>
-                    <p className="text-xs text-red-500 mt-1">
+                    <p className="text-xs text-red-500 dark:text-red-400 mt-1">
                       💡 Para aproveitar este spread de {opportunity.spread.toFixed(2)}%, aumente o investimento para ${Math.ceil((0.10 + (config.investmentAmount * 0.002)) / ((opportunity.spread / 100) - 0.002))} ou mais
                     </p>
                   </div>
