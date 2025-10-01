@@ -89,23 +89,20 @@ const ArbitrageExecutionModal: React.FC<ArbitrageExecutionModalProps> = ({
   const calculateProjectedResults = () => {
     if (!opportunity) return null;
 
-    // Cálculo real baseado em preços
+    // Spread real da oportunidade (%)
+    const spreadPercentage = opportunity.spread;
+    
+    // Slippage reduz o spread efetivo (não dobra o impacto)
+    const effectiveSpread = Math.max(0, spreadPercentage - config.maxSlippage);
+    
+    // Lucro bruto baseado no spread efetivo
+    const grossProfit = (config.investmentAmount * effectiveSpread) / 100;
+    
+    // Preços ajustados para exibição (apenas visual)
     const slippageMultiplier = config.maxSlippage / 100;
-    
-    // Preço de compra ajustado com slippage (aumenta o preço de compra)
-    const adjustedBuyPrice = opportunity.buy_price * (1 + slippageMultiplier);
-    
-    // Preço de venda ajustado com slippage (diminui o preço de venda)
-    const adjustedSellPrice = opportunity.sell_price * (1 - slippageMultiplier);
-    
-    // Quantidade que pode ser comprada com o investimento
-    const quantity = config.investmentAmount / adjustedBuyPrice;
-    
-    // Valor recebido ao vender
-    const sellValue = quantity * adjustedSellPrice;
-    
-    // Lucro bruto = valor da venda - valor da compra
-    const grossProfit = sellValue - config.investmentAmount;
+    const adjustedBuyPrice = opportunity.buy_price * (1 + slippageMultiplier / 2);
+    const adjustedSellPrice = opportunity.sell_price * (1 - slippageMultiplier / 2);
+    const quantity = config.investmentAmount / opportunity.buy_price;
     
     // Taxas de trading em ambas exchanges (compra + venda)
     const tradingFees = (config.investmentAmount * config.customFeeRate / 100);
@@ -123,7 +120,8 @@ const ArbitrageExecutionModal: React.FC<ArbitrageExecutionModalProps> = ({
     const roi = (netProfit / config.investmentAmount) * 100;
     
     // Spread mínimo necessário para break-even
-    const breakEvenSpread = (config.customFeeRate + (config.maxSlippage * 2));
+    // Precisa cobrir: taxas de trading + slippage + taxa Arbitrum
+    const breakEvenSpread = config.customFeeRate + config.maxSlippage + ((arbitrumFee / config.investmentAmount) * 100);
 
     return {
       grossProfit,
@@ -231,36 +229,36 @@ const ArbitrageExecutionModal: React.FC<ArbitrageExecutionModalProps> = ({
               {/* Tabela de referência: Spread mínimo por investimento */}
               <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                 <div className="text-xs font-medium text-blue-900 mb-2">
-                  📊 Spread mínimo necessário para lucro (com taxa Arbitrum $0.10):
+                  📊 Spread mínimo necessário para lucro (com slippage {config.maxSlippage}% + Arbitrum $0.10):
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div>
                     <span className="text-blue-700">$30 →</span>
-                    <span className="ml-1 font-semibold text-blue-900">~1.2% spread</span>
+                    <span className="ml-1 font-semibold text-blue-900">~1.03% spread</span>
                   </div>
                   <div>
                     <span className="text-blue-700">$50 →</span>
-                    <span className="ml-1 font-semibold text-blue-900">~0.85% spread</span>
+                    <span className="ml-1 font-semibold text-blue-900">~0.90% spread</span>
                   </div>
                   <div>
                     <span className="text-blue-700">$100 →</span>
-                    <span className="ml-1 font-semibold text-blue-900">~0.65% spread</span>
+                    <span className="ml-1 font-semibold text-blue-900">~0.80% spread</span>
                   </div>
                   <div>
                     <span className="text-blue-700">$200 →</span>
-                    <span className="ml-1 font-semibold text-blue-900">~0.52% spread</span>
+                    <span className="ml-1 font-semibold text-blue-900">~0.75% spread</span>
                   </div>
                   <div>
                     <span className="text-blue-700">$500 →</span>
-                    <span className="ml-1 font-semibold text-blue-900">~0.45% spread</span>
+                    <span className="ml-1 font-semibold text-blue-900">~0.72% spread</span>
                   </div>
                   <div>
                     <span className="text-blue-700">$1000 →</span>
-                    <span className="ml-1 font-semibold text-blue-900">~0.42% spread</span>
+                    <span className="ml-1 font-semibold text-blue-900">~0.71% spread</span>
                   </div>
                 </div>
                 <p className="text-xs text-blue-600 mt-2">
-                  ⚡ Quanto maior o investimento, menor o spread necessário (taxa fixa $0.10 é diluída)
+                  ⚡ Fórmula: Taxa Trading (0.20%) + Slippage ({config.maxSlippage}%) + Taxa Arbitrum ($0.10 ÷ investimento)
                 </p>
               </div>
             </div>
