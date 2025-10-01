@@ -99,11 +99,12 @@ serve(async (req) => {
     const spread_percentage = Math.abs((sellPrice - buyPrice) / buyPrice * 100);
     
     // Calcular métricas da operação com USDT
-    const gross_profit = (usdtInvestment * spread_percentage) / 100;
+    // Spread ajustado por slippage (reduz o spread esperado, mas não é um custo fixo)
+    const effectiveSpread = Math.max(0, spread_percentage - config.maxSlippage);
+    const gross_profit = (usdtInvestment * effectiveSpread) / 100;
     const trading_fees = usdtInvestment * (config.customFeeRate / 100);
     const transfer_fees = usdtInvestment * 0.001; // Taxa de transferência 0.1%
-    const slippage_cost = usdtInvestment * (config.maxSlippage / 100); // Custo estimado de slippage
-    const total_fees = trading_fees + transfer_fees + slippage_cost;
+    const total_fees = trading_fees + transfer_fees;
     let net_profit = Math.max(0, gross_profit - total_fees);
     const roi_percentage = usdtInvestment > 0 ? (net_profit / usdtInvestment) * 100 : 0;
 
@@ -215,7 +216,7 @@ serve(async (req) => {
       investment_amount: usdtInvestment, // Valor em USDT
       gross_profit: status === 'completed' ? gross_profit : 0,
       gas_fees: transfer_fees,
-      slippage_cost: slippage_cost,
+      slippage_cost: trading_fees,
       net_profit: status === 'completed' ? net_profit : 0,
       roi_percentage: status === 'completed' ? roi_percentage : 0,
       spread_percentage: spread_percentage,
@@ -269,7 +270,6 @@ serve(async (req) => {
         gross_profit: parseFloat(gross_profit.toFixed(6)),
         trading_fees: parseFloat(trading_fees.toFixed(6)),
         transfer_fees: parseFloat(transfer_fees.toFixed(6)),
-        slippage_cost: parseFloat(slippage_cost.toFixed(6)),
         total_fees: parseFloat(total_fees.toFixed(6)),
         net_profit: parseFloat(net_profit.toFixed(6)),
         roi_percentage: parseFloat(roi_percentage.toFixed(4)),
