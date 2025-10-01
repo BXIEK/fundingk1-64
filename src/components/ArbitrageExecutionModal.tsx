@@ -116,7 +116,7 @@ const ArbitrageExecutionModal: React.FC<ArbitrageExecutionModalProps> = ({
       ],
       'LTC': [{ value: 'LTC', label: 'Litecoin', speed: '5-15 min', fee: '$0.01' }],
       'DOGE': [{ value: 'DOGE', label: 'Dogecoin', speed: '5-10 min', fee: '$0.50' }],
-      'XRP': [{ value: 'XRP', label: 'Ripple', speed: '1-3 min', fee: '$0.01' }],
+      'XRP': [{ value: 'XRP', label: 'Ripple (XRP)', speed: '1-3 min', fee: '$0.01' }],
       'FLOKI': [{ value: 'ETH', label: 'Ethereum (ERC-20)', speed: '5-15 min', fee: '$2-5' }],
       'WIF': [{ value: 'SOL', label: 'Solana', speed: '1-2 min', fee: '$0.01' }],
       'FIL': [{ value: 'FIL', label: 'Filecoin', speed: '5-10 min', fee: '$0.01' }]
