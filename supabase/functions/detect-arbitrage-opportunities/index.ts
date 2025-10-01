@@ -152,7 +152,8 @@ async function getBinancePrices() {
     const prices: any = {};
     data.data.forEach((item: any) => {
       if (item.price && item.price > 0) {
-        const symbol = item.symbol.replace('/USDT', '');
+        // Normalizar símbolo: remover '/' e garantir formato XXXUSDT
+        const symbol = item.symbol.replace('/', '').replace('-', '');
         prices[symbol] = item.price;
       }
     });
@@ -232,7 +233,7 @@ async function getOKXPrices(userId?: string) {
 function calculateCrossExchangeOpportunities(binancePrices: any, okxPrices: any, whitelistedSymbols?: string[]): ArbitrageOpportunity[] {
   const opportunities: ArbitrageOpportunity[] = [];
   const minSpread = 0.05; // Spread mínimo ajustado para capturar mais oportunidades
-  const maxSpread = 5.0;  // Spread máximo realístico
+  // Sem limite máximo de spread - capturar todas as oportunidades reais
   
   // Função para normalizar símbolos entre exchanges
   function getBaseSymbol(symbol: string): string {
@@ -250,33 +251,32 @@ function calculateCrossExchangeOpportunities(binancePrices: any, okxPrices: any,
   
   // Usar símbolos whitelistados se disponíveis, caso contrário usar símbolos padrão
   const analysisSymbols = whitelistedSymbols && whitelistedSymbols.length > 0 
-    ? whitelistedSymbols.map(symbol => getBaseSymbol(symbol)) // Extrair símbolo base
-    : ['BTC', 'ETH', 'BNB', 'SOL', 'ADA', 'XRP', 'MATIC', 'DOT', 'DOGE', 'SHIB', 'PEPE', 'FLOKI', 'WIF'];
+    ? whitelistedSymbols.map(symbol => symbol.replace('/', '').replace('-', '')) // Normalizar (BTCUSDT)
+    : ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'ADAUSDT', 'XRPUSDT', 'MATICUSDT', 'DOTUSDT', 'DOGEUSDT', 'SHIBUSDT', 'PEPEUSDT', 'FLOKIUSDT', 'WIFUSDT'];
   
   console.log(`🎯 Analisando símbolos whitelistados: ${analysisSymbols.join(', ')}`);
   console.log(`📊 Preços disponíveis - Binance: ${Object.keys(binancePrices).slice(0, 5).join(', ')}..., OKX: ${Object.keys(okxPrices).slice(0, 5).join(', ')}...`);
   
-  analysisSymbols.forEach(symbol => {
-    // Binance: BTCUSDT, OKX: BTC (sem sufixo nem hífen)
-    const binanceSymbol = `${symbol}USDT`;
-    const okxSymbol = symbol; // OKX retorna apenas 'BTC', não 'BTC-USDT'
+  analysisSymbols.forEach(binanceSymbol => {
+    // Binance: BTCUSDT, OKX: BTC (sem sufixo)
+    const okxSymbol = binanceSymbol.replace('USDT', ''); // BTC
     
-    const binancePrice = binancePrices[binanceSymbol] || binancePrices[symbol];
+    const binancePrice = binancePrices[binanceSymbol];
     const okxPrice = okxPrices[okxSymbol];
     
     if (!binancePrice || !okxPrice || binancePrice <= 0 || okxPrice <= 0) {
-      console.log(`⚠️ ${symbol}: Binance[${binanceSymbol}]=${binancePrice || 'undefined'}, OKX[${okxSymbol}]=${okxPrice || 'undefined'}`);
+      console.log(`⚠️ ${binanceSymbol}: Binance=${binancePrice || 'undefined'}, OKX[${okxSymbol}]=${okxPrice || 'undefined'}`);
       return;
     }
     
-    console.log(`✅ ${symbol} com preços válidos: Binance=$${binancePrice.toFixed(2)}, OKX=$${okxPrice.toFixed(2)}, spread=${(Math.abs(binancePrice - okxPrice) / binancePrice * 100).toFixed(3)}%`);
+    console.log(`✅ ${binanceSymbol} com preços válidos: Binance=$${binancePrice.toFixed(2)}, OKX=$${okxPrice.toFixed(2)}, spread=${(Math.abs(binancePrice - okxPrice) / binancePrice * 100).toFixed(3)}%`);
     
     // Calcular spreads bidirecionais
     const spreadBinanceToOKX = ((okxPrice - binancePrice) / binancePrice) * 100;
     const spreadOKXToBinance = ((binancePrice - okxPrice) / okxPrice) * 100;
     
-    // Verificar oportunidade Binance -> OKX
-    if (spreadBinanceToOKX >= minSpread && spreadBinanceToOKX <= maxSpread) {
+    // Verificar oportunidade Binance -> OKX (sem limite máximo de spread)
+    if (spreadBinanceToOKX >= minSpread) {
       // CÁLCULO PADRONIZADO (mesmo da calculadora)
       const standardInvestment = 100;
       const spotQuantity = standardInvestment / binancePrice;
@@ -286,8 +286,8 @@ function calculateCrossExchangeOpportunities(binancePrices: any, okxPrices: any,
       const potentialProfit = grossProfit - fees; // Permitir valores negativos
       
       // Mostrar todas as oportunidades, mesmo sem lucro
-      opportunities.push({
-          symbol,
+        opportunities.push({
+          symbol: binanceSymbol.replace('USDT', ''), // Retornar símbolo sem USDT (BTC)
           buy_exchange: 'Binance',
           sell_exchange: 'OKX',
           buy_price: binancePrice,
@@ -302,11 +302,11 @@ function calculateCrossExchangeOpportunities(binancePrices: any, okxPrices: any,
           execution_time_estimate: 750 + Math.random() * 500
         });
         
-        console.log(`✅ Oportunidade ${symbol}: Binance($${binancePrice.toFixed(4)}) -> OKX($${okxPrice.toFixed(4)}), spread=${spreadBinanceToOKX.toFixed(3)}%, lucro=$${potentialProfit.toFixed(2)}`);
+        console.log(`✅ Oportunidade ${binanceSymbol}: Binance($${binancePrice.toFixed(4)}) -> OKX($${okxPrice.toFixed(4)}), spread=${spreadBinanceToOKX.toFixed(3)}%, lucro=$${potentialProfit.toFixed(2)}`);
     }
     
-    // Verificar oportunidade OKX -> Binance  
-    if (spreadOKXToBinance >= minSpread && spreadOKXToBinance <= maxSpread) {
+    // Verificar oportunidade OKX -> Binance (sem limite máximo de spread)
+    if (spreadOKXToBinance >= minSpread) {
       // CÁLCULO PADRONIZADO (mesmo da calculadora)
       const standardInvestment = 100;
       const spotQuantity = standardInvestment / okxPrice;
@@ -317,8 +317,8 @@ function calculateCrossExchangeOpportunities(binancePrices: any, okxPrices: any,
       
       // Mostrar todas as oportunidades, mesmo sem lucro
       opportunities.push({
-          symbol,
-          buy_exchange: 'OKX',
+        symbol: binanceSymbol.replace('USDT', ''), // Retornar símbolo sem USDT (BTC)
+        buy_exchange: 'OKX',
           sell_exchange: 'Binance',
           buy_price: okxPrice,
           sell_price: binancePrice,
@@ -332,7 +332,7 @@ function calculateCrossExchangeOpportunities(binancePrices: any, okxPrices: any,
           execution_time_estimate: 750 + Math.random() * 500
         });
         
-        console.log(`✅ Oportunidade ${symbol}: OKX($${okxPrice.toFixed(4)}) -> Binance($${binancePrice.toFixed(4)}), spread=${spreadOKXToBinance.toFixed(3)}%, lucro=$${potentialProfit.toFixed(2)}`);
+        console.log(`✅ Oportunidade ${binanceSymbol}: OKX($${okxPrice.toFixed(4)}) -> Binance($${binancePrice.toFixed(4)}), spread=${spreadOKXToBinance.toFixed(3)}%, lucro=$${potentialProfit.toFixed(2)}`);
     }
   });
   

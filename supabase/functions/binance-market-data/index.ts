@@ -363,17 +363,14 @@ async function getSpotTickers(binanceApiKey: string = '') {
       console.log('First spot ticker item structure:', JSON.stringify(processedData[0], null, 2));
     }
     
-    // Expandir lista de símbolos para incluir todos os whitelistados
-    const majorSymbols = [
-      'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'ADAUSDT', 'XRPUSDT', 'MATICUSDT', 'SOLUSDT', 'DOTUSDT',
-      'AVAXUSDT', 'LTCUSDT', 'LINKUSDT', 'UNIUSDT', 'ATOMUSDT', 'FILUSDT', 'TRXUSDT', 
-      'DOGEUSDT', 'SHIBUSDT', 'PEPEUSDT', 'FLOKIUSDT', 'WIFUSDT'
-    ];
-    const filteredData = processedData.filter(item => majorSymbols.includes(item.symbol));
+    // Retornar TODOS os símbolos USDT da Binance (sem filtro)
+    const usdtSymbols = processedData.filter(item => 
+      item.symbol && item.symbol.endsWith('USDT')
+    );
     
-    console.log(`Successfully fetched ${filteredData.length} spot tickers from Binance`);
+    console.log(`Successfully fetched ${usdtSymbols.length} USDT spot tickers from Binance`);
     
-    const formattedData = filteredData.map(item => {
+    const formattedData = usdtSymbols.map(item => {
       // Try multiple price fields with priority order
       let priceValue = null;
       if (item.price && item.price !== 'undefined' && item.price !== null) {
@@ -491,13 +488,14 @@ async function getFuturesTickers(binanceApiKey: string = '') {
       console.log('First futures ticker item structure:', JSON.stringify(processedData[0], null, 2));
     }
     
-    // Filter for major cryptocurrencies futures
-    const majorSymbols = ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'ADAUSDT', 'XRPUSDT', 'MATICUSDT', 'SOLUSDT', 'DOTUSDT'];
-    const filteredData = processedData.filter(item => majorSymbols.includes(item.symbol));
+    // Retornar TODOS os símbolos USDT da Binance Futures (sem filtro)
+    const usdtFutures = processedData.filter(item => 
+      item.symbol && item.symbol.endsWith('USDT')
+    );
     
-    console.log(`Successfully fetched ${filteredData.length} futures tickers from Binance`);
+    console.log(`Successfully fetched ${usdtFutures.length} USDT futures tickers from Binance`);
     
-    const formattedData = filteredData.map(item => {
+    const formattedData = usdtFutures.map(item => {
       // Try multiple price fields with priority order
       let priceValue = null;
       if (item.price && item.price !== 'undefined' && item.price !== null) {
@@ -576,7 +574,11 @@ async function getFundingArbitrageOpportunities(binanceApiKey: string = ''): Pro
     if (!spotData.length || !futuresData.length || !fundingData.length) {
       console.log('⚠️ Dados insuficientes via APIs e proxy, gerando dados de fallback...');
       
-      const symbols = ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'ADAUSDT', 'XRPUSDT'];
+      const symbols = [
+        'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'ADAUSDT', 'XRPUSDT',
+        'AVAXUSDT', 'LTCUSDT', 'LINKUSDT', 'UNIUSDT', 'ATOMUSDT', 'FILUSDT', 
+        'TRXUSDT', 'DOGEUSDT', 'SHIBUSDT', 'PEPEUSDT', 'FLOKIUSDT', 'WIFUSDT'
+      ];
       
       if (!spotData.length) {
         spotData = symbols.map(symbol => ({
@@ -606,7 +608,12 @@ async function getFundingArbitrageOpportunities(binanceApiKey: string = ''): Pro
       }
     }
     
-    const majorSymbols = ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'ADAUSDT', 'XRPUSDT'];
+    // Expandir para todos os símbolos whitelistados
+    const majorSymbols = [
+      'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'ADAUSDT', 'XRPUSDT', 'MATICUSDT', 'SOLUSDT', 'DOTUSDT',
+      'AVAXUSDT', 'LTCUSDT', 'LINKUSDT', 'UNIUSDT', 'ATOMUSDT', 'FILUSDT', 'TRXUSDT', 
+      'DOGEUSDT', 'SHIBUSDT', 'PEPEUSDT', 'FLOKIUSDT', 'WIFUSDT'
+    ];
     const opportunities: FundingArbitrageOpportunity[] = [];
     
     for (const symbol of majorSymbols) {
