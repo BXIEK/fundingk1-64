@@ -280,6 +280,64 @@ async function getOKXDepositAddress(
   };
 }
 
+async function transferOKXTradingToFunding(
+  asset: string,
+  amount: number,
+  credentials: { okxApiKey?: string; okxSecretKey?: string; okxPassphrase?: string }
+) {
+  console.log(`🔄 Transferindo ${amount} ${asset} de Trading → Funding na OKX...`);
+  
+  const timestamp = new Date().toISOString();
+  const method = 'POST';
+  const requestPath = '/api/v5/asset/transfer';
+  
+  const body = JSON.stringify({
+    ccy: asset,
+    amt: amount.toString(),
+    from: '18', // Trading account
+    to: '6',    // Funding account
+    type: '0'   // Internal transfer
+  });
+  
+  const prehash = timestamp + method + requestPath + body;
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(credentials.okxSecretKey!),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  
+  const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(prehash));
+  const signatureBase64 = btoa(String.fromCharCode(...new Uint8Array(signature)));
+  
+  const response = await fetch(`https://www.okx.com${requestPath}`, {
+    method: 'POST',
+    headers: {
+      'OK-ACCESS-KEY': credentials.okxApiKey!,
+      'OK-ACCESS-SIGN': signatureBase64,
+      'OK-ACCESS-TIMESTAMP': timestamp,
+      'OK-ACCESS-PASSPHRASE': credentials.okxPassphrase!,
+      'Content-Type': 'application/json'
+    },
+    body
+  });
+  
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Erro OKX transfer: ${error}`);
+  }
+  
+  const data = await response.json();
+  if (data.code !== '0') {
+    throw new Error(`OKX Transfer Error: ${data.msg}`);
+  }
+  
+  console.log(`✅ Transferência interna OKX concluída: ${amount} ${asset} → Funding`);
+  return data;
+}
+
 async function getOKXAvailableBalance(
   asset: string,
   credentials: { okxApiKey?: string; okxSecretKey?: string; okxPassphrase?: string }
@@ -334,10 +392,23 @@ async function executeOKXWithdrawal(
   network: string,
   credentials: { okxApiKey?: string; okxSecretKey?: string; okxPassphrase?: string }
 ) {
-  // Verificar saldo disponível antes de tentar withdrawal
-  console.log(`🔍 Verificando saldo disponível de ${asset} na OKX...`);
+  // PASSO 1: Transferir da conta de Trading para Funding
+  try {
+    console.log(`🔄 PASSO 1: Transferindo ${amount} ${asset} de Trading → Funding...`);
+    await transferOKXTradingToFunding(asset, amount, credentials);
+    console.log('✅ Transferência interna concluída');
+    
+    // Aguardar processamento
+    await new Promise(resolve => setTimeout(resolve, 2000));
+  } catch (transferError) {
+    console.error('⚠️ Erro na transferência interna:', transferError);
+    console.log('Continuando com withdrawal (talvez o saldo já esteja na Funding)...');
+  }
+  
+  // PASSO 2: Verificar saldo disponível na conta de Funding
+  console.log(`🔍 Verificando saldo disponível de ${asset} na conta Funding...`);
   const availableBalance = await getOKXAvailableBalance(asset, credentials);
-  console.log(`💰 Saldo disponível: ${availableBalance} ${asset} (necessário: ${amount})`);
+  console.log(`💰 Saldo disponível na Funding: ${availableBalance} ${asset} (necessário: ${amount})`);
   
   if (availableBalance < amount) {
     // Aguardar mais tempo para o saldo ficar disponível
@@ -349,10 +420,11 @@ async function executeOKXWithdrawal(
     console.log(`💰 Saldo atualizado: ${updatedBalance} ${asset}`);
     
     if (updatedBalance < amount) {
-      throw new Error(`Saldo insuficiente na OKX para withdrawal: disponível ${updatedBalance} ${asset}, necessário ${amount} ${asset}. O saldo pode levar alguns minutos para ficar disponível após a compra.`);
+      throw new Error(`Saldo insuficiente na OKX Funding Account para withdrawal: disponível ${updatedBalance} ${asset}, necessário ${amount} ${asset}. Certifique-se de que o saldo está na conta de Funding (não Trading).`);
     }
   }
   
+  // PASSO 3: Executar withdrawal
   const timestamp = new Date().toISOString();
   const method = 'POST';
   const requestPath = '/api/v5/asset/withdrawal';
