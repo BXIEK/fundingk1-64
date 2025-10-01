@@ -190,23 +190,25 @@ serve(async (req) => {
           const availableBalance = await getExchangeBalance(buyExchange, symbol.replace('USDT', ''), { binanceApiKey, binanceSecretKey, okxApiKey, okxSecretKey, okxPassphrase });
           console.log(`💰 Saldo disponível: ${availableBalance} ${symbol}`);
           
-          // IMPORTANTE: Só usar saldo existente se for MAIOR que o mínimo de withdrawal
-          if (availableBalance >= targetCryptoAmount && availableBalance >= minWithdrawalAmount) {
-            // Usar saldo existente - PULAR COMPRA
+          // REGRA CRÍTICA: Primeiro verificar se saldo é MAIOR que mínimo de withdrawal
+          if (availableBalance > 0 && availableBalance < minWithdrawalAmount) {
+            // Saldo microscópico - IGNORAR COMPLETAMENTE e fazer compra nova com USDT
+            console.log(`🚫 Saldo de ${availableBalance} ${symbol} é MENOR que o mínimo de withdrawal (${minWithdrawalAmount}).`);
+            console.log(`💰 Ignorando saldo e fazendo COMPRA NOVA com USDT na ${buyExchange}...`);
+            // usedExistingBalance permanece false para forçar compra
+          } else if (availableBalance >= targetCryptoAmount && availableBalance >= minWithdrawalAmount) {
+            // Saldo completo e acima do mínimo - USAR
             console.log(`✅ Saldo suficiente encontrado! Usando ${targetCryptoAmount} ${symbol} do saldo existente.`);
             cryptoAmount = targetCryptoAmount;
             usedExistingBalance = true;
-          } else if (availableBalance > 0 && availableBalance < minWithdrawalAmount) {
-            // Saldo muito pequeno - IGNORAR e fazer compra nova
-            console.log(`⚠️ Saldo de ${availableBalance} ${symbol} é menor que o mínimo de withdrawal (${minWithdrawalAmount}). Ignorando e fazendo compra nova.`);
-          } else if (availableBalance > 0) {
-            // Saldo parcial mas acima do mínimo - usar parcial
+          } else if (availableBalance >= minWithdrawalAmount && availableBalance < targetCryptoAmount) {
+            // Saldo parcial mas acima do mínimo - USAR PARCIAL
             console.log(`⚠️ Saldo parcial: ${availableBalance} ${symbol} (necessário: ${targetCryptoAmount}). Usando saldo disponível.`);
             cryptoAmount = availableBalance;
             usedExistingBalance = true;
           } else {
             // Sem saldo - precisa comprar
-            console.log(`📉 Sem saldo disponível de ${symbol}. Executando compra...`);
+            console.log(`📉 Sem saldo disponível de ${symbol}. Executando compra com USDT...`);
           }
         } catch (balanceError) {
           console.error('⚠️ Erro ao verificar saldo:', balanceError);
