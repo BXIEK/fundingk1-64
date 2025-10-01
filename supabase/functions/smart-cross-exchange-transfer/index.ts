@@ -168,7 +168,7 @@ async function getBinanceDepositAddress(asset: string, apiKey: string, secretKey
     'DOT': 'DOT',            // Polkadot mainnet
     'ADA': 'ADA',            // Cardano mainnet
     'SOL': 'SOL',            // Solana mainnet
-    'AVAX': 'AVAX',          // Avalanche C-Chain
+    'AVAX': 'AVAXC',         // Avalanche C-Chain (AVAXC na Binance)
     'ATOM': 'ATOM',          // Cosmos mainnet
     'LINK': 'ETH',           // LINK é ERC-20
     'UNI': 'ETH',            // UNI é ERC-20
@@ -287,7 +287,7 @@ async function executeOKXWithdrawal(
     'DOT': 'DOT-Polkadot',
     'ADA': 'ADA-Cardano',
     'SOL': 'SOL-Solana',
-    'AVAX': 'AVAX-Avalanche C-Chain',
+    'AVAXC': 'AVAX-Avalanche C-Chain',  // AVAXC (Binance) → AVAX (OKX)
     'ATOM': 'ATOM-Cosmos',
     'DOGE': 'DOGE-Dogecoin',
     'XRP': 'XRP-Ripple',
