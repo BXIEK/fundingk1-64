@@ -170,6 +170,10 @@ serve(async (req) => {
         const cryptoAmount = buyResult.executedQty || (usdtPerOperation / buyPrice);
         console.log(`💎 Quantidade comprada: ${cryptoAmount} ${symbol}`);
         
+        // Aguardar processamento da ordem de compra (saldo disponível para withdrawal)
+        console.log('⏳ Aguardando processamento da ordem de compra (3s)...');
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        
         // Step 2: TRANSFERIR crypto da exchange de compra para exchange de venda
         console.log(`🔄 PASSO 2 - TRANSFERÊNCIA: ${cryptoAmount} ${symbol} da ${buyExchange} → ${sellExchange}...`);
         
