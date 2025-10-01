@@ -164,8 +164,8 @@ async function getBinancePrices() {
     console.log(`Preços reais da Binance obtidos: ${Object.keys(prices).length} símbolos`);
     return prices;
   } catch (error) {
-    console.log('API Binance indisponível, usando dados simulados:', error instanceof Error ? error.message : String(error));
-    throw error;
+    console.log('API Binance indisponível, retornando vazio (sem 500):', error instanceof Error ? error.message : String(error));
+    return {};
   }
 }
 
@@ -410,8 +410,8 @@ serve(async (req) => {
       
       // Buscar preços reais da Binance (obrigatório)
       const binancePrices = await getBinancePrices();
-      dataSource = 'binance_api';
-      console.log(`✅ Preços reais da Binance obtidos: ${Object.keys(binancePrices).length} símbolos`);
+      dataSource = Object.keys(binancePrices || {}).length > 0 ? 'binance_api' : 'binance_api_unavailable';
+      console.log(`✅ Preços da Binance obtidos: ${Object.keys(binancePrices || {}).length} símbolos`);
       
       // Buscar preços reais da OKX
       const okxPrices = await getOKXPrices(userId);
