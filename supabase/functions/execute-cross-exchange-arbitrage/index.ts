@@ -267,12 +267,54 @@ serve(async (req) => {
         // Step 1: Executar compra na exchange de compra (USDT → Crypto)
         console.log(`🔄 PASSO 1 - COMPRA: $${usdtPerOperation} USDT → ${symbol} na ${buyExchange}...`);
         const buyResult = await executeBuyOrderUSDT(buyExchange, symbol, usdtPerOperation, buyPrice, { binanceApiKey, binanceSecretKey, okxApiKey, okxSecretKey, okxPassphrase });
-        console.log('✅ Compra USDT executada:', JSON.stringify(buyResult));
+        console.log('✅ Compra executada:', JSON.stringify(buyResult));
         
-        // Step 2: Executar venda na exchange de venda (Crypto → USDT)
-        console.log(`🔄 PASSO 2 - VENDA: ${symbol} → $${usdtPerOperation} USDT na ${sellExchange}...`);
+        // Extrair quantidade de crypto comprada
+        const cryptoAmount = buyResult.executedQty || (usdtPerOperation / buyPrice);
+        console.log(`💎 Quantidade comprada: ${cryptoAmount} ${symbol}`);
+        
+        // Step 2: TRANSFERIR crypto da exchange de compra para exchange de venda
+        console.log(`🔄 PASSO 2 - TRANSFERÊNCIA: ${cryptoAmount} ${symbol} da ${buyExchange} → ${sellExchange}...`);
+        
+        const transferResponse = await fetch(`${supabaseUrl}/functions/v1/smart-cross-exchange-transfer`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${supabaseKey}`
+          },
+          body: JSON.stringify({
+            fromExchange: buyExchange,
+            toExchange: sellExchange,
+            asset: symbol.replace('USDT', ''), // Remove USDT do símbolo (ex: DOTUSDT → DOT)
+            amount: cryptoAmount,
+            binanceApiKey,
+            binanceSecretKey,
+            okxApiKey,
+            okxSecretKey,
+            okxPassphrase
+          })
+        });
+        
+        if (!transferResponse.ok) {
+          const error = await transferResponse.text();
+          throw new Error(`Falha na transferência de ${symbol}: ${error}`);
+        }
+        
+        const transferResult = await transferResponse.json();
+        if (!transferResult.success) {
+          throw new Error(`Transferência de ${symbol} falhou: ${transferResult.error}`);
+        }
+        
+        console.log('✅ Transferência de crypto concluída:', transferResult);
+        
+        // Aguardar confirmação da transferência (pode levar alguns minutos)
+        console.log('⏳ Aguardando confirmação da transferência na blockchain...');
+        await new Promise(resolve => setTimeout(resolve, 5000)); // 5 segundos de buffer
+        
+        // Step 3: Executar venda na exchange de venda (Crypto → USDT)
+        console.log(`🔄 PASSO 3 - VENDA: ${cryptoAmount} ${symbol} → USDT na ${sellExchange}...`);
         const sellResult = await executeSellOrderUSDT(sellExchange, symbol, usdtPerOperation, sellPrice, { binanceApiKey, binanceSecretKey, okxApiKey, okxSecretKey, okxPassphrase });
-        console.log('✅ Venda USDT executada:', JSON.stringify(sellResult));
+        console.log('✅ Venda executada:', JSON.stringify(sellResult));
         
         realOperationResults = {
           buyOrder: buyResult,
