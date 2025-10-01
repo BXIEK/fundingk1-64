@@ -232,8 +232,22 @@ async function getOKXPrices(userId?: string) {
 // Calcular oportunidades de arbitragem com critérios otimizados
 function calculateCrossExchangeOpportunities(binancePrices: any, okxPrices: any, whitelistedSymbols?: string[]): ArbitrageOpportunity[] {
   const opportunities: ArbitrageOpportunity[] = [];
-  const minSpread = 0.05; // Spread mínimo ajustado para capturar mais oportunidades
+  const minSpread = 0.5; // 🔥 Aumentado de 0.05% para 0.5% para cobrir custos reais
   // Sem limite máximo de spread - capturar todas as oportunidades reais
+  
+  // Taxas reais de transferência por ativo (baseado nas taxas reais das exchanges)
+  const transferFees: Record<string, number> = {
+    'SOL': 0.01,      // ~$2 (0.01 SOL × $200)
+    'AVAX': 0.01,     // ~$3 (0.01 AVAX × $30)
+    'LINK': 0.1,      // ~$1.5 (0.1 LINK × $15)
+    'UNI': 0.5,       // ~$4 (0.5 UNI × $8)
+    'DOT': 0.1,       // ~$0.4 (0.1 DOT × $4)
+    'ATOM': 0.005,    // ~$0.3 (0.005 ATOM × $6)
+    'ETH': 0.0001,    // ~$4 (0.0001 ETH × $4000)
+    'BTC': 0.000005,  // ~$3 (0.000005 BTC × $60000)
+    'BNB': 0.001,     // ~$0.6 (0.001 BNB × $600)
+    'default': 0.5    // Default 0.5% do valor
+  };
   
   // Função para normalizar símbolos entre exchanges
   function getBaseSymbol(symbol: string): string {
@@ -247,6 +261,12 @@ function calculateCrossExchangeOpportunities(binancePrices: any, okxPrices: any,
       return `${baseSymbol}-USDT`;
     }
     return baseSymbol;
+  }
+  
+  function calculateTransferFee(symbol: string, price: number, amount: number): number {
+    const baseSymbol = symbol.replace('USDT', '');
+    const feeInToken = transferFees[baseSymbol] || (amount * (transferFees['default'] / 100));
+    return feeInToken * price; // Converter para USD
   }
   
   // Usar símbolos whitelistados se disponíveis, caso contrário usar símbolos padrão
@@ -277,15 +297,24 @@ function calculateCrossExchangeOpportunities(binancePrices: any, okxPrices: any,
     
     // Verificar oportunidade Binance -> OKX (sem limite máximo de spread)
     if (spreadBinanceToOKX >= minSpread) {
-      // CÁLCULO PADRONIZADO (mesmo da calculadora)
+      // CÁLCULO CORRIGIDO: Incluindo taxas de transferência reais
       const standardInvestment = 100;
       const spotQuantity = standardInvestment / binancePrice;
       const futuresValue = spotQuantity * okxPrice;
       const grossProfit = futuresValue - standardInvestment;
-      const fees = standardInvestment * 0.0005; // 0.05% do investimento (cross-exchange)
-      const potentialProfit = grossProfit - fees; // Permitir valores negativos
       
-      // Mostrar todas as oportunidades, mesmo sem lucro
+      // Taxas reais:
+      // 1. Trading fee compra Binance: 0.1%
+      // 2. Withdrawal/transfer fee: calculado por token
+      // 3. Trading fee venda OKX: 0.1%
+      const tradingFeeBuy = standardInvestment * 0.001; // 0.1%
+      const tradingFeeSell = futuresValue * 0.001; // 0.1%
+      const transferFee = calculateTransferFee(binanceSymbol, binancePrice, spotQuantity);
+      const totalFees = tradingFeeBuy + tradingFeeSell + transferFee;
+      const potentialProfit = grossProfit - totalFees;
+      
+      // Mostrar apenas oportunidades rentáveis
+      if (potentialProfit > 0) {
         opportunities.push({
           symbol: binanceSymbol.replace('USDT', ''), // Retornar símbolo sem USDT (BTC)
           buy_exchange: 'Binance',
@@ -303,22 +332,32 @@ function calculateCrossExchangeOpportunities(binancePrices: any, okxPrices: any,
         });
         
         console.log(`✅ Oportunidade ${binanceSymbol}: Binance($${binancePrice.toFixed(4)}) -> OKX($${okxPrice.toFixed(4)}), spread=${spreadBinanceToOKX.toFixed(3)}%, lucro=$${potentialProfit.toFixed(2)}`);
+      }
     }
     
     // Verificar oportunidade OKX -> Binance (sem limite máximo de spread)
     if (spreadOKXToBinance >= minSpread) {
-      // CÁLCULO PADRONIZADO (mesmo da calculadora)
+      // CÁLCULO CORRIGIDO: Incluindo taxas de transferência reais
       const standardInvestment = 100;
       const spotQuantity = standardInvestment / okxPrice;
       const futuresValue = spotQuantity * binancePrice;
       const grossProfit = futuresValue - standardInvestment;
-      const fees = standardInvestment * 0.0005; // 0.05% do investimento (cross-exchange)
-      const potentialProfit = grossProfit - fees; // Permitir valores negativos
       
-      // Mostrar todas as oportunidades, mesmo sem lucro
-      opportunities.push({
-        symbol: binanceSymbol.replace('USDT', ''), // Retornar símbolo sem USDT (BTC)
-        buy_exchange: 'OKX',
+      // Taxas reais:
+      // 1. Trading fee compra OKX: 0.1%
+      // 2. Withdrawal/transfer fee: calculado por token
+      // 3. Trading fee venda Binance: 0.1%
+      const tradingFeeBuy = standardInvestment * 0.001; // 0.1%
+      const tradingFeeSell = futuresValue * 0.001; // 0.1%
+      const transferFee = calculateTransferFee(binanceSymbol, okxPrice, spotQuantity);
+      const totalFees = tradingFeeBuy + tradingFeeSell + transferFee;
+      const potentialProfit = grossProfit - totalFees;
+      
+      // Mostrar apenas oportunidades rentáveis
+      if (potentialProfit > 0) {
+        opportunities.push({
+          symbol: binanceSymbol.replace('USDT', ''), // Retornar símbolo sem USDT (BTC)
+          buy_exchange: 'OKX',
           sell_exchange: 'Binance',
           buy_price: okxPrice,
           sell_price: binancePrice,
@@ -333,6 +372,7 @@ function calculateCrossExchangeOpportunities(binancePrices: any, okxPrices: any,
         });
         
         console.log(`✅ Oportunidade ${binanceSymbol}: OKX($${okxPrice.toFixed(4)}) -> Binance($${binancePrice.toFixed(4)}), spread=${spreadOKXToBinance.toFixed(3)}%, lucro=$${potentialProfit.toFixed(2)}`);
+      }
     }
   });
   
