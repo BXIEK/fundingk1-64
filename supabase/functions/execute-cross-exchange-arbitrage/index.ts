@@ -79,9 +79,14 @@ serve(async (req) => {
         
         // Obter saldos atuais
         const balances = await checkExchangeBalances(buyExchange, sellExchange, { binanceApiKey, binanceSecretKey, okxApiKey, okxSecretKey, okxPassphrase });
-        console.log('💰 Saldos:', balances);
+        console.log(`💰 Saldos detectados: ${buyExchange}=$${balances.buy} USDT, ${sellExchange}=$${balances.sell} USDT`);
+        console.log(`📊 Investimento necessário: $${config.investmentAmount} USDT total`);
         
-        const requiredAmount = config.investmentAmount / 2; // Metade em cada exchange
+        // Verificar se há saldo TOTAL suficiente
+        const totalAvailable = balances.buy + balances.sell;
+        if (totalAvailable < config.investmentAmount) {
+          throw new Error(`Saldo insuficiente total. Necessário: $${config.investmentAmount} USDT. Disponível: $${totalAvailable} USDT (${buyExchange}=$${balances.buy} + ${sellExchange}=$${balances.sell})`);
+        }
         
         // Verificar se precisa transferir
         let needsTransfer = false;
@@ -89,18 +94,39 @@ serve(async (req) => {
         let transferTo = '';
         let transferAmount = 0;
         
-        if (balances.buy < requiredAmount && balances.sell >= config.investmentAmount) {
+        // Se a exchange de compra tem menos que o investimento total, transferir da outra
+        if (balances.buy < config.investmentAmount && balances.sell >= config.investmentAmount) {
           needsTransfer = true;
           transferFrom = sellExchange;
           transferTo = buyExchange;
-          transferAmount = requiredAmount - balances.buy + 5; // +$5 de buffer
-        } else if (balances.sell < requiredAmount && balances.buy >= config.investmentAmount) {
+          transferAmount = config.investmentAmount - balances.buy + 2; // +$2 buffer
+          console.log(`⚠️ ${buyExchange} tem apenas $${balances.buy} USDT, precisa de $${config.investmentAmount} USDT`);
+        } 
+        // Se a exchange de venda tem menos que o investimento total, transferir da outra
+        else if (balances.sell < config.investmentAmount && balances.buy >= config.investmentAmount) {
           needsTransfer = true;
           transferFrom = buyExchange;
           transferTo = sellExchange;
-          transferAmount = requiredAmount - balances.sell + 5;
-        } else if (balances.buy < requiredAmount && balances.sell < requiredAmount) {
-          throw new Error(`Saldo insuficiente em ambas exchanges. Necessário: $${requiredAmount} em cada. Disponível: ${buyExchange}=$${balances.buy}, ${sellExchange}=$${balances.sell}`);
+          transferAmount = config.investmentAmount - balances.sell + 2;
+          console.log(`⚠️ ${sellExchange} tem apenas $${balances.sell} USDT, precisa de $${config.investmentAmount} USDT`);
+        }
+        // Se ambas têm saldo suficiente, não precisa transferir
+        else if (balances.buy >= config.investmentAmount && balances.sell >= config.investmentAmount) {
+          console.log('✅ Ambas exchanges têm saldo suficiente. Nenhuma transferência necessária.');
+        }
+        // Se nenhuma exchange tem saldo suficiente sozinha, mas juntas têm
+        else {
+          console.log(`⚠️ Saldo distribuído: ${buyExchange}=$${balances.buy}, ${sellExchange}=$${balances.sell}`);
+          // Transferir tudo da exchange com mais saldo para a de compra
+          if (balances.sell > balances.buy) {
+            needsTransfer = true;
+            transferFrom = sellExchange;
+            transferTo = buyExchange;
+            transferAmount = config.investmentAmount - balances.buy + 2;
+            console.log(`💱 Concentrando saldo na ${buyExchange} (exchange de compra)`);
+          } else {
+            console.log(`✅ ${buyExchange} já tem o maior saldo, usando ele como principal`);
+          }
         }
         
         // Executar transferência se necessário
