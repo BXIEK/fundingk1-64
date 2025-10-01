@@ -1,1 +1,6 @@
 project_id = "uxhcsjlfwkhwkvhfacho"
+
+# Configuração global para usar apenas regiões autorizadas pela Binance e OKX
+[functions]
+# Executar funções apenas em regiões com acesso permitido (US-East geralmente permitido)
+region = "us-east-1"

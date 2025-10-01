@@ -45,32 +45,14 @@ interface FundingArbitrageOpportunity {
   expiresAt: string;
 }
 
-// Sistema avançado de proxy para contornar restrições geográficas
-const PROXY_SERVICES = [
-  'https://api.allorigins.win/raw?url=',
-  'https://cors-anywhere.herokuapp.com/',
-  'https://thingproxy.freeboard.io/fetch/',
-  'https://proxy.cors.sh/',
-  'https://yacdn.org/proxy/',
-];
-
-const USER_AGENTS = [
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0',
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:121.0) Gecko/20100101 Firefox/121.0'
-];
-
-// Cliente Supabase removido - não usando mais Smart Proxy Service (desabilitado)
+// ⚠️ SISTEMA SIMPLIFICADO: Apenas chamadas diretas autenticadas
+// Sem proxies ou bypasses - usando regiões autorizadas (us-east-1)
 
 // Cache simples para reduzir requisições
 const cache = new Map<string, { data: any; timestamp: number }>();
 const CACHE_TTL = 30000; // 30 segundos
 
-function getRandomUserAgent(): string {
-  return USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
-}
+// Função removida - não mais necessária sem sistema de proxy
 
 function getCachedData(key: string): any | null {
   const cached = cache.get(key);
@@ -104,7 +86,8 @@ function getRealisticPrice(symbol: string, type: 'spot' | 'futures'): number {
   return basePrice * (1 + variation + typeVariation);
 }
 
-async function fetchWithProxySystem(endpoint: string, apiKey: string, type: 'spot' | 'futures'): Promise<Response | null> {
+// Nova função simplificada: Apenas chamadas diretas autenticadas
+async function fetchBinanceDirect(endpoint: string, apiKey: string, type: 'spot' | 'futures'): Promise<Response | null> {
   const cacheKey = `${type}-${endpoint}`;
   const cachedData = getCachedData(cacheKey);
   
@@ -115,163 +98,62 @@ async function fetchWithProxySystem(endpoint: string, apiKey: string, type: 'spo
     });
   }
 
-  // URLs diretas da Binance (tentar primeiro)
+  // URLs diretas da Binance (região permitida: us-east-1)
   const directUrls = type === 'spot' ? [
-    'https://api.binance.com',
-    'https://api1.binance.com', 
-    'https://api2.binance.com',
-    'https://api3.binance.com',
-    'https://api4.binance.com'
+    'https://api.binance.us',  // Binance US - região permitida
+    'https://api.binance.com'
   ] : [
-    'https://fapi.binance.com',
-    'https://fapi1.binance.com',
-    'https://fapi2.binance.com', 
-    'https://fapi3.binance.com'
+    'https://fapi.binance.com'
   ];
 
-  // Headers realísticos
   const baseHeaders = {
     'Accept': 'application/json',
-    'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8',
-    'Accept-Encoding': 'gzip, deflate, br',
-    'Connection': 'keep-alive',
-    'Sec-Fetch-Dest': 'empty',
-    'Sec-Fetch-Mode': 'cors', 
-    'Sec-Fetch-Site': 'cross-site',
-    'Cache-Control': 'no-cache',
-    'Pragma': 'no-cache',
+    'Content-Type': 'application/json',
     ...(apiKey ? { 'X-MBX-APIKEY': apiKey } : {})
   };
 
-  // 1. Tentar URLs diretas da Binance COM RETRY AGRESSIVO
-  console.log(`🎯 Tentando URLs diretas da Binance para ${type}...`);
+  console.log(`🎯 Conexão direta Binance (região us-east-1) para ${type}...`);
+  
   for (const baseUrl of directUrls) {
-    // 3 tentativas por URL com delay progressivo
-    for (let attempt = 1; attempt <= 3; attempt++) {
-      try {
-        const url = `${baseUrl}${endpoint}`;
-        if (attempt > 1) {
-          console.log(`🔄 Retry ${attempt}/3 para ${baseUrl}`);
-          await new Promise(resolve => setTimeout(resolve, 1000 * attempt)); // 1s, 2s, 3s
-        } else {
-          console.log(`📡 Tentando: ${url}`);
+    try {
+      const url = `${baseUrl}${endpoint}`;
+      console.log(`📡 Tentando: ${url}`);
+      
+      const response = await fetch(url, {
+        headers: baseHeaders,
+        method: 'GET',
+        signal: AbortSignal.timeout(10000)
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        
+        // Verificar se é bloqueio
+        if (data.code === 0 && data.msg?.includes('restricted location')) {
+          console.log(`🚫 Região bloqueada pela Binance: ${data.msg}`);
+          continue;
         }
         
-        const response = await fetch(url, {
-          headers: {
-            ...baseHeaders,
-            'User-Agent': getRandomUserAgent(),
-            'Referer': 'https://www.binance.com/',
-            'Origin': 'https://www.binance.com'
-          },
-          method: 'GET',
-          signal: AbortSignal.timeout(12000) // 12s timeout
+        console.log(`✅ SUCESSO: ${url}`);
+        setCachedData(cacheKey, data);
+        return new Response(JSON.stringify(data), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
         });
-        
-        if (response.ok) {
-          const data = await response.json();
-          
-          // Verificar se é bloqueio disfarçado
-          if (data.code === 0 && data.msg?.includes('restricted location')) {
-            console.log(`🚫 Bloqueio da Binance detectado: ${data.msg}`);
-            break; // Pular para próxima URL (não adianta retry)
-          }
-          
-          console.log(`✅ SUCESSO direto: ${url} ${attempt > 1 ? `(após ${attempt} tentativas)` : ''}`);
-          setCachedData(cacheKey, data);
-          return new Response(JSON.stringify(data), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' }
-          });
-        } else {
-          console.log(`⚠️ Falha ${url}: ${response.status} ${response.statusText}`);
-          if (response.status === 451) {
-            console.log(`🚫 Bloqueio geográfico 451`);
-            break; // Não adianta retry em 451
-          }
-        }
-      } catch (error) {
-        console.log(`❌ Erro ${baseUrl} (tentativa ${attempt}/3): ${error instanceof Error ? error.message : String(error)}`);
+      } else {
+        console.log(`⚠️ Falha ${url}: ${response.status}`);
       }
+    } catch (error) {
+      console.log(`❌ Erro ${baseUrl}: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
-  // 2. Tentar sistema de proxy COM RETRY
-  console.log(`⚠️ TODAS URLs diretas falharam após retries, tentando sistema de proxy...`);
-  
-  for (const proxyService of PROXY_SERVICES) {
-    for (const baseUrl of directUrls.slice(0, 2)) { // 2 URLs principais por proxy
-      // 2 tentativas por proxy
-      for (let attempt = 1; attempt <= 2; attempt++) {
-        try {
-          const targetUrl = `${baseUrl}${endpoint}`;
-          const proxiedUrl = `${proxyService}${encodeURIComponent(targetUrl)}`;
-          
-          if (attempt > 1) {
-            console.log(`🔄 Retry proxy ${attempt}/2: ${proxyService}`);
-            await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
-          } else {
-            console.log(`🌐 Tentando proxy: ${proxyService}`);
-          }
-          
-          const response = await fetch(proxiedUrl, {
-            headers: {
-              ...baseHeaders,
-              'User-Agent': getRandomUserAgent(),
-              'X-Requested-With': 'XMLHttpRequest'
-            },
-            method: 'GET',
-            signal: AbortSignal.timeout(18000) // 18s timeout para proxy
-          });
-          
-          if (response.ok) {
-            const data = await response.json();
-            
-            // Verificar bloqueio disfarçado
-            if (data.code === 0 && data.msg?.includes('restricted location')) {
-              console.log(`🚫 Bloqueio via proxy: ${data.msg}`);
-              break; // próximo proxy
-            }
-            
-            console.log(`✅ SUCESSO via proxy: ${proxyService} ${attempt > 1 ? `(após ${attempt} tentativas)` : ''}`);
-            setCachedData(cacheKey, data);
-            return new Response(JSON.stringify(data), {
-              status: 200,
-              headers: { 'Content-Type': 'application/json' }
-            });
-          } else {
-            console.log(`⚠️ Falha proxy ${proxyService}: ${response.status}`);
-          }
-        } catch (error) {
-          console.log(`❌ Erro proxy ${proxyService} (tentativa ${attempt}/2): ${error instanceof Error ? error.message : String(error)}`);
-        }
-      }
-    }
-  }
-
-  // 3. Fallback para dados simulados (ÚLTIMA OPÇÃO)
-  console.log(`⚠️ Erro da Binance detectado, usando dados simulados: Service unavailable from a restricted location according to 'b. Eligibility' in https://www.binance.com/en/terms. Please contact customer service if you believe you received this message in error.`);
-  return generateFallbackData(type);
+  // Se falhar, retornar null (não usar dados simulados)
+  console.log(`❌ Todas tentativas diretas falharam - região pode estar bloqueada`);
+  return null;
 }
 
-function generateFallbackData(type: 'spot' | 'futures'): Response {
-  const symbols = ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'ADAUSDT', 'XRPUSDT', 'MATICUSDT', 'SOLUSDT', 'DOTUSDT'];
-  
-  const data = symbols.map(symbol => ({
-    symbol,
-    price: getRealisticPrice(symbol, type).toFixed(symbol.includes('USDT') && !symbol.startsWith('BTC') && !symbol.startsWith('ETH') ? 4 : 2),
-    priceChangePercent: ((Math.random() - 0.5) * 4).toFixed(3),
-    volume: (Math.random() * 1000000).toFixed(2),
-    lastPrice: getRealisticPrice(symbol, type).toFixed(symbol.includes('USDT') && !symbol.startsWith('BTC') && !symbol.startsWith('ETH') ? 4 : 2)
-  }));
-
-  console.log(`🤖 Dados simulados gerados para ${type}: ${data.length} símbolos`);
-  
-  return new Response(JSON.stringify(data), {
-    status: 200,
-    headers: { 'Content-Type': 'application/json' }
-  });
-}
+// Função removida - dados simulados não são mais usados
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -332,33 +214,37 @@ serve(async (req) => {
 
 async function getSpotTickers(binanceApiKey: string = '') {
   try {
-    console.log('🚀 Fetching Binance Spot tickers with advanced proxy system...');
+    console.log('🚀 Buscando tickers Spot da Binance (conexão direta, região permitida)...');
     
-    const response = await fetchWithProxySystem('/api/v3/ticker/24hr', binanceApiKey, 'spot');
+    const response = await fetchBinanceDirect('/api/v3/ticker/24hr', binanceApiKey, 'spot');
     
     if (!response) {
-      throw new Error('All Binance Spot API endpoints and proxy services are unavailable');
+      console.log('❌ Binance Spot indisponível na região us-east-1');
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Binance Spot API indisponível. Certifique-se de que a região está autorizada.',
+        data: [],
+        timestamp: new Date().toISOString(),
+        source: 'binance-spot'
+      }), {
+        status: 503,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
     
     const data: any = await response.json();
     
-    // Verificar se recebeu erro da Binance (bloqueio geográfico, etc.)
+    // Verificar se recebeu erro da Binance
     if (data && typeof data === 'object' && (data.code === 0 || data.msg)) {
-      console.log('⚠️ Erro da Binance detectado, usando dados simulados:', data.msg || 'Unknown error');
-      const fallbackResponse = generateFallbackData('spot');
-      const fallbackData = await fallbackResponse.json();
+      console.log('⚠️ Erro da Binance:', data.msg || 'Unknown error');
       return new Response(JSON.stringify({
-        success: true,
-        data: fallbackData.map((item: any) => ({
-          symbol: item.symbol.replace('USDT', '/USDT'),
-          price: parseFloat(item.price),
-          change24h: parseFloat(item.priceChangePercent),
-          volume24h: parseFloat(item.volume),
-          exchange: 'Binance Spot (Simulated)'
-        })),
+        success: false,
+        error: data.msg || 'Erro da API Binance',
+        data: [],
         timestamp: new Date().toISOString(),
-        source: 'binance-spot-simulated'
+        source: 'binance-spot'
       }), {
+        status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -459,33 +345,37 @@ async function getSpotTickers(binanceApiKey: string = '') {
 
 async function getFuturesTickers(binanceApiKey: string = '') {
   try {
-    console.log('🚀 Fetching Binance Futures tickers with advanced proxy system...');
+    console.log('🚀 Buscando tickers Futures da Binance (conexão direta, região permitida)...');
     
-    const response = await fetchWithProxySystem('/fapi/v1/ticker/24hr', binanceApiKey, 'futures');
+    const response = await fetchBinanceDirect('/fapi/v1/ticker/24hr', binanceApiKey, 'futures');
     
     if (!response) {
-      throw new Error('All Binance Futures API endpoints and proxy services are unavailable');
+      console.log('❌ Binance Futures indisponível na região us-east-1');
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Binance Futures API indisponível. Certifique-se de que a região está autorizada.',
+        data: [],
+        timestamp: new Date().toISOString(),
+        source: 'binance-futures'
+      }), {
+        status: 503,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
     
     const data: any = await response.json();
     
-    // Verificar se recebeu erro da Binance (bloqueio geográfico, etc.)
+    // Verificar se recebeu erro da Binance
     if (data && typeof data === 'object' && (data.code === 0 || data.msg)) {
-      console.log('⚠️ Erro da Binance detectado, usando dados simulados:', data.msg || 'Unknown error');
-      const fallbackResponse = generateFallbackData('futures');
-      const fallbackData = await fallbackResponse.json();
+      console.log('⚠️ Erro da Binance Futures:', data.msg || 'Unknown error');
       return new Response(JSON.stringify({
-        success: true,
-        data: fallbackData.map((item: any) => ({
-          symbol: item.symbol.replace('USDT', '/USDT'),
-          price: parseFloat(item.price),
-          change24h: parseFloat(item.priceChangePercent),
-          volume24h: parseFloat(item.volume),
-          exchange: 'Binance Futures (Simulated)'
-        })),
+        success: false,
+        error: data.msg || 'Erro da API Binance Futures',
+        data: [],
         timestamp: new Date().toISOString(),
-        source: 'binance-futures-simulated'
+        source: 'binance-futures'
       }), {
+        status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -575,67 +465,43 @@ async function getFuturesTickers(binanceApiKey: string = '') {
 
 async function getFundingArbitrageOpportunities(binanceApiKey: string = ''): Promise<Response> {
   try {
-    console.log('🚀 Fetching funding arbitrage opportunities with proxy system...');
+    console.log('🚀 Buscando oportunidades de funding arbitrage (região permitida)...');
     
     let spotData: SpotPrice[] = [];
     let futuresData: FuturesPrice[] = [];
     let fundingData: FundingRateInfo[] = [];
     
-    // Try to fetch all data via proxy system
-    const spotResponse = await fetchWithProxySystem('/api/v3/ticker/24hr', binanceApiKey, 'spot');
+    // Tentar buscar dados via conexão direta
+    const spotResponse = await fetchBinanceDirect('/api/v3/ticker/24hr', binanceApiKey, 'spot');
     if (spotResponse?.ok) {
       const rawData = await spotResponse.json();
       spotData = Array.isArray(rawData) ? rawData : (rawData.data && Array.isArray(rawData.data) ? rawData.data : []);
     }
     
-    const futuresResponse = await fetchWithProxySystem('/fapi/v1/ticker/24hr', binanceApiKey, 'futures');
+    const futuresResponse = await fetchBinanceDirect('/fapi/v1/ticker/24hr', binanceApiKey, 'futures');
     if (futuresResponse?.ok) {
       const rawData = await futuresResponse.json();
       futuresData = Array.isArray(rawData) ? rawData : (rawData.data && Array.isArray(rawData.data) ? rawData.data : []);
     }
     
-    const fundingResponse = await fetchWithProxySystem('/fapi/v1/premiumIndex', binanceApiKey, 'futures');
+    const fundingResponse = await fetchBinanceDirect('/fapi/v1/premiumIndex', binanceApiKey, 'futures');
     if (fundingResponse?.ok) {
       const rawData = await fundingResponse.json();
       fundingData = Array.isArray(rawData) ? rawData : (rawData.data && Array.isArray(rawData.data) ? rawData.data : []);
     }
     
-    // Se ainda não temos dados suficientes, gerar fallback realísticos
+    // Se não temos dados suficientes, retornar erro (não usar fallback)
     if (!spotData.length || !futuresData.length || !fundingData.length) {
-      console.log('⚠️ Dados insuficientes via APIs e proxy, gerando dados de fallback...');
-      
-      const symbols = [
-        'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'ADAUSDT', 'XRPUSDT',
-        'AVAXUSDT', 'LTCUSDT', 'LINKUSDT', 'UNIUSDT', 'ATOMUSDT', 'FILUSDT', 
-        'TRXUSDT', 'DOGEUSDT', 'SHIBUSDT', 'PEPEUSDT', 'FLOKIUSDT', 'WIFUSDT'
-      ];
-      
-      if (!spotData.length) {
-        spotData = symbols.map(symbol => ({
-          symbol,
-          price: getRealisticPrice(symbol, 'spot').toString(),
-          priceChangePercent: ((Math.random() - 0.5) * 4).toString(),
-          volume: (Math.random() * 1000000).toString()
-        }));
-      }
-      
-      if (!futuresData.length) {
-        futuresData = symbols.map(symbol => ({
-          symbol,
-          price: getRealisticPrice(symbol, 'futures').toString(),
-          priceChangePercent: ((Math.random() - 0.5) * 4).toString(),
-          volume: (Math.random() * 2000000).toString()
-        }));
-      }
-      
-      if (!fundingData.length) {
-        fundingData = symbols.map(symbol => ({
-          symbol,
-          lastFundingRate: ((Math.random() - 0.5) * 0.01).toString(),
-          nextFundingTime: Date.now() + (8 * 60 * 60 * 1000), // 8 horas
-          markPrice: getRealisticPrice(symbol, 'futures').toString()
-        }));
-      }
+      console.log('❌ Dados insuficientes da Binance para funding arbitrage');
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Binance APIs indisponíveis na região us-east-1. Use credenciais válidas ou verifique acesso à região.',
+        opportunities: [],
+        timestamp: new Date().toISOString()
+      }), {
+        status: 503,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
     
     // Expandir para todos os símbolos whitelistados
