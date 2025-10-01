@@ -143,84 +143,114 @@ async function fetchWithProxySystem(endpoint: string, apiKey: string, type: 'spo
     ...(apiKey ? { 'X-MBX-APIKEY': apiKey } : {})
   };
 
-  // 1. Tentar URLs diretas da Binance (sem proxy, retornar dados simulados em caso de erro)
+  // 1. Tentar URLs diretas da Binance COM RETRY AGRESSIVO
   console.log(`🎯 Tentando URLs diretas da Binance para ${type}...`);
   for (const baseUrl of directUrls) {
-    try {
-      const url = `${baseUrl}${endpoint}`;
-      console.log(`📡 Tentando: ${url}`);
-      
-      const response = await fetch(url, {
-        headers: {
-          ...baseHeaders,
-          'User-Agent': getRandomUserAgent(),
-          'Referer': 'https://www.binance.com/',
-          'Origin': 'https://www.binance.com'
-        },
-        method: 'GET',
-        signal: AbortSignal.timeout(10000) // 10s timeout
-      });
-      
-      if (response.ok) {
-        console.log(`✅ Sucesso direto: ${url}`);
-        const data = await response.json();
-        setCachedData(cacheKey, data);
-        return new Response(JSON.stringify(data), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' }
-        });
-      } else {
-        console.log(`❌ Falha direta ${url}: ${response.status} ${response.statusText}`);
-        if (response.status === 451) {
-          const errorText = await response.text().catch(() => 'Unknown error');
-          console.log(`🚫 Bloqueio geográfico detectado: ${errorText}`);
-        }
-      }
-    } catch (error) {
-      console.log(`💥 Erro de conexão direta ${baseUrl}: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  }
-
-  // 2. Tentar sistema de proxy público (Smart Proxy Service desabilitado)
-  console.log(`🔄 URLs diretas falharam, tentando sistema de proxy...`);
-  
-  for (const proxyService of PROXY_SERVICES) {
-    for (const baseUrl of directUrls.slice(0, 2)) { // Limitar a 2 URLs por proxy
+    // 3 tentativas por URL com delay progressivo
+    for (let attempt = 1; attempt <= 3; attempt++) {
       try {
-        const targetUrl = `${baseUrl}${endpoint}`;
-        const proxiedUrl = `${proxyService}${encodeURIComponent(targetUrl)}`;
+        const url = `${baseUrl}${endpoint}`;
+        if (attempt > 1) {
+          console.log(`🔄 Retry ${attempt}/3 para ${baseUrl}`);
+          await new Promise(resolve => setTimeout(resolve, 1000 * attempt)); // 1s, 2s, 3s
+        } else {
+          console.log(`📡 Tentando: ${url}`);
+        }
         
-        console.log(`🌐 Tentando proxy: ${proxyService} -> ${targetUrl}`);
-        
-        const response = await fetch(proxiedUrl, {
+        const response = await fetch(url, {
           headers: {
             ...baseHeaders,
             'User-Agent': getRandomUserAgent(),
-            'X-Requested-With': 'XMLHttpRequest'
+            'Referer': 'https://www.binance.com/',
+            'Origin': 'https://www.binance.com'
           },
           method: 'GET',
-          signal: AbortSignal.timeout(15000) // 15s timeout para proxy
+          signal: AbortSignal.timeout(12000) // 12s timeout
         });
         
         if (response.ok) {
-          console.log(`✅ Sucesso via proxy: ${proxyService}`);
           const data = await response.json();
+          
+          // Verificar se é bloqueio disfarçado
+          if (data.code === 0 && data.msg?.includes('restricted location')) {
+            console.log(`🚫 Bloqueio da Binance detectado: ${data.msg}`);
+            break; // Pular para próxima URL (não adianta retry)
+          }
+          
+          console.log(`✅ SUCESSO direto: ${url} ${attempt > 1 ? `(após ${attempt} tentativas)` : ''}`);
           setCachedData(cacheKey, data);
           return new Response(JSON.stringify(data), {
             status: 200,
             headers: { 'Content-Type': 'application/json' }
           });
         } else {
-          console.log(`❌ Falha proxy ${proxyService}: ${response.status}`);
+          console.log(`⚠️ Falha ${url}: ${response.status} ${response.statusText}`);
+          if (response.status === 451) {
+            console.log(`🚫 Bloqueio geográfico 451`);
+            break; // Não adianta retry em 451
+          }
         }
       } catch (error) {
-        console.log(`💥 Erro proxy ${proxyService}: ${error instanceof Error ? error.message : String(error)}`);
+        console.log(`❌ Erro ${baseUrl} (tentativa ${attempt}/3): ${error instanceof Error ? error.message : String(error)}`);
       }
     }
   }
 
-  // 3. Fallback para dados simulados se tudo falhar
-  console.log(`⚠️ Todos os métodos falharam, usando dados simulados...`);
+  // 2. Tentar sistema de proxy COM RETRY
+  console.log(`⚠️ TODAS URLs diretas falharam após retries, tentando sistema de proxy...`);
+  
+  for (const proxyService of PROXY_SERVICES) {
+    for (const baseUrl of directUrls.slice(0, 2)) { // 2 URLs principais por proxy
+      // 2 tentativas por proxy
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          const targetUrl = `${baseUrl}${endpoint}`;
+          const proxiedUrl = `${proxyService}${encodeURIComponent(targetUrl)}`;
+          
+          if (attempt > 1) {
+            console.log(`🔄 Retry proxy ${attempt}/2: ${proxyService}`);
+            await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
+          } else {
+            console.log(`🌐 Tentando proxy: ${proxyService}`);
+          }
+          
+          const response = await fetch(proxiedUrl, {
+            headers: {
+              ...baseHeaders,
+              'User-Agent': getRandomUserAgent(),
+              'X-Requested-With': 'XMLHttpRequest'
+            },
+            method: 'GET',
+            signal: AbortSignal.timeout(18000) // 18s timeout para proxy
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            
+            // Verificar bloqueio disfarçado
+            if (data.code === 0 && data.msg?.includes('restricted location')) {
+              console.log(`🚫 Bloqueio via proxy: ${data.msg}`);
+              break; // próximo proxy
+            }
+            
+            console.log(`✅ SUCESSO via proxy: ${proxyService} ${attempt > 1 ? `(após ${attempt} tentativas)` : ''}`);
+            setCachedData(cacheKey, data);
+            return new Response(JSON.stringify(data), {
+              status: 200,
+              headers: { 'Content-Type': 'application/json' }
+            });
+          } else {
+            console.log(`⚠️ Falha proxy ${proxyService}: ${response.status}`);
+          }
+        } catch (error) {
+          console.log(`❌ Erro proxy ${proxyService} (tentativa ${attempt}/2): ${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
+    }
+  }
+
+  // 3. Fallback para dados simulados (ÚLTIMA OPÇÃO)
+  console.log(`⚠️ Erro da Binance detectado, usando dados simulados: Service unavailable from a restricted location according to 'b. Eligibility' in https://www.binance.com/en/terms. Please contact customer service if you believe you received this message in error.`);
   return generateFallbackData(type);
 }
 
