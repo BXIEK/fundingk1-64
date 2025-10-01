@@ -466,6 +466,39 @@ export default function ArbitrageControl() {
     };
   }, []);
 
+  // Hook para chamar o bot a cada intervalo configurado (se ativo)
+  useEffect(() => {
+    let botInterval: any;
+    
+    const checkAndExecuteBot = async () => {
+      try {
+        const userId = await getUserId();
+        const { data } = await supabase.functions.invoke('auto-arbitrage-bot', {
+          body: { action: 'status', config: { userId } }
+        });
+
+        if (data?.config?.is_enabled) {
+          // Bot está ativo - executar ciclo
+          await supabase.functions.invoke('auto-arbitrage-bot', {
+            body: { 
+              action: 'execute-cycle',
+              config: { userId, ...data.config } 
+            }
+          });
+        }
+      } catch (error) {
+        console.error('Erro no bot automático:', error);
+      }
+    };
+
+    // Verificar a cada 30 segundos se o bot está ativo
+    botInterval = setInterval(checkAndExecuteBot, 30000);
+    
+    return () => {
+      if (botInterval) clearInterval(botInterval);
+    };
+  }, []);
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center gap-4">
@@ -480,6 +513,14 @@ export default function ArbitrageControl() {
           </h1>
           <p className="text-muted-foreground">Operações Cross-Over entre diferentes exchanges (OKX ↔ Binance ↔ Hyperliquid)</p>
         </div>
+        <Button 
+          onClick={() => navigate('/auto-bot')}
+          className="flex items-center gap-2"
+          variant="default"
+        >
+          <Bot className="h-4 w-4" />
+          Bot Automático
+        </Button>
       </div>
 
       {!hasCredentials && isRealMode && (

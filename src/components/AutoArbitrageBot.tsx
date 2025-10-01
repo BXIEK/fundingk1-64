@@ -98,7 +98,7 @@ export default function AutoArbitrageBot() {
     try {
       const userId = await getUserId();
       const { data, error } = await supabase
-        .from('bot_execution_logs')
+        .from('bot_execution_logs' as any)
         .select('*')
         .eq('user_id', userId)
         .order('executed_at', { ascending: false })
@@ -189,7 +189,7 @@ export default function AutoArbitrageBot() {
 
   const getStatusBadge = () => {
     if (isRunning) {
-      return <Badge variant="default" className="bg-green-600"><Activity className="h-3 w-3 mr-1" /> Ativo</Badge>;
+      return <Badge variant="default" className="bg-green-600"><Activity className="h-3 w-3 mr-1 animate-pulse" /> Ativo</Badge>;
     }
     return <Badge variant="secondary"><Square className="h-3 w-3 mr-1" /> Parado</Badge>;
   };

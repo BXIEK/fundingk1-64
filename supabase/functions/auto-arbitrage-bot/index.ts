@@ -49,6 +49,13 @@ serve(async (req) => {
       return await stopBot(supabase, config.userId);
     } else if (action === 'status') {
       return await getBotStatus(supabase, config.userId);
+    } else if (action === 'execute-cycle') {
+      // Executar um ciclo de busca e execução
+      await runBotLoop(supabase, config);
+      return new Response(
+        JSON.stringify({ success: true, message: 'Ciclo executado' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     return new Response(
@@ -58,8 +65,9 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('❌ Erro no Auto-Arbitrage Bot:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
     return new Response(
-      JSON.stringify({ success: false, error: error.message }),
+      JSON.stringify({ success: false, error: errorMessage }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
@@ -93,8 +101,10 @@ async function startBot(supabase: any, config: BotConfig) {
     throw configError;
   }
 
-  // Iniciar loop de execução em background
-  EdgeRuntime.waitUntil(runBotLoop(supabase, config));
+  // Executar uma iteração do bot
+  runBotLoop(supabase, config).catch(err => 
+    console.error('Erro no loop do bot:', err)
+  );
 
   return new Response(
     JSON.stringify({
@@ -112,60 +122,51 @@ async function startBot(supabase: any, config: BotConfig) {
 }
 
 async function runBotLoop(supabase: any, config: BotConfig) {
-  console.log('🔄 Loop do bot iniciado');
+  console.log('🔄 Executando ciclo do bot');
 
-  let iteration = 0;
-  const maxIterations = 100; // Limite de segurança para evitar loops infinitos
+  try {
+    // Verificar se o bot ainda está ativo
+    const { data: botConfig } = await supabase
+      .from('auto_arbitrage_configs')
+      .select('is_enabled, daily_volume, daily_limit')
+      .eq('user_id', config.userId)
+      .single();
 
-  while (iteration < maxIterations) {
-    try {
-      // Verificar se o bot ainda está ativo
-      const { data: botConfig } = await supabase
-        .from('auto_arbitrage_configs')
-        .select('is_enabled, daily_volume, daily_limit')
-        .eq('user_id', config.userId)
-        .single();
-
-      if (!botConfig?.is_enabled) {
-        console.log('⏸️ Bot desativado pelo usuário');
-        break;
-      }
-
-      // Verificar limite diário
-      if (botConfig.daily_volume >= botConfig.daily_limit) {
-        console.log('⚠️ Limite diário atingido');
-        await updateBotState(supabase, config.userId, { status: 'daily_limit_reached' });
-        break;
-      }
-
-      // Buscar oportunidades lucrativas
-      const opportunities = await findProfitableOpportunities(supabase, config);
-
-      if (opportunities.length > 0) {
-        console.log(`✅ ${opportunities.length} oportunidades encontradas`);
-
-        // Executar a melhor oportunidade
-        const bestOpp = opportunities[0];
-        await executeArbitrage(supabase, config, bestOpp);
-      } else {
-        console.log('⏳ Nenhuma oportunidade lucrativa no momento');
-      }
-
-      // Aguardar intervalo configurado
-      await new Promise(resolve => setTimeout(resolve, config.checkIntervalSeconds * 1000));
-      iteration++;
-
-    } catch (error) {
-      console.error('❌ Erro no loop do bot:', error);
-      await updateBotState(supabase, config.userId, { 
-        status: 'error',
-        last_error: error.message 
-      });
-      break;
+    if (!botConfig?.is_enabled) {
+      console.log('⏸️ Bot desativado pelo usuário');
+      return;
     }
+
+    // Verificar limite diário
+    if (botConfig.daily_volume >= botConfig.daily_limit) {
+      console.log('⚠️ Limite diário atingido');
+      await updateBotState(supabase, config.userId, { status: 'daily_limit_reached' });
+      return;
+    }
+
+    // Buscar oportunidades lucrativas
+    const opportunities = await findProfitableOpportunities(supabase, config);
+
+    if (opportunities.length > 0) {
+      console.log(`✅ ${opportunities.length} oportunidades encontradas`);
+
+      // Executar a melhor oportunidade
+      const bestOpp = opportunities[0];
+      await executeArbitrage(supabase, config, bestOpp);
+    } else {
+      console.log('⏳ Nenhuma oportunidade lucrativa no momento');
+    }
+
+  } catch (error) {
+    console.error('❌ Erro no loop do bot:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+    await updateBotState(supabase, config.userId, { 
+      status: 'error',
+      last_error: errorMessage 
+    });
   }
 
-  console.log('🏁 Loop do bot finalizado');
+  console.log('✅ Ciclo do bot finalizado');
 }
 
 async function findProfitableOpportunities(supabase: any, config: BotConfig) {

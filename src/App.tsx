@@ -9,6 +9,7 @@ import ArbitrageCalculator from "./pages/ArbitrageCalculator";
 import Portfolio from "./pages/Portfolio";
 import ArbitrageControl from "./pages/ArbitrageControl";
 import BalanceDashboard from "./pages/BalanceDashboard";
+import AutoBot from "./pages/AutoBot";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,6 +27,7 @@ const App = () => (
             <Route path="/portfolio" element={<Portfolio />} />
             <Route path="/arbitrage-control" element={<ArbitrageControl />} />
             <Route path="/balance-dashboard" element={<BalanceDashboard />} />
+            <Route path="/auto-bot" element={<AutoBot />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

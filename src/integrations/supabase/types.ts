@@ -351,6 +351,99 @@ export type Database = {
           },
         ]
       }
+      auto_arbitrage_configs: {
+        Row: {
+          check_interval_seconds: number
+          compounding_enabled: boolean
+          created_at: string
+          daily_limit: number
+          id: string
+          is_enabled: boolean
+          max_investment_per_trade: number
+          min_profit_threshold: number
+          min_spread: number
+          reinvest_profits: boolean
+          started_at: string | null
+          stop_loss_percentage: number
+          stopped_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          check_interval_seconds?: number
+          compounding_enabled?: boolean
+          created_at?: string
+          daily_limit?: number
+          id?: string
+          is_enabled?: boolean
+          max_investment_per_trade?: number
+          min_profit_threshold?: number
+          min_spread?: number
+          reinvest_profits?: boolean
+          started_at?: string | null
+          stop_loss_percentage?: number
+          stopped_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          check_interval_seconds?: number
+          compounding_enabled?: boolean
+          created_at?: string
+          daily_limit?: number
+          id?: string
+          is_enabled?: boolean
+          max_investment_per_trade?: number
+          min_profit_threshold?: number
+          min_spread?: number
+          reinvest_profits?: boolean
+          started_at?: string | null
+          stop_loss_percentage?: number
+          stopped_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      auto_arbitrage_states: {
+        Row: {
+          created_at: string
+          daily_volume: number
+          id: string
+          last_error: string | null
+          last_execution_time: string | null
+          status: string
+          total_profit: number
+          trades_executed: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          daily_volume?: number
+          id?: string
+          last_error?: string | null
+          last_execution_time?: string | null
+          status?: string
+          total_profit?: number
+          trades_executed?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          daily_volume?: number
+          id?: string
+          last_error?: string | null
+          last_execution_time?: string | null
+          status?: string
+          total_profit?: number
+          trades_executed?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       auto_balance_configs: {
         Row: {
           created_at: string | null
@@ -697,6 +790,42 @@ export type Database = {
           status?: string
           total_fees?: number | null
           total_profit?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      bot_execution_logs: {
+        Row: {
+          created_at: string
+          executed_at: string
+          id: string
+          investment: number
+          net_profit: number
+          opportunity_id: string | null
+          spread: number
+          symbol: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          executed_at?: string
+          id?: string
+          investment: number
+          net_profit: number
+          opportunity_id?: string | null
+          spread: number
+          symbol: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          executed_at?: string
+          id?: string
+          investment?: number
+          net_profit?: number
+          opportunity_id?: string | null
+          spread?: number
+          symbol?: string
           user_id?: string
         }
         Relationships: []

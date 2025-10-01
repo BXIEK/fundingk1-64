@@ -4,3 +4,6 @@ project_id = "uxhcsjlfwkhwkvhfacho"
 [functions]
 # Executar funções apenas em regiões com acesso permitido (US-East geralmente permitido)
 region = "us-east-1"
+
+[functions.auto-arbitrage-bot]
+verify_jwt = false
