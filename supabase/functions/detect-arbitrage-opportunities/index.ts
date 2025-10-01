@@ -82,7 +82,7 @@ async function getBinanceFundingOpportunities(): Promise<ArbitrageOpportunity[]>
 }
 
 function processFundingData(fundingData: any[]): ArbitrageOpportunity[] {
-  const standardInvestment = 10; // Base padronizada US$ 10
+  const standardInvestment = 100; // Base padronizada US$ 100
   
   const fundingOpportunities: ArbitrageOpportunity[] = fundingData.map((opp: any) => {
     // CÁLCULO PADRONIZADO (mesmo da calculadora)
@@ -91,7 +91,7 @@ function processFundingData(fundingData: any[]): ArbitrageOpportunity[] {
     const spotQuantity = standardInvestment / buyPrice;
     const futuresValue = spotQuantity * sellPrice;
     const grossProfit = futuresValue - standardInvestment;
-    const fees = standardInvestment * 0.0015; // 0.15% do investimento
+    const fees = standardInvestment * 0.0005; // 0.05% do investimento
     const netProfit = Math.max(0, grossProfit - fees);
     
     return {
@@ -109,7 +109,7 @@ function processFundingData(fundingData: any[]): ArbitrageOpportunity[] {
       liquidity_sell: 95000 + Math.random() * 45000,
       execution_time_estimate: 300 + Math.random() * 200
     };
-  }).filter((opp: ArbitrageOpportunity) => opp.potential_profit > 0.05); // Filtrar apenas oportunidades com lucro > US$ 0.05
+  }).filter((opp: ArbitrageOpportunity) => opp.potential_profit > 0.01); // Filtrar apenas oportunidades com lucro > US$ 0.01
   
   console.log(`✅ ${fundingOpportunities.length} oportunidades de funding da Binance encontradas`);
   return fundingOpportunities;
@@ -278,14 +278,14 @@ function calculateCrossExchangeOpportunities(binancePrices: any, okxPrices: any,
     // Verificar oportunidade Binance -> OKX
     if (spreadBinanceToOKX >= minSpread && spreadBinanceToOKX <= maxSpread) {
       // CÁLCULO PADRONIZADO (mesmo da calculadora)
-      const standardInvestment = 10;
+      const standardInvestment = 100;
       const spotQuantity = standardInvestment / binancePrice;
       const futuresValue = spotQuantity * okxPrice;
       const grossProfit = futuresValue - standardInvestment;
-      const fees = standardInvestment * 0.002; // 0.2% do investimento (cross-exchange)
+      const fees = standardInvestment * 0.0005; // 0.05% do investimento (cross-exchange)
       const potentialProfit = Math.max(0, grossProfit - fees);
       
-      if (potentialProfit > 0.05) { // Lucro mínimo ajustado para US$ 0.05
+      if (potentialProfit > 0.01) { // Lucro mínimo ajustado para US$ 0.01
         opportunities.push({
           symbol,
           buy_exchange: 'Binance',
@@ -309,14 +309,14 @@ function calculateCrossExchangeOpportunities(binancePrices: any, okxPrices: any,
     // Verificar oportunidade OKX -> Binance  
     if (spreadOKXToBinance >= minSpread && spreadOKXToBinance <= maxSpread) {
       // CÁLCULO PADRONIZADO (mesmo da calculadora)
-      const standardInvestment = 10;
+      const standardInvestment = 100;
       const spotQuantity = standardInvestment / okxPrice;
       const futuresValue = spotQuantity * binancePrice;
       const grossProfit = futuresValue - standardInvestment;
-      const fees = standardInvestment * 0.002; // 0.2% do investimento (cross-exchange)
+      const fees = standardInvestment * 0.0005; // 0.05% do investimento (cross-exchange)
       const potentialProfit = Math.max(0, grossProfit - fees);
       
-      if (potentialProfit > 0.05) { // Lucro mínimo ajustado para US$ 0.05
+      if (potentialProfit > 0.01) { // Lucro mínimo ajustado para US$ 0.01
         opportunities.push({
           symbol,
           buy_exchange: 'OKX',
@@ -450,12 +450,12 @@ serve(async (req) => {
 
         // Preparar dados para inserção com cálculos padronizados
         const insertData = finalOpportunities.map(opp => {
-          // PADRONIZAR: calcular lucro baseado em US$ 1000 (mesmo padrão da calculadora)
-          const standardInvestment = 10;
+          // PADRONIZAR: calcular lucro baseado em US$ 100 (mesmo padrão da calculadora)
+          const standardInvestment = 100;
           const spotQuantity = standardInvestment / opp.buy_price;
           const futuresValue = spotQuantity * opp.sell_price;
           const grossProfit = futuresValue - standardInvestment;
-          const fees = standardInvestment * 0.0015; // 0.15% taxa padrão
+          const fees = standardInvestment * 0.0005; // 0.05% taxa padrão
           const netProfitUsd = Math.max(0, grossProfit - fees);
           
           return {
