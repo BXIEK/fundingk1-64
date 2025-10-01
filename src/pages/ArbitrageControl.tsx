@@ -380,21 +380,26 @@ export default function ArbitrageControl() {
       // Chamar edge function de execução
       const { data, error } = await supabase.functions.invoke('execute-cross-exchange-arbitrage', {
         body: {
+          opportunityId: opportunity.id || 'manual',
+          userId: userId,
           symbol: opportunity.symbol,
-          buy_exchange: opportunity.buy_exchange,
-          sell_exchange: opportunity.sell_exchange,
-          buy_price: opportunity.buy_price,
-          sell_price: opportunity.sell_price,
-          amount: config.investmentAmount,
-          slippage: config.maxSlippage,
-          stop_loss: config.stopLossPercentage,
-          trading_mode: isRealMode ? 'real' : 'simulation',
-          user_id: userId,
-          binance_api_key: binanceCreds.apiKey,
-          binance_secret_key: binanceCreds.secretKey,
-          okx_api_key: okxCreds.apiKey,
-          okx_secret_key: okxCreds.secretKey,
-          okx_passphrase: okxCreds.passphrase
+          buyExchange: opportunity.buy_exchange,
+          sellExchange: opportunity.sell_exchange,
+          buyPrice: opportunity.buy_price,
+          sellPrice: opportunity.sell_price,
+          mode: isRealMode ? 'real' : 'simulation',
+          binanceApiKey: binanceCreds.apiKey,
+          binanceSecretKey: binanceCreds.secretKey,
+          okxApiKey: okxCreds.apiKey,
+          okxSecretKey: okxCreds.secretKey,
+          okxPassphrase: okxCreds.passphrase,
+          config: {
+            investmentAmount: config.investmentAmount,
+            maxSlippage: config.maxSlippage,
+            customFeeRate: 0.2,
+            stopLossPercentage: config.stopLossPercentage,
+            prioritizeSpeed: true
+          }
         }
       });
 
