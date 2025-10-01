@@ -256,11 +256,15 @@ function calculateCrossExchangeOpportunities(binancePrices: any, okxPrices: any,
   console.log(`🎯 Analisando símbolos whitelistados: ${analysisSymbols.join(', ')}`);
   
   analysisSymbols.forEach(symbol => {
-    const binancePrice = binancePrices[symbol];
-    const okxPrice = okxPrices[symbol];
+    // Buscar preços usando o formato correto de cada exchange
+    const binanceSymbol = `${symbol}USDT`; // Binance: BTCUSDT
+    const okxSymbol = `${symbol}-USDT`;    // OKX: BTC-USDT
+    
+    const binancePrice = binancePrices[binanceSymbol] || binancePrices[symbol];
+    const okxPrice = okxPrices[okxSymbol] || okxPrices[symbol];
     
     if (!binancePrice || !okxPrice || binancePrice <= 0 || okxPrice <= 0) {
-      console.log(`⚠️ Skipping ${symbol}: preços inválidos - Binance: ${binancePrice}, OKX: ${okxPrice}`);
+      console.log(`⚠️ Skipping ${symbol}: preços inválidos - Binance[${binanceSymbol}]: ${binancePrice}, OKX[${okxSymbol}]: ${okxPrice}`);
       return;
     }
     
