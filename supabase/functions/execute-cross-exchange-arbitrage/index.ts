@@ -187,14 +187,21 @@ serve(async (req) => {
           console.log(`🔍 Verificando saldo de USDT na ${buyExchange}...`);
           const usdtBalance = await getExchangeBalance(buyExchange, 'USDT', { binanceApiKey, binanceSecretKey, okxApiKey, okxSecretKey, okxPassphrase });
           console.log(`💰 Saldo USDT disponível na ${buyExchange}: $${usdtBalance.toFixed(2)}`);
+          console.log(`📊 Comparação: Saldo ($${usdtBalance.toFixed(2)}) vs Mínimo necessário ($${minimumTotalUsdt.toFixed(2)})`);
           
           if (usdtBalance < minimumTotalUsdt) {
-            throw new Error(
-              `❌ Saldo USDT insuficiente para ${symbol}. ` +
-              `Necessário: $${minimumTotalUsdt.toFixed(2)} USDT, ` +
-              `Disponível: $${usdtBalance.toFixed(2)} USDT. ` +
-              `Faltam: $${(minimumTotalUsdt - usdtBalance).toFixed(2)} USDT.`
-            );
+            const errorMsg = `❌ SALDO INSUFICIENTE PARA ${symbol}\n\n` +
+              `💰 Saldo disponível: $${usdtBalance.toFixed(2)} USDT\n` +
+              `📊 Mínimo necessário: $${minimumTotalUsdt.toFixed(2)} USDT\n` +
+              `❌ Faltam: $${(minimumTotalUsdt - usdtBalance).toFixed(2)} USDT\n\n` +
+              `Por que precisa de tanto USDT?\n` +
+              `• OKX exige mínimo de ${minWithdrawalAmount} ${symbol.replace('USDT', '')} para transferência\n` +
+              `• Preço atual: $${buyPrice.toFixed(4)} por ${symbol.replace('USDT', '')}\n` +
+              `• Cálculo: ${minWithdrawalAmount} × $${buyPrice.toFixed(4)} × 2 operações × 1.15 (margem) = $${minimumTotalUsdt.toFixed(2)}\n\n` +
+              `💡 Solução: Deposite mais $${(minimumTotalUsdt - usdtBalance).toFixed(2)} USDT na ${buyExchange}`;
+            
+            console.error(errorMsg);
+            throw new Error(errorMsg);
           }
           
           // Usar até 95% do saldo disponível (deixar margem), mas não menos que o mínimo necessário
@@ -204,10 +211,11 @@ serve(async (req) => {
           console.log(`✅ VALOR AJUSTADO AUTOMATICAMENTE:`);
           console.log(`   Configurado: $${usdtInvestment.toFixed(2)} USDT`);
           console.log(`   Mínimo necessário: $${minimumTotalUsdt.toFixed(2)} USDT`);
+          console.log(`   Saldo disponível: $${usdtBalance.toFixed(2)} USDT`);
           console.log(`   Valor final: $${actualUsdtInvestment.toFixed(2)} USDT`);
           
         } catch (balanceError) {
-          console.error('⚠️ Erro ao verificar saldo USDT:', balanceError);
+          console.error('❌ ERRO CRÍTICO:', balanceError);
           throw balanceError;
         }
         
