@@ -89,20 +89,45 @@ const ArbitrageExecutionModal: React.FC<ArbitrageExecutionModalProps> = ({
   const calculateProjectedResults = () => {
     if (!opportunity) return null;
 
-    const baseSpread = opportunity.spread / 100;
-    const adjustedSpread = Math.max(0, baseSpread - (config.maxSlippage / 100));
+    // Cálculo real baseado em preços
+    const slippageMultiplier = config.maxSlippage / 100;
     
-    const grossProfit = (config.investmentAmount * adjustedSpread);
+    // Preço de compra ajustado com slippage (aumenta o preço de compra)
+    const adjustedBuyPrice = opportunity.buy_price * (1 + slippageMultiplier);
+    
+    // Preço de venda ajustado com slippage (diminui o preço de venda)
+    const adjustedSellPrice = opportunity.sell_price * (1 - slippageMultiplier);
+    
+    // Quantidade que pode ser comprada com o investimento
+    const quantity = config.investmentAmount / adjustedBuyPrice;
+    
+    // Valor recebido ao vender
+    const sellValue = quantity * adjustedSellPrice;
+    
+    // Lucro bruto = valor da venda - valor da compra
+    const grossProfit = sellValue - config.investmentAmount;
+    
+    // Taxas de trading em ambas exchanges (compra + venda)
     const tradingFees = (config.investmentAmount * config.customFeeRate / 100);
-    const netProfit = Math.max(0, grossProfit - tradingFees);
+    
+    // Lucro líquido
+    const netProfit = grossProfit - tradingFees;
+    
+    // ROI
     const roi = (netProfit / config.investmentAmount) * 100;
+    
+    // Spread mínimo necessário para break-even
+    const breakEvenSpread = (config.customFeeRate + (config.maxSlippage * 2));
 
     return {
       grossProfit,
       tradingFees,
       netProfit,
       roi,
-      breakEvenSpread: (config.customFeeRate + config.maxSlippage)
+      breakEvenSpread,
+      quantity,
+      adjustedBuyPrice,
+      adjustedSellPrice
     };
   };
 
@@ -274,6 +299,30 @@ const ArbitrageExecutionModal: React.FC<ArbitrageExecutionModalProps> = ({
                 </CardTitle>
               </CardHeader>
               <CardContent>
+                {/* Detalhes da Operação */}
+                <div className="mb-4 pb-4 border-b">
+                  <div className="text-xs font-medium text-muted-foreground mb-2">Detalhes da Operação</div>
+                  <div className="grid grid-cols-2 gap-3 text-xs">
+                    <div>
+                      <span className="text-muted-foreground">Quantidade:</span>
+                      <span className="ml-2 font-semibold">{projected.quantity.toFixed(6)} {opportunity.symbol.replace('USDT', '')}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Investimento:</span>
+                      <span className="ml-2 font-semibold">{formatCurrency(config.investmentAmount)}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Preço Compra (c/ slippage):</span>
+                      <span className="ml-2 font-semibold">{formatCurrency(projected.adjustedBuyPrice)}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Preço Venda (c/ slippage):</span>
+                      <span className="ml-2 font-semibold">{formatCurrency(projected.adjustedSellPrice)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Resultados Financeiros */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                   <div>
                     <div className="text-muted-foreground">Lucro Bruto</div>
