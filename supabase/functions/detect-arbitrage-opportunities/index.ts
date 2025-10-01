@@ -256,17 +256,19 @@ function calculateCrossExchangeOpportunities(binancePrices: any, okxPrices: any,
   console.log(`🎯 Analisando símbolos whitelistados: ${analysisSymbols.join(', ')}`);
   
   analysisSymbols.forEach(symbol => {
-    // Buscar preços usando o formato correto de cada exchange
-    const binanceSymbol = `${symbol}USDT`; // Binance: BTCUSDT
-    const okxSymbol = `${symbol}-USDT`;    // OKX: BTC-USDT
+    // Binance: BTCUSDT, OKX: BTC (sem sufixo nem hífen)
+    const binanceSymbol = `${symbol}USDT`;
+    const okxSymbol = symbol; // OKX retorna apenas 'BTC', não 'BTC-USDT'
     
     const binancePrice = binancePrices[binanceSymbol] || binancePrices[symbol];
-    const okxPrice = okxPrices[okxSymbol] || okxPrices[symbol];
+    const okxPrice = okxPrices[okxSymbol];
     
     if (!binancePrice || !okxPrice || binancePrice <= 0 || okxPrice <= 0) {
-      console.log(`⚠️ Skipping ${symbol}: preços inválidos - Binance[${binanceSymbol}]: ${binancePrice}, OKX[${okxSymbol}]: ${okxPrice}`);
+      console.log(`⚠️ ${symbol}: Binance[${binanceSymbol}]=${binancePrice || 'undefined'}, OKX[${okxSymbol}]=${okxPrice || 'undefined'}`);
       return;
     }
+    
+    console.log(`✅ ${symbol} válido: Binance=$${binancePrice.toFixed(2)}, OKX=$${okxPrice.toFixed(2)}`);
     
     // Calcular spreads bidirecionais
     const spreadBinanceToOKX = ((okxPrice - binancePrice) / binancePrice) * 100;
