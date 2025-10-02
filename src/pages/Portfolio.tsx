@@ -267,8 +267,38 @@ export default function Portfolio() {
     }
   };
 
+  // Garante carregar credenciais dos Supabase Secrets quando localStorage estiver vazio
+  const ensureCredentialsLoaded = async () => {
+    try {
+      const hasBinance = !!localStorage.getItem('binance_credentials');
+      const hasOKX = !!localStorage.getItem('okx_credentials');
+      if (hasBinance || hasOKX) return;
+
+      const [binanceResp, okxResp] = await Promise.all([
+        supabase.functions.invoke('get-binance-credentials'),
+        supabase.functions.invoke('get-okx-credentials'),
+      ]);
+
+      if (binanceResp.data?.success && binanceResp.data.credentials) {
+        localStorage.setItem('binance_credentials', JSON.stringify(binanceResp.data.credentials));
+      }
+      if (okxResp.data?.success && okxResp.data.credentials) {
+        localStorage.setItem('okx_credentials', JSON.stringify(okxResp.data.credentials));
+      }
+
+      setHasCredentials(
+        !!localStorage.getItem('binance_credentials') || !!localStorage.getItem('okx_credentials')
+      );
+    } catch (e) {
+      console.warn('ensureCredentialsLoaded: falha ao carregar secrets', e);
+    }
+  };
+
   useEffect(() => {
-    loadPortfolioData();
+    (async () => {
+      await ensureCredentialsLoaded();
+      await loadPortfolioData();
+    })();
   }, [isRealMode]);
 
   useEffect(() => {
