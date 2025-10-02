@@ -46,6 +46,8 @@ Deno.serve(async (req) => {
     } = await req.json() as TransferRequest;
 
     console.log(`🚀 Iniciando transferência: ${amount} ${asset} de ${fromExchange} → ${toExchange} via ${network}`);
+    console.log(`👤 User ID: ${userId}`);
+    console.log(`🔑 Credenciais fornecidas: Binance=${!!binanceApiKey}, OKX=${!!okxApiKey}`);
 
     // Validações
     if (!userId || !fromExchange || !toExchange || !asset || !amount) {
@@ -56,7 +58,24 @@ Deno.serve(async (req) => {
       throw new Error('Exchange de origem e destino não podem ser iguais');
     }
 
+    // Validar credenciais das exchanges envolvidas
+    if (fromExchange === 'binance' && (!binanceApiKey || !binanceSecretKey)) {
+      throw new Error('Credenciais da Binance não fornecidas');
+    }
+    if (fromExchange === 'okx' && (!okxApiKey || !okxSecretKey || !okxPassphrase)) {
+      throw new Error('Credenciais da OKX não fornecidas');
+    }
+    if (toExchange === 'binance' && (!binanceApiKey || !binanceSecretKey)) {
+      throw new Error('Credenciais da Binance não fornecidas');
+    }
+    if (toExchange === 'okx' && (!okxApiKey || !okxSecretKey || !okxPassphrase)) {
+      throw new Error('Credenciais da OKX não fornecidas');
+    }
+
+    console.log('✅ Validações iniciais passaram');
+
     // 1. Obter endereço de depósito da exchange de destino
+    console.log(`📍 Obtendo endereço de depósito da ${toExchange}...`);
     const depositAddress = await getDepositAddress(
       toExchange,
       asset,
@@ -127,14 +146,18 @@ Deno.serve(async (req) => {
 
   } catch (error) {
     console.error('❌ Erro na transferência:', error);
+    console.error('❌ Stack trace:', error instanceof Error ? error.stack : 'N/A');
     const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+    
+    // Retornar sempre 200 mas com success: false para evitar erro "Failed to send request"
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: errorMessage 
+        error: errorMessage,
+        details: error instanceof Error ? error.stack : undefined
       }),
       { 
-        status: 400,
+        status: 200, // Mudado para 200 para evitar erro de rede
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       }
     );

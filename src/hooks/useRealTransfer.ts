@@ -135,14 +135,21 @@ export const useRealTransfer = () => {
         }
       });
 
+      console.log('📦 Resposta da função:', { data, error });
+
       if (error) {
         throw new Error(error.message || 'Erro na transferência');
       }
 
+      // Verificar se a resposta indica falha
+      if (data && !data.success) {
+        throw new Error(data.error || 'Transferência falhou');
+      }
+
       const result: RealTransferResult = {
-        success: data.success,
-        transfer: data.transfer,
-        message: data.message
+        success: data?.success || false,
+        transfer: data?.transfer,
+        message: data?.message
       };
 
       setLastTransfer(result);
