@@ -238,6 +238,20 @@ async function getOKXDepositAddress(
   credentials: any
 ): Promise<{ address: string; network: string; memo?: string }> {
   
+  // Mapeamento de redes: Frontend → OKX API
+  const chainMapping: { [key: string]: string } = {
+    'TRC20': `${asset}-TRC20`,
+    'ERC20': `${asset}-ERC20`,
+    'BEP20': `${asset}-BSC`,
+    'BEP2': `${asset}-BEP2`,
+    'ARBITRUM': `${asset}-Arbitrum One`,
+    'POLYGON': `${asset}-Polygon`,
+    'OPTIMISM': `${asset}-Optimism`
+  };
+  
+  const okxChain = chainMapping[network] || `${asset}-${network}`;
+  console.log(`🔄 Mapeamento de rede OKX para depósito: ${network} → ${okxChain}`);
+  
   const timestamp = new Date().toISOString();
   const method = 'GET';
   const requestPath = `/api/v5/asset/deposit-address?ccy=${asset}`;
@@ -268,15 +282,17 @@ async function getOKXDepositAddress(
     throw new Error(`OKX Error: ${data.msg}`);
   }
 
-  const addressData = data.data.find((d: any) => d.chain === network);
+  const addressData = data.data.find((d: any) => d.chain === okxChain);
   
   if (!addressData) {
-    throw new Error(`Rede ${network} não encontrada na OKX para ${asset}`);
+    throw new Error(`Rede ${okxChain} não encontrada na OKX para ${asset}`);
   }
+
+  console.log(`✅ Endereço OKX obtido: ${addressData.addr} (rede: ${addressData.chain})`);
 
   return {
     address: addressData.addr,
-    network: addressData.chain,
+    network: okxChain,
     memo: addressData.memo || undefined
   };
 }
@@ -366,6 +382,20 @@ async function executeOKXWithdrawal(
   credentials: any
 ): Promise<{ id: string; fee: number; txUrl?: string }> {
   
+  // Mapeamento de redes: Frontend → OKX API
+  const chainMapping: { [key: string]: string } = {
+    'TRC20': `${asset}-TRC20`,
+    'ERC20': `${asset}-ERC20`,
+    'BEP20': `${asset}-BSC`,
+    'BEP2': `${asset}-BEP2`,
+    'ARBITRUM': `${asset}-Arbitrum One`,
+    'POLYGON': `${asset}-Polygon`,
+    'OPTIMISM': `${asset}-Optimism`
+  };
+  
+  const okxChain = chainMapping[chain] || `${asset}-${chain}`;
+  console.log(`🔄 Mapeamento de rede OKX: ${chain} → ${okxChain}`);
+  
   const timestamp = new Date().toISOString();
   const method = 'POST';
   const requestPath = '/api/v5/asset/withdrawal';
@@ -376,7 +406,7 @@ async function executeOKXWithdrawal(
     dest: '4', // On-chain withdrawal
     toAddr: address,
     fee: 'auto',
-    chain
+    chain: okxChain
   };
   
   if (memo) {
