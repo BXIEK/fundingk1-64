@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { getUserId } from "@/lib/userUtils";
 
 interface RealTransferRequest {
   fromExchange: 'binance' | 'okx';
@@ -111,18 +112,16 @@ export const useRealTransfer = () => {
       // Validar e obter credenciais
       const creds = validateCredentials(request);
 
-      // Obter user_id da sessão
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        throw new Error('Usuário não autenticado');
-      }
+      // Obter user_id (autenticado ou baseado em credenciais)
+      const userId = await getUserId();
+      console.log(`👤 User ID obtido: ${userId}`);
 
       console.log(`🚀 Iniciando transferência REAL: ${request.amount} ${request.asset} de ${request.fromExchange} → ${request.toExchange}`);
 
       // Chamar a função auto-transfer-crypto para transferência real
       const { data, error } = await supabase.functions.invoke('auto-transfer-crypto', {
         body: {
-          userId: user.id,
+          userId: userId,
           fromExchange: request.fromExchange,
           toExchange: request.toExchange,
           asset: request.asset,
@@ -210,13 +209,12 @@ export const useRealTransfer = () => {
   // Função para listar histórico de transferências
   const getTransferHistory = useCallback(async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Não autenticado');
+      const userId = await getUserId();
 
       const { data, error } = await supabase
         .from('crypto_transfers')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .order('created_at', { ascending: false })
         .limit(20);
 
