@@ -43,6 +43,7 @@ const SmartTransferDashboard = () => {
     fromExchange: 'binance',
     toExchange: 'okx'
   });
+  const [manualNetwork, setManualNetwork] = useState<string | null>(null);
   const [optimizationSettings, setOptimizationSettings] = useState({
     useProxy: false,
     bypassSecurity: false,
@@ -390,7 +391,24 @@ const SmartTransferDashboard = () => {
     return getCheapestCompatibleNetwork(formData.symbol, formData.fromExchange, formData.toExchange);
   };
 
-  const selectedNetwork = getAutoSelectedNetwork();
+  // Obter redes compatíveis entre as duas exchanges
+  const getCompatibleNetworks = () => {
+    const availableNetworks = getAvailableNetworks(formData.symbol);
+    const fromSupported = EXCHANGE_NETWORK_SUPPORT[formData.fromExchange]?.[formData.symbol] || [];
+    const toSupported = EXCHANGE_NETWORK_SUPPORT[formData.toExchange]?.[formData.symbol] || [];
+    
+    return availableNetworks.filter(network => 
+      fromSupported.includes(network.value) && toSupported.includes(network.value)
+    );
+  };
+
+  const autoNetwork = getAutoSelectedNetwork();
+  const compatibleNetworks = getCompatibleNetworks();
+  
+  // Usar rede manual se selecionada e válida, senão usar automática
+  const selectedNetwork = manualNetwork 
+    ? compatibleNetworks.find(n => n.value === manualNetwork) 
+    : autoNetwork;
 
   // Helper functions for network display
   const getNetworkDisplayName = (network: string) => {
@@ -478,7 +496,13 @@ const SmartTransferDashboard = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Exchange Origem</Label>
-                  <Select value={formData.fromExchange} onValueChange={(value) => setFormData(prev => ({...prev, fromExchange: value}))}>
+                  <Select 
+                    value={formData.fromExchange} 
+                    onValueChange={(value) => {
+                      setFormData(prev => ({...prev, fromExchange: value}));
+                      setManualNetwork(null); // Reset rede ao mudar exchange
+                    }}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="De" />
                     </SelectTrigger>
@@ -494,7 +518,13 @@ const SmartTransferDashboard = () => {
                 
                 <div className="space-y-2">
                   <Label>Exchange Destino</Label>
-                  <Select value={formData.toExchange} onValueChange={(value) => setFormData(prev => ({...prev, toExchange: value}))}>
+                  <Select 
+                    value={formData.toExchange} 
+                    onValueChange={(value) => {
+                      setFormData(prev => ({...prev, toExchange: value}));
+                      setManualNetwork(null); // Reset rede ao mudar exchange
+                    }}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Para" />
                     </SelectTrigger>
@@ -507,6 +537,45 @@ const SmartTransferDashboard = () => {
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+
+              {/* Seletor de Rede Blockchain */}
+              <div className="space-y-2">
+                <Label htmlFor="network" className="flex items-center gap-2">
+                  <Globe className="h-4 w-4" />
+                  Rede Blockchain
+                </Label>
+                <Select 
+                  value={manualNetwork || (autoNetwork?.value || '')} 
+                  onValueChange={(value) => setManualNetwork(value)}
+                  disabled={compatibleNetworks.length === 0}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={compatibleNetworks.length > 0 ? "Selecione a rede" : "Nenhuma rede compatível"} />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background z-[100]">
+                    {compatibleNetworks.map((network) => (
+                      <SelectItem key={network.value} value={network.value}>
+                        <div className="flex flex-col">
+                          <span className="font-medium">{network.label}</span>
+                          <span className="text-xs text-muted-foreground">
+                            Taxa: {network.fee} {network.feeUnit} • Tempo: {network.time}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {compatibleNetworks.length === 0 && (
+                  <div className="text-xs text-destructive mt-1">
+                    ⚠️ Nenhuma rede compatível entre {formData.fromExchange.toUpperCase()} e {formData.toExchange.toUpperCase()} para {formData.symbol}
+                  </div>
+                )}
+                {!manualNetwork && autoNetwork && (
+                  <div className="text-xs text-muted-foreground mt-1">
+                    💡 Rede otimizada selecionada automaticamente (mais barata/rápida)
+                  </div>
+                )}
               </div>
 
               <div className="flex gap-2">
