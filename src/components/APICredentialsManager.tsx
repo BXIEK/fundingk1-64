@@ -66,16 +66,27 @@ const APICredentialsManager = () => {
     let credentialsLoaded = false;
     
     try {
-      console.log('🔄 Carregando credenciais reais do Supabase...');
+      console.log('🔄 [DIAGNÓSTICO] Carregando credenciais reais do Supabase...');
+      console.log('🔄 [DIAGNÓSTICO] User autenticado:', (await supabase.auth.getUser()).data.user?.email);
+      console.log('🔄 [DIAGNÓSTICO] LocalStorage atual:', Object.keys(localStorage));
       
       // Tentar carregar credenciais das edge functions primeiro
       try {
+        console.log('📡 [DIAGNÓSTICO] Chamando edge function: get-binance-credentials');
+        
         // Carregar credenciais da Binance do Supabase
         const { data: binanceData, error: binanceError } = await supabase.functions.invoke('get-binance-credentials');
         
+        console.log('📊 [DIAGNÓSTICO] Resposta Binance:', { 
+          success: binanceData?.success, 
+          hasCredentials: !!binanceData?.credentials,
+          error: binanceError,
+          data: binanceData 
+        });
+        
         if (binanceError) {
-          console.error('❌ Erro ao carregar credenciais Binance:', binanceError);
-          console.error('Detalhes do erro:', binanceError);
+          console.error('❌ [DIAGNÓSTICO] Erro ao carregar credenciais Binance:', binanceError);
+          console.error('Detalhes do erro completo:', JSON.stringify(binanceError, null, 2));
         } else if (binanceData?.success && binanceData.credentials) {
           console.log('✅ Credenciais Binance carregadas com sucesso do Supabase');
           console.log('API Key Binance encontrada:', binanceData.credentials.apiKey ? 'Sim' : 'Não');
@@ -96,12 +107,21 @@ const APICredentialsManager = () => {
           credentialsLoaded = true;
         }
 
+        console.log('📡 [DIAGNÓSTICO] Chamando edge function: get-okx-credentials');
+        
         // Carregar credenciais da OKX do Supabase
         const { data: okxData, error: okxError } = await supabase.functions.invoke('get-okx-credentials');
         
+        console.log('📊 [DIAGNÓSTICO] Resposta OKX:', { 
+          success: okxData?.success, 
+          hasCredentials: !!okxData?.credentials,
+          error: okxError,
+          data: okxData 
+        });
+        
         if (okxError) {
-          console.error('❌ Erro ao carregar credenciais OKX:', okxError);
-          console.error('Detalhes do erro:', okxError);
+          console.error('❌ [DIAGNÓSTICO] Erro ao carregar credenciais OKX:', okxError);
+          console.error('Detalhes do erro completo:', JSON.stringify(okxError, null, 2));
         } else if (okxData?.success && okxData.credentials) {
           console.log('✅ Credenciais OKX carregadas com sucesso do Supabase');
           console.log('API Key OKX encontrada:', okxData.credentials.apiKey ? 'Sim' : 'Não');
@@ -124,12 +144,14 @@ const APICredentialsManager = () => {
           credentialsLoaded = true;
         }
       } catch (edgeFunctionError) {
-        console.warn('⚠️ Edge functions não disponíveis, usando credenciais autorizadas:', edgeFunctionError);
+        console.error('⚠️ [DIAGNÓSTICO] Edge functions falharam:', edgeFunctionError);
+        console.error('Stack trace:', edgeFunctionError instanceof Error ? edgeFunctionError.stack : 'N/A');
       }
 
       // Se não conseguiu carregar das edge functions, usar credenciais autorizadas pelo usuário
       if (!credentialsLoaded) {
-        console.log('🔑 Carregando credenciais autorizadas pelo usuário...');
+        console.log('🔑 [DIAGNÓSTICO] Edge functions não retornaram credenciais');
+        console.log('🔑 [DIAGNÓSTICO] Usando credenciais hardcoded como fallback...');
         
         // Credenciais Binance autorizadas
         const binanceCredentials = {
@@ -172,12 +194,21 @@ const APICredentialsManager = () => {
 
       // Forçar atualização da interface
       if (credentialsLoaded) {
+        console.log('✅ [DIAGNÓSTICO] Credenciais carregadas com sucesso!');
+        console.log('✅ [DIAGNÓSTICO] Binance API Key:', credentials.binance.apiKey.substring(0, 10) + '...');
+        console.log('✅ [DIAGNÓSTICO] OKX API Key:', credentials.okx.apiKey.substring(0, 10) + '...');
+        
         toast({
           title: "✅ Credenciais Reais Carregadas",
           description: "Credenciais das exchanges carregadas e configuradas automaticamente"
         });
         console.log('🎯 Credenciais reais carregadas e campos preenchidos automaticamente');
       } else {
+        console.error('❌ [DIAGNÓSTICO] FALHA: Nenhuma credencial foi carregada!');
+        console.error('❌ [DIAGNÓSTICO] Verifique:');
+        console.error('   1. Secrets configurados no Supabase?');
+        console.error('   2. Edge functions respondendo?');
+        console.error('   3. Conexão de rede estável?');
         console.log('📝 Nenhuma credencial encontrada no Supabase, verifique se os secrets estão configurados');
         toast({
           title: "⚠️ Credenciais não encontradas",
