@@ -166,10 +166,9 @@ export const TradingModeProvider: React.FC<TradingModeProviderProps> = ({ childr
   };
 
   useEffect(() => {
-    (async () => {
-      await loadCredentialsFromSupabase();
+    loadCredentialsFromSupabase().then(() => {
       checkCredentials();
-    })();
+    });
     
     // Verifica credenciais a cada mudança no localStorage
     const handleStorageChange = () => {
