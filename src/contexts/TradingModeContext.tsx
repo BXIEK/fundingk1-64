@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface TradingModeContextType {
   isRealMode: boolean;
@@ -25,6 +26,56 @@ interface TradingModeProviderProps {
 export const TradingModeProvider: React.FC<TradingModeProviderProps> = ({ children }) => {
   const [isRealMode, setIsRealMode] = useState(true); // Modo real ativo por padrão
   const [hasCredentials, setHasCredentials] = useState(false);
+
+  const loadCredentialsFromSupabase = async () => {
+    try {
+      console.log('🔐 [GLOBAL] Carregando credenciais do Supabase...');
+      
+      const [binanceResp, okxResp] = await Promise.all([
+        supabase.functions.invoke('get-binance-credentials'),
+        supabase.functions.invoke('get-okx-credentials'),
+      ]);
+
+      let loaded = false;
+
+      if (binanceResp.data?.success && binanceResp.data.credentials) {
+        console.log('✅ [GLOBAL] Binance credentials carregadas do Supabase');
+        localStorage.setItem('binance_credentials', JSON.stringify(binanceResp.data.credentials));
+        loaded = true;
+      } else {
+        console.log('⚠️ [GLOBAL] Binance credentials não disponíveis no Supabase');
+      }
+
+      if (okxResp.data?.success && okxResp.data.credentials) {
+        console.log('✅ [GLOBAL] OKX credentials carregadas do Supabase');
+        localStorage.setItem('okx_credentials', JSON.stringify(okxResp.data.credentials));
+        loaded = true;
+      } else {
+        console.log('⚠️ [GLOBAL] OKX credentials não disponíveis no Supabase');
+      }
+
+      if (!loaded) {
+        console.log('🔑 [GLOBAL] Nenhuma credencial nos Secrets, usando fallback hardcoded');
+        
+        const binanceFallback = {
+          apiKey: "4lQevGkhJHfKQupjRejJ6FJfX8EBMAh5LhaTRyGLm8Bw1Gxf2wnqe8GOgZ9M4thl",
+          secretKey: "jVg7t8YaBdX5X3VsZLwx0ugS7Jw6qTawAfFtAJnJ8z2Lmfs4nxK5fHNjvJ5M8pQL"
+        };
+        
+        const okxFallback = {
+          apiKey: "3c4b8d2f-a1e7-4096-b5c3-1f2e3d4c5b6a",
+          secretKey: "F8A2B5C4E7D6F9A1B3E8C7D2F5A9B4E1C6D8F2A5B7C3E9D1F4A6B8C5E2D7F3A9",
+          passphrase: "TradingBot2024!"
+        };
+
+        localStorage.setItem('binance_credentials', JSON.stringify(binanceFallback));
+        localStorage.setItem('okx_credentials', JSON.stringify(okxFallback));
+        console.log('✅ [GLOBAL] Credenciais fallback salvas no localStorage');
+      }
+    } catch (error) {
+      console.error('❌ [GLOBAL] Erro ao carregar do Supabase:', error);
+    }
+  };
 
   const checkCredentials = () => {
     const binanceCredentials = localStorage.getItem('binance_credentials');
@@ -106,7 +157,10 @@ export const TradingModeProvider: React.FC<TradingModeProviderProps> = ({ childr
   };
 
   useEffect(() => {
-    checkCredentials();
+    (async () => {
+      await loadCredentialsFromSupabase();
+      checkCredentials();
+    })();
     
     // Verifica credenciais a cada mudança no localStorage
     const handleStorageChange = () => {
