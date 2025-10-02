@@ -13,7 +13,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useOptimizedTransfer } from "@/hooks/useOptimizedTransfer";
-import { RefreshCw, ArrowRightLeft, TrendingUp, Clock, DollarSign, AlertTriangle, Shield, Zap, Globe, Lock, Save } from "lucide-react";
+import { useRealTransfer } from "@/hooks/useRealTransfer";
+import { RefreshCw, ArrowRightLeft, TrendingUp, Clock, DollarSign, AlertTriangle, Shield, Zap, Globe, Lock, Save, Send } from "lucide-react";
 
 interface TransferAnalysis {
   symbol: string;
@@ -65,6 +66,12 @@ const SmartTransferDashboard = () => {
     deactivateSecurityBypass,
     getOptimizationRecommendations
   } = useOptimizedTransfer();
+
+  const {
+    loading: realTransferLoading,
+    lastTransfer,
+    executeRealTransfer
+  } = useRealTransfer();
 
   // Carregar configurações salvas
   useEffect(() => {
@@ -212,6 +219,52 @@ const SmartTransferDashboard = () => {
         description: error.message || "Erro ao executar transferência",
         variant: "destructive"
       });
+    }
+  };
+
+  // Nova função para executar transferência REAL
+  const handleExecuteRealTransfer = async () => {
+    // Validar que apenas Binance e OKX são suportadas
+    const supportedExchanges = ['binance', 'okx'];
+    if (!supportedExchanges.includes(formData.fromExchange) || !supportedExchanges.includes(formData.toExchange)) {
+      toast({
+        title: "⚠️ Exchange Não Suportada",
+        description: "Transferências reais só são suportadas entre Binance e OKX",
+        variant: "destructive",
+        duration: 6000
+      });
+      return;
+    }
+
+    // Confirmar com o usuário antes de executar
+    const confirmed = window.confirm(
+      `⚠️ ATENÇÃO: TRANSFERÊNCIA REAL\n\n` +
+      `Você está prestes a transferir ${formData.requiredAmount} ${formData.symbol} ` +
+      `de ${formData.fromExchange.toUpperCase()} para ${formData.toExchange.toUpperCase()}\n\n` +
+      `Rede: ${selectedNetwork?.label || 'TRC20'}\n` +
+      `Taxa estimada: ${selectedNetwork?.fee || '1'} ${selectedNetwork?.feeUnit || 'USDT'}\n\n` +
+      `Esta operação irá movimentar fundos reais nas exchanges.\n` +
+      `Tem certeza que deseja continuar?`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      const result = await executeRealTransfer({
+        fromExchange: formData.fromExchange as 'binance' | 'okx',
+        toExchange: formData.toExchange as 'binance' | 'okx',
+        asset: formData.symbol,
+        amount: formData.requiredAmount,
+        network: selectedNetwork?.value
+      });
+
+      if (result && result.success) {
+        console.log('✅ Transferência real iniciada:', result);
+      }
+    } catch (error) {
+      console.error('❌ Erro na transferência real:', error);
     }
   };
 
@@ -506,15 +559,46 @@ const SmartTransferDashboard = () => {
               </div>
 
                 {analysis?.isWorthwhile && (
-                <Button 
-                  onClick={handleExecuteTransfer}
-                  disabled={loading}
-                  variant="default"
-                  className="w-full"
-                >
-                  {loading ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <ArrowRightLeft className="h-4 w-4 mr-2" />}
-                  Executar Transferência
-                </Button>
+                <>
+                  <Alert className="border-orange-500 bg-orange-50 dark:bg-orange-950/20">
+                    <AlertTriangle className="h-4 w-4 text-orange-600" />
+                    <AlertDescription className="text-sm">
+                      <strong>Modo Real Disponível:</strong> Você pode executar esta transferência em modo real usando suas credenciais das exchanges.
+                      {(!['binance', 'okx'].includes(formData.fromExchange) || !['binance', 'okx'].includes(formData.toExchange)) && (
+                        <span className="block mt-1 text-destructive">
+                          ⚠️ Transferências reais só funcionam entre Binance e OKX.
+                        </span>
+                      )}
+                    </AlertDescription>
+                  </Alert>
+                  
+                  <div className="flex gap-2 w-full">
+                    <Button 
+                      onClick={handleExecuteTransfer}
+                      disabled={loading}
+                      variant="outline"
+                      className="flex-1"
+                    >
+                      {loading ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <ArrowRightLeft className="h-4 w-4 mr-2" />}
+                      Executar (Simulado)
+                    </Button>
+                    
+                    <Button 
+                      onClick={handleExecuteRealTransfer}
+                      disabled={
+                        realTransferLoading || 
+                        loading || 
+                        !['binance', 'okx'].includes(formData.fromExchange) || 
+                        !['binance', 'okx'].includes(formData.toExchange)
+                      }
+                      variant="default"
+                      className="flex-1 bg-green-600 hover:bg-green-700"
+                    >
+                      {realTransferLoading ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}
+                      Executar REAL
+                    </Button>
+                  </div>
+                </>
               )}
 
               <Separator className="my-4" />
