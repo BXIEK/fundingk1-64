@@ -31,9 +31,10 @@ export const TradingModeProvider: React.FC<TradingModeProviderProps> = ({ childr
     try {
       console.log('🔐 [GLOBAL] Carregando credenciais do Supabase...');
       
-      const [binanceResp, okxResp] = await Promise.all([
+      const [binanceResp, okxResp, hyperliquidResp] = await Promise.all([
         supabase.functions.invoke('get-binance-credentials'),
         supabase.functions.invoke('get-okx-credentials'),
+        supabase.functions.invoke('get-hyperliquid-credentials'),
       ]);
 
       let loaded = false;
@@ -52,6 +53,14 @@ export const TradingModeProvider: React.FC<TradingModeProviderProps> = ({ childr
         loaded = true;
       } else {
         console.log('⚠️ [GLOBAL] OKX credentials não disponíveis no Supabase');
+      }
+
+      if (hyperliquidResp.data?.success && hyperliquidResp.data.credentials) {
+        console.log('✅ [GLOBAL] Hyperliquid credentials carregadas do Supabase');
+        localStorage.setItem('hyperliquid_credentials', JSON.stringify(hyperliquidResp.data.credentials));
+        loaded = true;
+      } else {
+        console.log('⚠️ [GLOBAL] Hyperliquid credentials não disponíveis no Supabase');
       }
 
       if (!loaded) {
