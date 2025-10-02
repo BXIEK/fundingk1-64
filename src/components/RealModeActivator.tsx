@@ -236,7 +236,7 @@ const RealModeActivator = () => {
           .from('auto_cross_exchange_configs')
           .update({ 
             is_enabled: true,
-            min_spread_percentage: 1.0,
+            min_spread_percentage: 0.5,
             max_investment_amount: 50,
             min_profit_threshold: 1.0,
             max_concurrent_operations: 2,
@@ -259,7 +259,7 @@ const RealModeActivator = () => {
               action: 'save',
               user_id: userId,
               is_enabled: true,
-              min_spread_percentage: 1.0,
+              min_spread_percentage: 0.5,
               max_investment_amount: 50,
               min_profit_threshold: 1.0,
               max_concurrent_operations: 2,
@@ -288,7 +288,7 @@ const RealModeActivator = () => {
             .insert({
               user_id: userId,
               is_enabled: true,
-              min_spread_percentage: 1.0,
+              min_spread_percentage: 0.5,
               max_investment_amount: 50,
               min_profit_threshold: 1.0,
               max_concurrent_operations: 2,
