@@ -396,6 +396,7 @@ const SmartTransferDashboard = () => {
                       <SelectValue placeholder="Token que será comprado" />
                     </SelectTrigger>
                      <SelectContent>
+                       <SelectItem value="USDT">Tether (USDT)</SelectItem>
                        <SelectItem value="BTC">Bitcoin (BTC)</SelectItem>
                        <SelectItem value="ETH">Ethereum (ETH)</SelectItem>
                        <SelectItem value="BNB">Binance Coin (BNB)</SelectItem>
