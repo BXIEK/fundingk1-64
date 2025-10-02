@@ -199,8 +199,23 @@ async function getBinanceDepositAddress(
     'OPTIMISM': 'OPTIMISM'
   };
   
-  const binanceNetwork = networkMapping[network] || network;
-  console.log(`🔄 Mapeamento de rede: ${network} → ${binanceNetwork}`);
+  // Normalizar entrada (aceita formatos: TRX, ETH, BSC, USDT-TRC20, etc.)
+  const raw = (network || '').toUpperCase();
+  const part = raw.includes('-') ? raw.split('-').slice(-1)[0] : raw;
+  const canonical = ((): string => {
+    switch (part) {
+      case 'TRX': return 'TRC20';
+      case 'ETH': return 'ERC20';
+      case 'BSC': return 'BEP20';
+      case 'BNB': return 'BEP2';
+      case 'MATIC': return 'POLYGON';
+      case 'ARBITRUM ONE': return 'ARBITRUM';
+      default: return part;
+    }
+  })();
+  
+  const binanceNetwork = networkMapping[canonical] || canonical;
+  console.log(`🔄 Mapeamento de rede: ${network} → ${canonical} → ${binanceNetwork}`);
   
   const timestamp = Date.now();
   const queryString = `coin=${asset}&network=${binanceNetwork}&timestamp=${timestamp}`;
@@ -336,8 +351,23 @@ async function executeBinanceWithdrawal(
     'OPTIMISM': 'OPTIMISM'
   };
   
-  const binanceNetwork = networkMapping[network] || network;
-  console.log(`🔄 Mapeamento de rede para withdrawal: ${network} → ${binanceNetwork}`);
+  // Normalizar entrada (pode vir como USDT-TRC20, TRX, etc.)
+  const raw = (network || '').toUpperCase();
+  const part = raw.includes('-') ? raw.split('-').slice(-1)[0] : raw;
+  const canonical = ((): string => {
+    switch (part) {
+      case 'TRX': return 'TRC20';
+      case 'ETH': return 'ERC20';
+      case 'BSC': return 'BEP20';
+      case 'BNB': return 'BEP2';
+      case 'MATIC': return 'POLYGON';
+      case 'ARBITRUM ONE': return 'ARBITRUM';
+      default: return part;
+    }
+  })();
+  
+  const binanceNetwork = networkMapping[canonical] || canonical;
+  console.log(`🔄 Mapeamento de rede para withdrawal: ${network} → ${canonical} → ${binanceNetwork}`);
   
   const timestamp = Date.now();
   let queryString = `coin=${asset}&network=${binanceNetwork}&address=${address}&amount=${amount}&timestamp=${timestamp}`;
@@ -393,8 +423,23 @@ async function executeOKXWithdrawal(
     'OPTIMISM': `${asset}-Optimism`
   };
   
-  const okxChain = chainMapping[chain] || `${asset}-${chain}`;
-  console.log(`🔄 Mapeamento de rede OKX: ${chain} → ${okxChain}`);
+  // Normalizar entrada (pode vir como TRX, USDT-TRC20, etc.)
+  const raw = (chain || '').toUpperCase();
+  const part = raw.includes('-') ? raw.split('-').slice(-1)[0] : raw;
+  const canonical = ((): string => {
+    switch (part) {
+      case 'TRX': return 'TRC20';
+      case 'ETH': return 'ERC20';
+      case 'BSC': return 'BEP20';
+      case 'BNB': return 'BEP2';
+      case 'MATIC': return 'POLYGON';
+      case 'ARBITRUM ONE': return 'ARBITRUM';
+      default: return part;
+    }
+  })();
+  
+  const okxChain = chainMapping[canonical] || `${asset}-${canonical}`;
+  console.log(`🔄 Mapeamento de rede OKX: ${chain} → ${canonical} → ${okxChain}`);
   
   const timestamp = new Date().toISOString();
   const method = 'POST';
