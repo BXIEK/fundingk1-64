@@ -91,7 +91,7 @@ export default function ArbitrageControl() {
   
   const [settings, setSettings] = useState<TradingSettings>({
     auto_trading: false,
-    min_spread: 0.5,
+    min_spread: 1.0,
     max_investment: 10,
     risk_tolerance: 'MEDIUM',
     selected_symbols: ['BTC', 'ETH', 'BNB', 'SOL']

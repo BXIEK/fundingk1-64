@@ -66,7 +66,7 @@ export const AutoCrossExchangeConfig = () => {
   const { isRealMode, hasCredentials } = useTradingMode();
   const [config, setConfig] = useState<AutoCrossExchangeConfig>({
     is_enabled: false,
-    min_spread_percentage: 0.5,
+    min_spread_percentage: 1.0,
     max_investment_amount: 10,
     min_profit_threshold: 1.0,
     symbols_filter: ["BTCUSDT", "ETHUSDT", "BNBUSDT"],

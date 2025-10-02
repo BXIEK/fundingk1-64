@@ -17,7 +17,7 @@ const AutoArbitrageConfig = () => {
   const [config, setConfig] = useState({
     user_id: '',
     is_enabled: false,
-    min_spread_percentage: 0.5,
+    min_spread_percentage: 1.0,
     max_investment_amount: 100,
     min_profit_threshold: 1.0,
     max_concurrent_operations: 3,
