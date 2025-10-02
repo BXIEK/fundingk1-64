@@ -188,8 +188,22 @@ async function getBinanceDepositAddress(
   credentials: any
 ): Promise<{ address: string; network: string; memo?: string }> {
   
+  // Mapeamento de redes: Frontend → Binance API
+  const networkMapping: { [key: string]: string } = {
+    'TRC20': 'TRX',
+    'ERC20': 'ETH',
+    'BEP20': 'BSC',
+    'BEP2': 'BNB',
+    'ARBITRUM': 'ARBITRUM',
+    'POLYGON': 'MATIC',
+    'OPTIMISM': 'OPTIMISM'
+  };
+  
+  const binanceNetwork = networkMapping[network] || network;
+  console.log(`🔄 Mapeamento de rede: ${network} → ${binanceNetwork}`);
+  
   const timestamp = Date.now();
-  const queryString = `coin=${asset}&network=${network}&timestamp=${timestamp}`;
+  const queryString = `coin=${asset}&network=${binanceNetwork}&timestamp=${timestamp}`;
   const signature = createHmac('sha256', credentials.binanceSecretKey)
     .update(queryString)
     .digest('hex');
@@ -209,9 +223,11 @@ async function getBinanceDepositAddress(
 
   const data = await response.json();
   
+  console.log(`✅ Endereço Binance obtido: ${data.address} (rede: ${data.network})`);
+  
   return {
     address: data.address,
-    network: data.network,
+    network: binanceNetwork,
     memo: data.tag || undefined
   };
 }
@@ -293,8 +309,22 @@ async function executeBinanceWithdrawal(
   credentials: any
 ): Promise<{ id: string; fee: number; txUrl?: string }> {
   
+  // Mapeamento de redes: Frontend → Binance API
+  const networkMapping: { [key: string]: string } = {
+    'TRC20': 'TRX',
+    'ERC20': 'ETH',
+    'BEP20': 'BSC',
+    'BEP2': 'BNB',
+    'ARBITRUM': 'ARBITRUM',
+    'POLYGON': 'MATIC',
+    'OPTIMISM': 'OPTIMISM'
+  };
+  
+  const binanceNetwork = networkMapping[network] || network;
+  console.log(`🔄 Mapeamento de rede para withdrawal: ${network} → ${binanceNetwork}`);
+  
   const timestamp = Date.now();
-  let queryString = `coin=${asset}&network=${network}&address=${address}&amount=${amount}&timestamp=${timestamp}`;
+  let queryString = `coin=${asset}&network=${binanceNetwork}&address=${address}&amount=${amount}&timestamp=${timestamp}`;
   
   if (addressTag) {
     queryString += `&addressTag=${addressTag}`;
