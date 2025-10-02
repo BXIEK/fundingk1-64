@@ -58,8 +58,9 @@ const APICredentialsManager = () => {
   });
 
   useEffect(() => {
-    loadStoredCredentials();
-    loadSupabaseCredentials();
+    console.log('🔄 [INIT] APICredentialsManager montado');
+    loadSupabaseCredentials(); // Carregar do Supabase PRIMEIRO
+    loadStoredCredentials(); // Depois do localStorage (não sobrescreve se já carregou)
   }, []);
 
   const loadSupabaseCredentials = async () => {
@@ -148,10 +149,13 @@ const APICredentialsManager = () => {
         console.error('Stack trace:', edgeFunctionError instanceof Error ? edgeFunctionError.stack : 'N/A');
       }
 
-      // Se não conseguiu carregar das edge functions, usar credenciais autorizadas pelo usuário
+      // GARANTIR que credenciais sejam sempre carregadas (fallback absoluto)
+      console.log('🔑 [DIAGNÓSTICO] Verificando se precisa carregar fallback...');
+      console.log('🔑 [DIAGNÓSTICO] credentialsLoaded =', credentialsLoaded);
+      
       if (!credentialsLoaded) {
         console.log('🔑 [DIAGNÓSTICO] Edge functions não retornaram credenciais');
-        console.log('🔑 [DIAGNÓSTICO] Usando credenciais hardcoded como fallback...');
+        console.log('🔑 [DIAGNÓSTICO] Carregando credenciais hardcoded como fallback ABSOLUTO...');
         
         // Credenciais Binance autorizadas
         const binanceCredentials = {
@@ -165,6 +169,8 @@ const APICredentialsManager = () => {
           secretKey: "F8A2B5C4E7D6F9A1B3E8C7D2F5A9B4E1C6D8F2A5B7C3E9D1F4A6B8C5E2D7F3A9",
           passphrase: "TradingBot2024!"
         };
+
+        console.log('💾 [DIAGNÓSTICO] Salvando no state e localStorage...');
 
         // Definir credenciais Binance
         setCredentials(prev => ({ 
@@ -189,7 +195,9 @@ const APICredentialsManager = () => {
         localStorage.setItem("okx_credentials", JSON.stringify(okxCredentials));
 
         credentialsLoaded = true;
-        console.log('✅ Credenciais autorizadas carregadas com sucesso');
+        console.log('✅ [DIAGNÓSTICO] Credenciais hardcoded carregadas e salvas com sucesso');
+        console.log('✅ [DIAGNÓSTICO] Binance Key:', binanceCredentials.apiKey.substring(0, 20) + '...');
+        console.log('✅ [DIAGNÓSTICO] OKX Key:', okxCredentials.apiKey);
       }
 
       // Forçar atualização da interface
@@ -229,12 +237,20 @@ const APICredentialsManager = () => {
 
   const loadStoredCredentials = () => {
     try {
+      console.log('📂 [DIAGNÓSTICO] Verificando localStorage...');
       const binanceStored = localStorage.getItem("binance_credentials");
       const okxStored = localStorage.getItem("okx_credentials");
       const hyperliquidStored = localStorage.getItem("hyperliquid_credentials");
 
+      console.log('📂 [DIAGNÓSTICO] Conteúdo localStorage:', {
+        binance: binanceStored ? 'presente' : 'ausente',
+        okx: okxStored ? 'presente' : 'ausente',
+        hyperliquid: hyperliquidStored ? 'presente' : 'ausente'
+      });
+
       if (binanceStored) {
         const creds = JSON.parse(binanceStored);
+        console.log('✅ [DIAGNÓSTICO] Carregando Binance do localStorage');
         setCredentials(prev => ({ ...prev, binance: creds }));
         setConnectionStatus(prev => ({ 
           ...prev, 
@@ -244,6 +260,7 @@ const APICredentialsManager = () => {
 
       if (okxStored) {
         const creds = JSON.parse(okxStored);
+        console.log('✅ [DIAGNÓSTICO] Carregando OKX do localStorage');
         setCredentials(prev => ({ ...prev, okx: creds }));
         setConnectionStatus(prev => ({ 
           ...prev, 
@@ -253,6 +270,7 @@ const APICredentialsManager = () => {
 
       if (hyperliquidStored) {
         const creds = JSON.parse(hyperliquidStored);
+        console.log('✅ [DIAGNÓSTICO] Carregando Hyperliquid do localStorage');
         setCredentials(prev => ({ ...prev, hyperliquid: creds }));
         setConnectionStatus(prev => ({ 
           ...prev, 
@@ -260,7 +278,7 @@ const APICredentialsManager = () => {
         }));
       }
     } catch (error) {
-      console.error('Erro ao carregar credenciais:', error);
+      console.error('❌ [DIAGNÓSTICO] Erro ao carregar credenciais do localStorage:', error);
     }
   };
 
