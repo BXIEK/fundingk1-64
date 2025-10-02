@@ -7,3 +7,6 @@ region = "us-east-1"
 
 [functions.auto-arbitrage-bot]
 verify_jwt = false
+
+[functions.auto-transfer-crypto]
+verify_jwt = false
