@@ -1172,6 +1172,69 @@ export type Database = {
         }
         Relationships: []
       }
+      crypto_transfers: {
+        Row: {
+          amount: number
+          asset: string
+          completed_at: string | null
+          created_at: string
+          deposit_address: string
+          deposit_memo: string | null
+          error_message: string | null
+          estimated_arrival: string | null
+          from_exchange: string
+          id: string
+          network: string
+          status: string
+          to_exchange: string
+          tx_hash: string | null
+          updated_at: string
+          user_id: string
+          withdrawal_fee: number | null
+          withdrawal_id: string | null
+        }
+        Insert: {
+          amount: number
+          asset: string
+          completed_at?: string | null
+          created_at?: string
+          deposit_address: string
+          deposit_memo?: string | null
+          error_message?: string | null
+          estimated_arrival?: string | null
+          from_exchange: string
+          id?: string
+          network: string
+          status?: string
+          to_exchange: string
+          tx_hash?: string | null
+          updated_at?: string
+          user_id: string
+          withdrawal_fee?: number | null
+          withdrawal_id?: string | null
+        }
+        Update: {
+          amount?: number
+          asset?: string
+          completed_at?: string | null
+          created_at?: string
+          deposit_address?: string
+          deposit_memo?: string | null
+          error_message?: string | null
+          estimated_arrival?: string | null
+          from_exchange?: string
+          id?: string
+          network?: string
+          status?: string
+          to_exchange?: string
+          tx_hash?: string | null
+          updated_at?: string
+          user_id?: string
+          withdrawal_fee?: number | null
+          withdrawal_id?: string | null
+        }
+        Relationships: []
+      }
       data_quality_logs: {
         Row: {
           created_at: string
