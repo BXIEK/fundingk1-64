@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { getUserId } from "@/lib/userUtils";
 
 interface OptimizedTransferRequest {
   symbol: string;
@@ -131,8 +132,10 @@ export const useOptimizedTransfer = () => {
 
       // Teste 4: Portfolio completo
       console.log('🔄 Testando portfolio completo...');
+      const userId = await getUserId();
       const portfolio = await supabase.functions.invoke('get-portfolio', {
         body: {
+          user_id: userId,
           real_mode: true,
           binance_api_key: binanceApiKey,
           binance_secret_key: binanceSecretKey,
