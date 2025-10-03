@@ -543,7 +543,7 @@ async function executeOKXWithdrawal(
       'ARBITRUM': 'ETH-Arbitrum One',
       'ETH': 'ETH-Ethereum',
       'BTC': 'BTC-Bitcoin',
-      'DOT': 'DOT-Polkadot',
+      // 'DOT': Não suportado pela OKX para retiradas
       'ADA': 'ADA-Cardano',
       'SOL': 'SOL-Solana',
       'AVAXC': 'AVAX-Avalanche C-Chain',
