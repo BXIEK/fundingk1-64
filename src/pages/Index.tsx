@@ -80,13 +80,13 @@ const Index = () => {
             <Card className="border-border/50">
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-lg">
-                  <Shield className="h-4 w-4 text-primary" />
-                  Configurações
+                  <Settings className="h-4 w-4 text-primary" />
+                  Configurações API
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground mb-3">
-                  Configure suas APIs
+                  Configure Binance e OKX abaixo
                 </p>
               </CardContent>
             </Card>
