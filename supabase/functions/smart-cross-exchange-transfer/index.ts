@@ -341,41 +341,60 @@ async function transferOKXTradingToFunding(
 ) {
   console.log(`🔄 Transferindo ${amount} ${asset} de Trading → Funding na OKX...`);
   
-  // 🔍 VERIFICAR SALDO COM RETRY AUTOMÁTICO (ordens podem levar tempo para liquidar)
-  const maxRetries = 3;
-  const retryDelays = [5000, 10000, 15000]; // 5s, 10s, 15s
+  // 🔍 VERIFICAR SALDO COM RETRY AUTOMÁTICO ESTENDIDO (garantir liquidação completa)
+  const maxRetries = 8;
+  const retryDelays = [5000, 8000, 12000, 18000, 25000, 30000, 40000, 50000]; // Total: até 188s (3+ minutos)
+  
+  console.log(`🎯 SISTEMA DE RETRY ESTENDIDO: Até ${maxRetries} tentativas para garantir transferência imediata`);
   
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
       const tradingBalance = await getOKXTradingAccountBalance(asset, credentials);
-      console.log(`💰 [Tentativa ${attempt + 1}/${maxRetries}] Saldo na Trading Account: ${tradingBalance} ${asset} (necessário: ${amount})`);
+      const percentageAvailable = (tradingBalance / amount) * 100;
+      
+      console.log(`💰 [Tentativa ${attempt + 1}/${maxRetries}] Saldo Trading Account:`);
+      console.log(`   Disponível: ${tradingBalance} ${asset}`);
+      console.log(`   Necessário: ${amount} ${asset}`);
+      console.log(`   Percentual: ${percentageAvailable.toFixed(1)}%`);
       
       if (tradingBalance >= amount) {
-        console.log('✅ Saldo suficiente encontrado!');
+        console.log('✅ SALDO COMPLETO DISPONÍVEL! Prosseguindo com transferência...');
         break; // Saldo OK, prosseguir
       }
       
       // Saldo insuficiente
       if (attempt < maxRetries - 1) {
         const waitTime = retryDelays[attempt];
-        console.log(`⏳ Saldo insuficiente. Aguardando ${waitTime/1000}s para ordem liquidar...`);
+        const totalWaited = retryDelays.slice(0, attempt + 1).reduce((a, b) => a + b, 0);
+        console.log(`⏳ Aguardando ordem liquidar completamente...`);
+        console.log(`   Próxima verificação em: ${waitTime/1000}s`);
+        console.log(`   Tempo total aguardado: ${totalWaited/1000}s`);
+        console.log(`   Progresso: ${percentageAvailable.toFixed(1)}% do necessário`);
         await new Promise(resolve => setTimeout(resolve, waitTime));
       } else {
         // Última tentativa falhou
+        const totalWaitTime = retryDelays.reduce((a, b) => a + b, 0) / 1000;
         throw new Error(
-          `Saldo insuficiente na Trading Account da OKX após ${maxRetries} tentativas: ` +
-          `disponível ${tradingBalance} ${asset}, necessário ${amount} ${asset}. ` +
-          `A ordem de compra pode não ter sido executada completamente ou ainda está pendente.`
+          `❌ FALHA APÓS ${maxRetries} TENTATIVAS (${totalWaitTime}s total)\n` +
+          `Saldo na Trading Account da OKX: ${tradingBalance} ${asset}\n` +
+          `Necessário: ${amount} ${asset}\n` +
+          `Faltam: ${(amount - tradingBalance).toFixed(8)} ${asset}\n` +
+          `Possíveis causas:\n` +
+          `• Ordem de compra foi parcialmente executada\n` +
+          `• Liquidez insuficiente no momento\n` +
+          `• Ordem ainda em processamento (improvável após ${totalWaitTime}s)\n` +
+          `Verifique manualmente o saldo na OKX.`
         );
       }
     } catch (balanceError) {
       // Se for a última tentativa, repassar o erro
       if (attempt === maxRetries - 1) {
-        console.error('❌ Erro crítico ao verificar saldo:', balanceError);
+        console.error('❌ ERRO CRÍTICO ao verificar saldo:', balanceError);
         throw balanceError;
       }
       // Senão, aguardar e tentar novamente
-      console.log(`⚠️ Erro ao verificar saldo (tentativa ${attempt + 1}/${maxRetries}), tentando novamente...`);
+      console.log(`⚠️ Erro temporário ao verificar saldo (tentativa ${attempt + 1}/${maxRetries})`);
+      console.log(`⏳ Aguardando ${retryDelays[attempt]/1000}s antes de tentar novamente...`);
       await new Promise(resolve => setTimeout(resolve, retryDelays[attempt]));
     }
   }
@@ -517,16 +536,30 @@ async function executeOKXWithdrawal(
   console.log(`💰 Saldo disponível na Funding: ${availableBalance} ${asset} (necessário: ${amount})`);
   
   if (availableBalance < amount) {
-    // Aguardar mais tempo para o saldo ficar disponível
-    console.log('⏳ Saldo insuficiente, aguardando 5 segundos...');
-    await new Promise(resolve => setTimeout(resolve, 5000));
+    // Aguardar mais tempo para transferência interna completar
+    console.log('⏳ Aguardando transferência interna completar (10s)...');
+    await new Promise(resolve => setTimeout(resolve, 10000));
     
     // Verificar novamente
     const updatedBalance = await getOKXAvailableBalance(asset, credentials);
-    console.log(`💰 Saldo atualizado: ${updatedBalance} ${asset}`);
+    console.log(`💰 Saldo atualizado na Funding: ${updatedBalance} ${asset}`);
     
     if (updatedBalance < amount) {
-      throw new Error(`Saldo insuficiente na OKX Funding Account para withdrawal: disponível ${updatedBalance} ${asset}, necessário ${amount} ${asset}. Certifique-se de que o saldo está na conta de Funding (não Trading).`);
+      // Terceira verificação após mais 10s
+      console.log('⏳ Aguardando mais 10s para transferência interna...');
+      await new Promise(resolve => setTimeout(resolve, 10000));
+      
+      const finalBalance = await getOKXAvailableBalance(asset, credentials);
+      console.log(`💰 Verificação final na Funding: ${finalBalance} ${asset}`);
+      
+      if (finalBalance < amount) {
+        throw new Error(
+          `❌ SALDO INSUFICIENTE NA FUNDING ACCOUNT após 20s de espera\n` +
+          `Disponível: ${finalBalance} ${asset}\n` +
+          `Necessário: ${amount} ${asset}\n` +
+          `A transferência interna Trading → Funding pode ter falado.`
+        );
+      }
     }
   }
   
