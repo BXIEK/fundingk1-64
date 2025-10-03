@@ -290,8 +290,8 @@ serve(async (req) => {
           
           // 🔥 CRÍTICO: OKX precisa de mais tempo para processar ordens antes de transferência interna
           if (buyExchange === 'OKX') {
-            console.log('⏳ [OKX] Aguardando processamento da ordem na Trading Account (8 segundos)...');
-            await new Promise(resolve => setTimeout(resolve, 8000));
+            console.log('⏳ [OKX] Aguardando processamento da ordem na Trading Account (12 segundos)...');
+            await new Promise(resolve => setTimeout(resolve, 12000));
             console.log('✅ Ordem processada, saldo agora disponível para transferência interna');
           } else {
             console.log('⏳ Aguardando processamento da ordem de compra (3s)...');
@@ -328,8 +328,8 @@ serve(async (req) => {
           
           // 🔥 CRÍTICO: OKX precisa de mais tempo
           if (buyExchange === 'OKX') {
-            console.log('⏳ [OKX] Aguardando processamento da ordem forçada (8 segundos)...');
-            await new Promise(resolve => setTimeout(resolve, 8000));
+            console.log('⏳ [OKX] Aguardando processamento da ordem forçada (12 segundos)...');
+            await new Promise(resolve => setTimeout(resolve, 12000));
           } else {
             console.log('⏳ Aguardando processamento da ordem de compra (3s)...');
             await new Promise(resolve => setTimeout(resolve, 3000));

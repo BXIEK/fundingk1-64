@@ -470,8 +470,8 @@ async function executeOKXWithdrawal(
     console.log('✅ Transferência interna concluída');
     
     // Aguardar processamento interno da OKX
-    console.log('⏳ Aguardando processamento interno da OKX (3 segundos)...');
-    await new Promise(resolve => setTimeout(resolve, 3000));
+    console.log('⏳ Aguardando processamento interno da OKX (5 segundos)...');
+    await new Promise(resolve => setTimeout(resolve, 5000));
   } catch (transferError) {
     console.error('❌ ERRO CRÍTICO na transferência interna OKX:', transferError);
     
