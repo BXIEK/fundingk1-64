@@ -204,15 +204,23 @@ serve(async (req) => {
             throw new Error(errorMsg);
           }
           
-          // Usar até 95% do saldo disponível (deixar margem), mas não menos que o mínimo necessário
+          // Usar o valor configurado pelo usuário, mas garantir que seja pelo menos o mínimo necessário
           const maxUsableUsdt = usdtBalance * 0.95;
-          actualUsdtInvestment = Math.max(minimumTotalUsdt, Math.min(maxUsableUsdt, minimumTotalUsdt * 1.5));
           
-          console.log(`✅ VALOR AJUSTADO AUTOMATICAMENTE:`);
-          console.log(`   Configurado: $${usdtInvestment.toFixed(2)} USDT`);
+          // Se o usuário configurou um valor menor que o mínimo, usar o mínimo
+          if (usdtInvestment < minimumTotalUsdt) {
+            console.warn(`⚠️ Valor configurado ($${usdtInvestment.toFixed(2)}) é menor que o mínimo necessário ($${minimumTotalUsdt.toFixed(2)})`);
+            actualUsdtInvestment = Math.min(minimumTotalUsdt, maxUsableUsdt);
+          } else {
+            // Usar o valor configurado pelo usuário, limitado ao saldo disponível
+            actualUsdtInvestment = Math.min(usdtInvestment, maxUsableUsdt);
+          }
+          
+          console.log(`✅ VALOR FINAL CALCULADO:`);
+          console.log(`   Configurado pelo usuário: $${usdtInvestment.toFixed(2)} USDT`);
           console.log(`   Mínimo necessário: $${minimumTotalUsdt.toFixed(2)} USDT`);
           console.log(`   Saldo disponível: $${usdtBalance.toFixed(2)} USDT`);
-          console.log(`   Valor final: $${actualUsdtInvestment.toFixed(2)} USDT`);
+          console.log(`   Valor final usado: $${actualUsdtInvestment.toFixed(2)} USDT`);
           
         } catch (balanceError) {
           console.error('❌ ERRO CRÍTICO:', balanceError);
