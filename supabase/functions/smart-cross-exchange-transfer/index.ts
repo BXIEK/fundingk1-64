@@ -341,20 +341,43 @@ async function transferOKXTradingToFunding(
 ) {
   console.log(`🔄 Transferindo ${amount} ${asset} de Trading → Funding na OKX...`);
   
-  // 🔍 VERIFICAR SALDO NA TRADING ACCOUNT ANTES DE TENTAR TRANSFERIR
-  try {
-    const tradingBalance = await getOKXTradingAccountBalance(asset, credentials);
-    console.log(`💰 Saldo na Trading Account: ${tradingBalance} ${asset} (necessário: ${amount})`);
-    
-    if (tradingBalance < amount) {
-      throw new Error(
-        `Saldo insuficiente na Trading Account da OKX: disponível ${tradingBalance} ${asset}, necessário ${amount} ${asset}. ` +
-        `Aguarde alguns segundos para a ordem de compra ser processada completamente.`
-      );
+  // 🔍 VERIFICAR SALDO COM RETRY AUTOMÁTICO (ordens podem levar tempo para liquidar)
+  const maxRetries = 3;
+  const retryDelays = [5000, 10000, 15000]; // 5s, 10s, 15s
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const tradingBalance = await getOKXTradingAccountBalance(asset, credentials);
+      console.log(`💰 [Tentativa ${attempt + 1}/${maxRetries}] Saldo na Trading Account: ${tradingBalance} ${asset} (necessário: ${amount})`);
+      
+      if (tradingBalance >= amount) {
+        console.log('✅ Saldo suficiente encontrado!');
+        break; // Saldo OK, prosseguir
+      }
+      
+      // Saldo insuficiente
+      if (attempt < maxRetries - 1) {
+        const waitTime = retryDelays[attempt];
+        console.log(`⏳ Saldo insuficiente. Aguardando ${waitTime/1000}s para ordem liquidar...`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+      } else {
+        // Última tentativa falhou
+        throw new Error(
+          `Saldo insuficiente na Trading Account da OKX após ${maxRetries} tentativas: ` +
+          `disponível ${tradingBalance} ${asset}, necessário ${amount} ${asset}. ` +
+          `A ordem de compra pode não ter sido executada completamente ou ainda está pendente.`
+        );
+      }
+    } catch (balanceError) {
+      // Se for a última tentativa, repassar o erro
+      if (attempt === maxRetries - 1) {
+        console.error('❌ Erro crítico ao verificar saldo:', balanceError);
+        throw balanceError;
+      }
+      // Senão, aguardar e tentar novamente
+      console.log(`⚠️ Erro ao verificar saldo (tentativa ${attempt + 1}/${maxRetries}), tentando novamente...`);
+      await new Promise(resolve => setTimeout(resolve, retryDelays[attempt]));
     }
-  } catch (balanceError) {
-    console.error('⚠️ Erro ao verificar saldo na Trading Account:', balanceError);
-    throw balanceError;
   }
   
   const timestamp = new Date().toISOString();
