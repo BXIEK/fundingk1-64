@@ -164,7 +164,9 @@ export const DirectIPConnectionTest = () => {
           Conexão Direta via IP do Cliente
         </CardTitle>
         <CardDescription>
-          Teste a conexão direta. <strong>Nota:</strong> Binance bloqueia chamadas diretas do browser por CORS.
+          ⚠️ <strong>Importante:</strong> Estes testes são do BROWSER para as exchanges. 
+          Binance sempre falha por CORS (mas funciona via servidor). 
+          Veja o status real na aba "Status APIs".
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -244,37 +246,38 @@ export const DirectIPConnectionTest = () => {
           </div>
         </div>
 
-        {/* Explicação */}
-        <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+        {/* Aviso sobre Status Real */}
+        <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
           <div className="flex gap-3">
-            <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+            <AlertCircle className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
             <div className="space-y-1">
-              <p className="text-sm font-medium text-green-900">
-                Conexão Direta Ativada
+              <p className="text-sm font-medium text-blue-900">
+                Status Real das Conexões
               </p>
-              <p className="text-xs text-green-700">
-                Todas as requisições para Binance e OKX são feitas diretamente do seu navegador,
-                usando <strong>seu IP</strong>. Isso permite que você configure o whitelist de IP
-                nas exchanges com seu endereço IP fixo.
+              <p className="text-xs text-blue-700">
+                O teste acima verifica conexões <strong>diretas do browser</strong> (sempre falha na Binance por CORS).
+                <br />
+                Para ver o <strong>status real</strong> das APIs (via servidor), vá para a aba <strong>"Status APIs"</strong>.
               </p>
             </div>
           </div>
         </div>
 
-        {/* Instruções */}
-        <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+        {/* Problema Real: OKX IP Bloqueado */}
+        <div className="p-4 bg-red-50 rounded-lg border border-red-200">
           <div className="flex gap-3">
-            <AlertCircle className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+            <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
             <div className="space-y-2">
-              <p className="text-sm font-medium text-yellow-900">
-                Configurando Whitelist nas Exchanges
+              <p className="text-sm font-medium text-red-900">
+                ⚠️ OKX Está Bloqueada por IP
               </p>
-              <ol className="text-xs text-yellow-700 space-y-1 list-decimal list-inside">
-                <li>Detecte seu IP clicando em "Detectar IP"</li>
-                <li>Acesse a página de API das exchanges (Binance/OKX)</li>
-                <li>Adicione seu IP à whitelist das chaves API</li>
-                <li>Teste a conexão usando os botões acima</li>
-              </ol>
+              <p className="text-xs text-red-700">
+                A OKX está rejeitando as requisições porque o IP do servidor Supabase não está no whitelist.
+                <br />
+                <br />
+                <strong>Solução:</strong> Na OKX, vá em "API Management" → "Edit restrictions" → 
+                Escolha <strong>"Unrestricted (Can access from any IP)"</strong> ou adicione os IPs do Supabase.
+              </p>
             </div>
           </div>
         </div>
