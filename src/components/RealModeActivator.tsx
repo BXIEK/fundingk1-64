@@ -32,13 +32,14 @@ const RealModeActivator = () => {
   const [apiConnections, setApiConnections] = useState<APIConnectionStatus[]>([
     { exchange: 'Binance', status: 'missing' },
     { exchange: 'OKX', status: 'missing' },
-    { exchange: 'Hyperliquid', status: 'missing' }
+    { exchange: 'Hyperliquid', status: 'missing' },
+    { exchange: 'MEXC', status: 'missing' }
   ]);
 
   const [systemStatus, setSystemStatus] = useState({
     isRealModeReady: false,
     hasActiveConfig: false,
-    totalRequirements: 3,
+    totalRequirements: 4,
     completedRequirements: 0
   });
 
@@ -53,7 +54,8 @@ const RealModeActivator = () => {
       const connections = await Promise.all([
         checkBinanceConnection(),
         checkOKXConnection(), 
-        checkHyperliquidConnection()
+        checkHyperliquidConnection(),
+        checkMEXCConnection()
       ]);
 
       setApiConnections(connections);
@@ -192,6 +194,50 @@ const RealModeActivator = () => {
     } catch (e) {
       return { 
         exchange: 'Hyperliquid', 
+        status: 'error', 
+        errorMessage: 'Erro na verificação' 
+      };
+    }
+  };
+
+  const checkMEXCConnection = async (): Promise<APIConnectionStatus> => {
+    try {
+      const credentials = localStorage.getItem("mexc_credentials");
+      if (!credentials) {
+        return { exchange: 'MEXC', status: 'missing' };
+      }
+
+      const creds = JSON.parse(credentials);
+      if (!creds.apiKey || !creds.secretKey) {
+        return { exchange: 'MEXC', status: 'missing', errorMessage: 'Credenciais não configuradas' };
+      }
+
+      const { data, error } = await supabase.functions.invoke('mexc-api', {
+        body: {
+          action: 'get_balances',
+          api_key: creds.apiKey,
+          secret_key: creds.secretKey
+        }
+      });
+
+      if (error) {
+        return {
+          exchange: 'MEXC',
+          status: 'error',
+          lastChecked: new Date().toISOString(),
+          errorMessage: error.message || 'Erro na conexão'
+        };
+      }
+
+      return {
+        exchange: 'MEXC',
+        status: data?.success ? 'connected' : 'error',
+        lastChecked: new Date().toISOString(),
+        errorMessage: data?.success ? undefined : (data?.error || 'Erro desconhecido')
+      };
+    } catch (e) {
+      return { 
+        exchange: 'MEXC', 
         status: 'error', 
         errorMessage: 'Erro na verificação' 
       };
