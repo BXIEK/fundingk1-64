@@ -5,6 +5,7 @@ import { Copy, ExternalLink, CheckCircle2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
 import { AutoWhitelistAssistant } from './AutoWhitelistAssistant';
+import { BinanceIPRestrictionHelper } from './BinanceIPRestrictionHelper';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export const IPWhitelistGuide = () => {
@@ -47,11 +48,16 @@ export const IPWhitelistGuide = () => {
   };
 
   return (
-    <Tabs defaultValue="assistant" className="space-y-6">
-      <TabsList className="grid w-full grid-cols-2">
-        <TabsTrigger value="assistant">🤖 Assistente Automático</TabsTrigger>
+    <Tabs defaultValue="binance-fix" className="space-y-6">
+      <TabsList className="grid w-full grid-cols-3">
+        <TabsTrigger value="binance-fix">🚨 Binance (Solução)</TabsTrigger>
+        <TabsTrigger value="assistant">🤖 Assistente Auto</TabsTrigger>
         <TabsTrigger value="manual">📋 Guia Manual</TabsTrigger>
       </TabsList>
+
+      <TabsContent value="binance-fix">
+        <BinanceIPRestrictionHelper />
+      </TabsContent>
 
       <TabsContent value="assistant">
         <AutoWhitelistAssistant />

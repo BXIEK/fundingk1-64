@@ -138,6 +138,21 @@ export const AutoWhitelistAssistant = () => {
         </AlertDescription>
       </Alert>
 
+      <Alert className="border-red-500 bg-red-50 dark:bg-red-950">
+        <AlertTriangle className="h-4 w-4 text-red-600" />
+        <AlertDescription>
+          <strong className="text-red-700 dark:text-red-300">🚨 PROBLEMA CONHECIDO - BINANCE</strong>
+          <p className="mt-2 text-sm">
+            A Binance <strong>REJEITA IPs de servidores AWS/Cloud</strong> (incluindo Supabase) para prevenir automação. 
+            Você verá erros "verification failed".
+          </p>
+          <p className="mt-2 text-sm font-semibold">
+            ✅ SOLUÇÃO: Na página da Binance, selecione <strong>"Unrestricted (Less Secure)"</strong> em vez de adicionar IPs.
+            Isso permitirá acesso de qualquer IP.
+          </p>
+        </AlertDescription>
+      </Alert>
+
       <Card>
         <CardHeader>
           <CardTitle>🤖 Assistente Automático de Whitelist</CardTitle>

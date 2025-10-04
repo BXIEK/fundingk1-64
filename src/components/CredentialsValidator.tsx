@@ -265,7 +265,11 @@ export const CredentialsValidator = () => {
                 <li><strong>Verifique a API Key</strong> - Confirme que copiou TODA a chave sem espaços</li>
                 <li><strong>Verifique a Secret Key</strong> - Deve ter sido copiada no momento da criação</li>
                 <li><strong>Permissões obrigatórias</strong>: "Enable Reading" + "Enable Spot & Margin Trading"</li>
-                <li><strong>Restrição de IP</strong>: Se ativada, adicione os IPs da aba "IP Whitelist" OU desative a restrição</li>
+                <li className="text-red-600 font-semibold">
+                  <strong>🚨 RESTRIÇÃO DE IP (PROBLEMA COMUM)</strong>: 
+                  A Binance REJEITA IPs de servidores AWS/Cloud. 
+                  <strong> SOLUÇÃO → Selecione "Unrestricted (Less Secure)"</strong> em vez de adicionar IPs específicos.
+                </li>
                 <li><strong>Última tentativa</strong>: Delete a API Key atual e crie uma NOVA na Binance</li>
               </ol>
               <div className="flex gap-2 mt-3">
