@@ -154,67 +154,116 @@ export const HFTDashboard = () => {
 
       {/* Estatísticas */}
       {data && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">
-                Oportunidades Ativas
-              </CardTitle>
-              <Activity className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {data.opportunities.length}
-              </div>
-            </CardContent>
-          </Card>
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Oportunidades Ativas
+                </CardTitle>
+                <Activity className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {data.opportunities.length}
+                </div>
+              </CardContent>
+            </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">
-                Melhor Spread
-              </CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-500">
-                {data.opportunities.length > 0
-                  ? `${Math.max(...data.opportunities.map((o) => o.spread)).toFixed(3)}%`
-                  : '0%'}
-              </div>
-            </CardContent>
-          </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Melhor Spread
+                </CardTitle>
+                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-green-500">
+                  {data.opportunities.length > 0
+                    ? `${Math.max(...data.opportunities.map((o) => o.spread)).toFixed(3)}%`
+                    : '0.000%'}
+                </div>
+              </CardContent>
+            </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">
-                Lucro Potencial
-              </CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-500">
-                ${data.opportunities.length > 0
-                  ? Math.max(...data.opportunities.map((o) => o.netProfit)).toFixed(2)
-                  : '0.00'}
-              </div>
-            </CardContent>
-          </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Lucro Potencial
+                </CardTitle>
+                <DollarSign className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-green-500">
+                  ${data.opportunities.length > 0
+                    ? Math.max(...data.opportunities.map((o) => o.netProfit)).toFixed(2)
+                    : '0.00'}
+                </div>
+              </CardContent>
+            </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">
-                Latência
-              </CardTitle>
-              <Clock className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-500">
-                &lt;30ms
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Latência
+                </CardTitle>
+                <Clock className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-blue-500">
+                  &lt;100ms
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Preços em Tempo Real */}
+          {data.prices.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>📊 Preços ao Vivo (REST API)</CardTitle>
+                <CardDescription>
+                  Atualização a cada 100ms
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {data.prices.map((symbolData) => (
+                    <div key={symbolData.symbol} className="border rounded-lg p-4">
+                      <h3 className="font-semibold mb-3 flex items-center justify-between">
+                        <span>{symbolData.symbol}</span>
+                        {symbolData.prices.length >= 2 && (
+                          <Badge variant="outline">
+                            Spread: {(() => {
+                              const prices = symbolData.prices.map(p => p.price);
+                              const min = Math.min(...prices);
+                              const max = Math.max(...prices);
+                              const spread = ((max - min) / min * 100);
+                              return spread.toFixed(3);
+                            })()}%
+                          </Badge>
+                        )}
+                      </h3>
+                      <div className="space-y-2">
+                        {symbolData.prices.map((price) => (
+                          <div
+                            key={price.exchange}
+                            className="flex items-center justify-between text-sm p-2 bg-muted rounded"
+                          >
+                            <Badge variant="outline">{price.exchange.toUpperCase()}</Badge>
+                            <div className="font-mono font-bold">
+                              ${price.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </>
       )}
 
       {/* Alerta de Modo */}
@@ -300,7 +349,7 @@ export const HFTDashboard = () => {
           <CardHeader>
             <CardTitle>🎯 Oportunidades Detectadas (Tempo Real)</CardTitle>
             <CardDescription>
-              Atualização em tempo real via WebSocket
+              Atualização em tempo real via REST API (100ms)
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -340,11 +389,48 @@ export const HFTDashboard = () => {
         </Card>
       )}
 
+      {/* Sem Oportunidades */}
+      {data && data.opportunities.length === 0 && enabled && (
+        <Card className="border-blue-200 bg-blue-50">
+          <CardHeader>
+            <CardTitle>💡 Nenhuma Oportunidade Detectada</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <p className="text-muted-foreground">
+                O sistema está monitorando ativamente, mas não encontrou spreads acima do threshold de lucro ($1.00).
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div className="p-3 bg-white rounded-lg border">
+                  <div className="font-semibold mb-1">💰 Threshold Atual</div>
+                  <div>Lucro mínimo: $1.00 USD por trade</div>
+                  <div className="text-xs text-muted-foreground">Volume: $25 USD</div>
+                </div>
+                <div className="p-3 bg-white rounded-lg border">
+                  <div className="font-semibold mb-1">📊 Spreads Atuais</div>
+                  <div>BTC/USDT: ~0.002% (muito baixo)</div>
+                  <div className="text-xs text-muted-foreground">Mercado muito eficiente</div>
+                </div>
+              </div>
+              <div className="p-4 bg-yellow-100 border border-yellow-300 rounded-lg">
+                <div className="font-semibold text-yellow-900 mb-2">💡 Dica para encontrar oportunidades:</div>
+                <div className="text-sm text-yellow-800 space-y-1">
+                  <div>• Adicione mais símbolos: ETH/USDT, SOL/USDT, BNB/USDT</div>
+                  <div>• Adicione Bybit às exchanges (mais ineficiências)</div>
+                  <div>• BTC/USDT é extremamente líquido - spreads mínimos</div>
+                  <div>• Altcoins têm spreads 10-100x maiores</div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Preços em Tempo Real */}
       {data && data.prices.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>📊 Preços ao Vivo (WebSocket)</CardTitle>
+            <CardTitle>📊 Preços ao Vivo (REST API)</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
