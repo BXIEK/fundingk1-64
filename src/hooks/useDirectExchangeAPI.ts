@@ -27,7 +27,11 @@ export const useDirectExchangeAPI = () => {
       const queryString = new URLSearchParams({
         ...params,
         timestamp: timestamp.toString(),
+        recvWindow: '60000', // 60 segundos de janela
       }).toString();
+
+      console.log('🔐 Binance - Gerando assinatura...');
+      console.log('📝 Query String:', queryString);
 
       // Gerar assinatura HMAC SHA256
       const signature = CryptoJS.HmacSHA256(
@@ -35,9 +39,13 @@ export const useDirectExchangeAPI = () => {
         credentials.binance_secret_key || ''
       ).toString();
 
+      console.log('✅ Assinatura gerada:', signature.substring(0, 10) + '...');
+
       const url = `https://api.binance.com${endpoint}?${queryString}&signature=${signature}`;
 
-      console.log('🌐 Direct Binance Request from CLIENT IP:', url);
+      console.log('🌐 Direct Binance Request from CLIENT IP');
+      console.log('📡 Endpoint:', endpoint);
+      console.log('🔑 API Key:', credentials.binance_api_key?.substring(0, 10) + '...');
 
       const response = await fetch(url, {
         method: 'GET',
@@ -46,16 +54,34 @@ export const useDirectExchangeAPI = () => {
         },
       });
 
+      console.log('📊 Response Status:', response.status);
+
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
+        const errorText = await response.text();
+        console.error('❌ Binance Error Response:', errorText);
+        
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          throw new Error(`Binance API Error: ${response.status} - ${errorText}`);
+        }
+        
         throw new Error(errorData.msg || `Binance API Error: ${response.status}`);
       }
 
       const data = await response.json();
+      console.log('✅ Binance Response OK');
       setIsLoading(false);
       return { success: true, data };
     } catch (err: any) {
       console.error('❌ Binance Direct Request Error:', err);
+      console.error('Error details:', {
+        message: err.message,
+        name: err.name,
+        stack: err.stack
+      });
+      
       setError(err.message);
       setIsLoading(false);
       return { success: false, error: err.message };
