@@ -333,13 +333,24 @@ serve(async (req) => {
 
   } catch (error: any) {
     console.error('❌ MEXC API Error:', error);
+    
+    // Tratamento específico para erro de IP whitelist
+    let errorMessage = error.message || 'Internal server error';
+    let statusCode = 500;
+    
+    if (errorMessage.includes('IP') && errorMessage.includes('white list')) {
+      errorMessage = '🔒 IP não autorizado na MEXC. Adicione o IP 18.228.156.0 na whitelist da sua API Key MEXC.';
+      statusCode = 403;
+    }
+    
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: error.message || 'Internal server error' 
+        error: errorMessage,
+        hint: errorMessage.includes('white list') ? 'Vá em MEXC > Account > API Management > Edit API > IP Whitelist e adicione: 18.228.156.0' : undefined
       }),
       { 
-        status: 500,
+        status: statusCode,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       }
     );

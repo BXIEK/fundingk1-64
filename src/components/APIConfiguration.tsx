@@ -496,23 +496,31 @@ const APIConfiguration = () => {
         });
       } else {
         // Verificar se é erro específico de IP whitelist
-        if (data.error && data.error.includes('whitelist')) {
+        const errorMsg = data.error || '';
+        if (errorMsg.includes('whitelist') || errorMsg.includes('white list') || errorMsg.includes('IP')) {
           toast({
-            title: "❌ IP não autorizado na MEXC",
-            description: "Configure a whitelist da MEXC com os IPs: 18.231.48.154 e 15.228.34.4 ou use 0.0.0.0/0",
+            title: "🔒 IP não autorizado na MEXC",
+            description: data.hint || "Adicione o IP 18.228.156.0 na whitelist da sua API Key MEXC (Account > API Management > Edit API > IP Whitelist)",
             variant: "destructive",
-            duration: 10000
+            duration: 12000
           });
         } else {
-          throw new Error(data.error || 'Erro desconhecido');
+          throw new Error(errorMsg || 'Erro desconhecido');
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Erro no teste da MEXC:', error);
+      
+      let errorMsg = error.message || "Falha ao conectar com a API MEXC";
+      if (errorMsg.includes('whitelist') || errorMsg.includes('white list') || errorMsg.includes('IP')) {
+        errorMsg = "🔒 IP não autorizado. Adicione 18.228.156.0 na whitelist da MEXC";
+      }
+      
       toast({
         title: "❌ Erro de Conexão MEXC",
-        description: error instanceof Error ? error.message : "Falha ao conectar com a API MEXC. Verifique suas credenciais.",
-        variant: "destructive"
+        description: errorMsg,
+        variant: "destructive",
+        duration: 8000
       });
     } finally {
       setIsTestingMEXC(false);
