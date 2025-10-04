@@ -159,6 +159,61 @@ const Index = () => {
           </div>
         </div>
 
+        {/* Quick Access Cards - HFT & Triangular Arbitrage */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          <Card 
+            className="border-2 border-primary/20 hover:border-primary/40 transition-all cursor-pointer bg-gradient-to-br from-card to-primary/5"
+            onClick={() => navigate('/hft-trading')}
+          >
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Zap className="h-6 w-6 text-yellow-500" />
+                HFT Trading System
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-3">
+                Sistema de alta frequência com REST API paralelo - Latência ultra-baixa (~100ms)
+              </p>
+              <div className="flex items-center gap-2 text-xs">
+                <Badge variant="default">Multi-Exchange</Badge>
+                <Badge variant="secondary">REST API</Badge>
+                <Badge variant="outline">Execução Automática</Badge>
+              </div>
+              <Button className="w-full mt-4" variant="default">
+                Acessar HFT Dashboard
+                <ArrowRight className="h-4 w-4 ml-2" />
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card 
+            className="border-2 border-purple-500/20 hover:border-purple-500/40 transition-all cursor-pointer bg-gradient-to-br from-card to-purple-500/5"
+            onClick={() => navigate('/triangular-arbitrage')}
+          >
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="h-6 w-6 text-purple-500" />
+                Arbitragem Triangular
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-3">
+                Ciclos triangulares em tempo real via WebSocket - Detecção instantânea
+              </p>
+              <div className="flex items-center gap-2 text-xs">
+                <Badge variant="default" className="bg-purple-600">WebSocket</Badge>
+                <Badge variant="secondary">Tempo Real</Badge>
+                <Badge variant="outline">Ciclos BTC/ETH/BNB</Badge>
+              </div>
+              <Button className="w-full mt-4" variant="outline">
+                Acessar Triangular Dashboard
+                <ArrowRight className="h-4 w-4 ml-2" />
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+
         <Tabs defaultValue="hybrid-strategy" className="w-full">
           <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 mb-4 sm:mb-8 h-auto">
             <TabsTrigger value="hybrid-strategy" className="flex items-center gap-1 sm:gap-2 p-2 sm:p-3 text-xs sm:text-sm">

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
@@ -9,6 +9,13 @@ import { useTriangularWebSocket } from '@/hooks/useTriangularWebSocket';
 export const TriangularArbitrageDashboard = () => {
   const [enabled, setEnabled] = useState(false);
   const { data, isConnected, error } = useTriangularWebSocket(enabled);
+
+  // Memoize stats para evitar re-renders desnecessários
+  const stats = useMemo(() => ({
+    opportunitiesCount: data.opportunities.length,
+    bestProfit: data.opportunities[0]?.profitPercentage.toFixed(3) || '0.000',
+    bestProfitUsd: data.opportunities[0]?.netProfitUsd.toFixed(2) || '0.00',
+  }), [data.opportunities]);
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -51,7 +58,7 @@ export const TriangularArbitrageDashboard = () => {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{data.opportunities.length}</div>
+            <div className="text-2xl font-bold">{stats.opportunitiesCount}</div>
             <p className="text-xs text-muted-foreground">Ciclos triangulares ativos</p>
           </CardContent>
         </Card>
@@ -63,10 +70,10 @@ export const TriangularArbitrageDashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {data.opportunities[0]?.profitPercentage.toFixed(3) || '0.000'}%
+              {stats.bestProfit}%
             </div>
             <p className="text-xs text-muted-foreground">
-              ${data.opportunities[0]?.netProfitUsd.toFixed(2) || '0.00'} USD
+              ${stats.bestProfitUsd} USD
             </p>
           </CardContent>
         </Card>
