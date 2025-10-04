@@ -22,12 +22,14 @@ import {
 interface APICredentials {
   binance: { apiKey: string; secretKey: string; };
   okx: { apiKey: string; secretKey: string; passphrase: string; };
+  bybit: { apiKey: string; secretKey: string; };
   hyperliquid: { walletAddress: string; privateKey: string; };
 }
 
 interface ConnectionStatus {
   binance: 'connected' | 'configured' | 'error' | 'missing';
   okx: 'connected' | 'configured' | 'error' | 'missing';
+  bybit: 'connected' | 'configured' | 'error' | 'missing';
   hyperliquid: 'connected' | 'configured' | 'error' | 'missing';
 }
 
@@ -36,24 +38,28 @@ const APICredentialsManager = () => {
   const [credentials, setCredentials] = useState<APICredentials>({
     binance: { apiKey: '', secretKey: '' },
     okx: { apiKey: '', secretKey: '', passphrase: '' },
+    bybit: { apiKey: '', secretKey: '' },
     hyperliquid: { walletAddress: '', privateKey: '' }
   });
 
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>({
     binance: 'missing',
-    okx: 'missing', 
+    okx: 'missing',
+    bybit: 'missing',
     hyperliquid: 'missing'
   });
 
   const [showKeys, setShowKeys] = useState({
     binance: false,
     okx: false,
+    bybit: false,
     hyperliquid: false
   });
 
   const [testing, setTesting] = useState({
     binance: false,
     okx: false,
+    bybit: false,
     hyperliquid: false
   });
 
@@ -240,11 +246,13 @@ const APICredentialsManager = () => {
       console.log('📂 [DIAGNÓSTICO] Verificando localStorage...');
       const binanceStored = localStorage.getItem("binance_credentials");
       const okxStored = localStorage.getItem("okx_credentials");
+      const bybitStored = localStorage.getItem("bybit_credentials");
       const hyperliquidStored = localStorage.getItem("hyperliquid_credentials");
 
       console.log('📂 [DIAGNÓSTICO] Conteúdo localStorage:', {
         binance: binanceStored ? 'presente' : 'ausente',
         okx: okxStored ? 'presente' : 'ausente',
+        bybit: bybitStored ? 'presente' : 'ausente',
         hyperliquid: hyperliquidStored ? 'presente' : 'ausente'
       });
 
@@ -265,6 +273,16 @@ const APICredentialsManager = () => {
         setConnectionStatus(prev => ({ 
           ...prev, 
           okx: creds.apiKey.includes('demo') ? 'configured' : 'configured'
+        }));
+      }
+
+      if (bybitStored) {
+        const creds = JSON.parse(bybitStored);
+        console.log('✅ [DIAGNÓSTICO] Carregando Bybit do localStorage');
+        setCredentials(prev => ({ ...prev, bybit: creds }));
+        setConnectionStatus(prev => ({ 
+          ...prev, 
+          bybit: creds.apiKey.includes('demo') ? 'configured' : 'configured'
         }));
       }
 
@@ -376,7 +394,50 @@ const APICredentialsManager = () => {
     }
   };
 
-  const saveCredentials = (exchange: 'binance' | 'okx' | 'hyperliquid') => {
+  const testBybitConnection = async () => {
+    if (!credentials.bybit.apiKey || !credentials.bybit.secretKey) {
+      toast({
+        title: "Erro",
+        description: "Preencha todas as credenciais da Bybit primeiro",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setTesting(prev => ({ ...prev, bybit: true }));
+    try {
+      const { data, error } = await supabase.functions.invoke('bybit-api', {
+        body: {
+          action: 'get_balances',
+          api_key: credentials.bybit.apiKey,
+          secret_key: credentials.bybit.secretKey
+        }
+      });
+
+      if (error) throw error;
+
+      if (data?.success) {
+        setConnectionStatus(prev => ({ ...prev, bybit: 'connected' }));
+        toast({
+          title: "✅ Bybit Conectada",
+          description: `Conexão estabelecida! ${data.total_assets || 0} ativos encontrados`
+        });
+      } else {
+        throw new Error(data?.error || 'Erro na conexão');
+      }
+    } catch (error) {
+      setConnectionStatus(prev => ({ ...prev, bybit: 'error' }));
+      toast({
+        title: "❌ Erro Bybit",
+        description: error instanceof Error ? error.message : "Erro na conexão",
+        variant: "destructive"
+      });
+    } finally {
+      setTesting(prev => ({ ...prev, bybit: false }));
+    }
+  };
+
+  const saveCredentials = (exchange: 'binance' | 'okx' | 'bybit' | 'hyperliquid') => {
     try {
       const creds = credentials[exchange];
       localStorage.setItem(`${exchange}_credentials`, JSON.stringify(creds));
@@ -610,6 +671,76 @@ const APICredentialsManager = () => {
               </AlertDescription>
             </Alert>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Configuração Bybit */}
+      <Card>
+        <CardHeader className="pb-4">
+          <CardTitle className="text-lg">Bybit API</CardTitle>
+          <CardDescription className="text-sm">Configure suas credenciais da Bybit</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">API Key</Label>
+            <div className="flex gap-2">
+              <Input
+                type={showKeys.bybit ? "text" : "password"}
+                value={credentials.bybit.apiKey}
+                onChange={(e) => setCredentials(prev => ({
+                  ...prev,
+                  bybit: { ...prev.bybit, apiKey: e.target.value }
+                }))}
+                placeholder="Sua API Key da Bybit"
+                className="text-sm"
+              />
+              <Button
+                variant="outline"
+                size="icon"
+                className="shrink-0"
+                onClick={() => setShowKeys(prev => ({ ...prev, bybit: !prev.bybit }))}
+              >
+                {showKeys.bybit ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+              </Button>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Secret Key</Label>
+            <Input
+              type={showKeys.bybit ? "text" : "password"}
+              value={credentials.bybit.secretKey}
+              onChange={(e) => setCredentials(prev => ({
+                ...prev,
+                bybit: { ...prev.bybit, secretKey: e.target.value }
+              }))}
+              placeholder="Sua Secret Key da Bybit"
+              className="text-sm"
+            />
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button 
+              onClick={() => saveCredentials('bybit')}
+              className="flex-1 sm:flex-none"
+            >
+              <Key className="h-3 w-3 mr-2" />
+              Salvar
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={testBybitConnection}
+              disabled={testing.bybit}
+              className="flex-1 sm:flex-none"
+            >
+              {testing.bybit ? (
+                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current mr-2"></div>
+              ) : (
+                <TestTube className="h-3 w-3 mr-2" />
+              )}
+              Testar
+            </Button>
+          </div>
         </CardContent>
       </Card>
 

@@ -18,6 +18,7 @@ export const CredentialsValidator = () => {
   const [statuses, setStatuses] = useState<ExchangeStatus[]>([
     { name: 'Binance', status: 'checking', message: 'Verificando...' },
     { name: 'OKX', status: 'checking', message: 'Verificando...' },
+    { name: 'Bybit', status: 'checking', message: 'Verificando...' },
     { name: 'MEXC', status: 'checking', message: 'Verificando...' },
   ]);
   const [isValidating, setIsValidating] = useState(false);
@@ -30,6 +31,7 @@ export const CredentialsValidator = () => {
     setStatuses([
       { name: 'Binance', status: 'checking', message: 'Verificando...' },
       { name: 'OKX', status: 'checking', message: 'Verificando...' },
+      { name: 'Bybit', status: 'checking', message: 'Verificando...' },
       { name: 'MEXC', status: 'checking', message: 'Verificando...' },
     ]);
 
@@ -135,6 +137,61 @@ export const CredentialsValidator = () => {
     } catch (error: any) {
       setStatuses(prev => prev.map(s => 
         s.name === 'OKX' 
+          ? { ...s, status: 'error', message: 'Erro ao conectar: ' + (error.message || 'Desconhecido') }
+          : s
+      ));
+    }
+
+    // Validate Bybit
+    try {
+      const bybitCreds = localStorage.getItem('bybit_credentials');
+      if (!bybitCreds) {
+        throw new Error('Credenciais Bybit não encontradas');
+      }
+
+      const { apiKey, secretKey } = JSON.parse(bybitCreds);
+      
+      const response = await fetch(
+        `https://uxhcsjlfwkhwkvhfacho.supabase.co/functions/v1/bybit-api`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV4aGNzamxmd2tod2t2aGZhY2hvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE0MDEzMzQsImV4cCI6MjA2Njk3NzMzNH0.WLA9LhdQHPZJpTC1qasafl3Gb7IqRvXN61XVcKnzx0U`
+          },
+          body: JSON.stringify({ 
+            action: 'get_balances',
+            api_key: apiKey,
+            secret_key: secretKey
+          })
+        }
+      );
+
+      const data = await response.json();
+
+      if (data.success && data.balances) {
+        const balanceCount = data.balances.length || 0;
+        setStatuses(prev => prev.map(s => 
+          s.name === 'Bybit' 
+            ? { ...s, status: 'ok', message: `✅ CONECTADA - ${balanceCount} saldos encontrados`, details: data }
+            : s
+        ));
+      } else {
+        const isIPError = data.error?.includes('IP') || data.error?.includes('whitelist');
+        setStatuses(prev => prev.map(s => 
+          s.name === 'Bybit' 
+            ? { 
+                ...s, 
+                status: isIPError ? 'ip_blocked' : 'error', 
+                message: data.error || 'Falha ao obter saldos',
+                details: data
+              }
+            : s
+        ));
+      }
+    } catch (error: any) {
+      setStatuses(prev => prev.map(s => 
+        s.name === 'Bybit' 
           ? { ...s, status: 'error', message: 'Erro ao conectar: ' + (error.message || 'Desconhecido') }
           : s
       ));
