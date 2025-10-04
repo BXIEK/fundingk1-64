@@ -6,13 +6,16 @@ interface ExchangeStatusBannerProps {
   binanceOk: boolean;
   okxOk: boolean;
   bybitOk: boolean;
+  mexcOk: boolean;
+  hyperliquidOk: boolean;
+  pionexOk: boolean;
   onConfigClick: () => void;
 }
 
-export const ExchangeStatusBanner = ({ binanceOk, okxOk, bybitOk, onConfigClick }: ExchangeStatusBannerProps) => {
-  const allOk = binanceOk && okxOk && bybitOk;
-  const someOk = binanceOk || okxOk || bybitOk;
-  const noneOk = !binanceOk && !okxOk && !bybitOk;
+export const ExchangeStatusBanner = ({ binanceOk, okxOk, bybitOk, mexcOk, hyperliquidOk, pionexOk, onConfigClick }: ExchangeStatusBannerProps) => {
+  const allOk = binanceOk && okxOk && bybitOk && mexcOk && hyperliquidOk && pionexOk;
+  const someOk = binanceOk || okxOk || bybitOk || mexcOk || hyperliquidOk || pionexOk;
+  const noneOk = !binanceOk && !okxOk && !bybitOk && !mexcOk && !hyperliquidOk && !pionexOk;
 
   if (allOk) {
     return (
@@ -20,7 +23,7 @@ export const ExchangeStatusBanner = ({ binanceOk, okxOk, bybitOk, onConfigClick 
         <CheckCircle2 className="h-5 w-5 text-green-600" />
         <AlertDescription>
           <strong className="text-green-700 dark:text-green-300">✅ Todas as exchanges conectadas!</strong>
-          <p className="text-sm mt-1">Binance, OKX e Bybit estão funcionando corretamente.</p>
+          <p className="text-sm mt-1">Binance, OKX, Bybit, MEXC, Hyperliquid e Pionex estão funcionando corretamente.</p>
         </AlertDescription>
       </Alert>
     );
@@ -50,17 +53,24 @@ export const ExchangeStatusBanner = ({ binanceOk, okxOk, bybitOk, onConfigClick 
       <AlertDescription>
         <strong className="text-yellow-700 dark:text-yellow-300">⚠️ Conexão parcial</strong>
         <div className="text-sm mt-2 space-y-1">
-          <p>
+          <p className="flex flex-wrap gap-2">
             <span className={binanceOk ? 'text-green-600' : 'text-red-600'}>
               {binanceOk ? '✅' : '❌'} Binance
             </span>
-            {' | '}
             <span className={okxOk ? 'text-green-600' : 'text-red-600'}>
               {okxOk ? '✅' : '❌'} OKX
             </span>
-            {' | '}
             <span className={bybitOk ? 'text-green-600' : 'text-red-600'}>
               {bybitOk ? '✅' : '❌'} Bybit
+            </span>
+            <span className={mexcOk ? 'text-green-600' : 'text-red-600'}>
+              {mexcOk ? '✅' : '❌'} MEXC
+            </span>
+            <span className={hyperliquidOk ? 'text-green-600' : 'text-red-600'}>
+              {hyperliquidOk ? '✅' : '❌'} Hyperliquid
+            </span>
+            <span className={pionexOk ? 'text-green-600' : 'text-red-600'}>
+              {pionexOk ? '✅' : '❌'} Pionex
             </span>
           </p>
         </div>

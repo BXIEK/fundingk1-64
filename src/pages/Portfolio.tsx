@@ -69,7 +69,14 @@ export default function Portfolio() {
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [depositAmount, setDepositAmount] = useState('');
   const [dataSource, setDataSource] = useState('');
-  const [exchangeStatuses, setExchangeStatuses] = useState({ binance: false, okx: false, bybit: false });
+  const [exchangeStatuses, setExchangeStatuses] = useState({ 
+    binance: false, 
+    okx: false, 
+    bybit: false,
+    mexc: false,
+    hyperliquid: false,
+    pionex: false
+  });
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -155,7 +162,10 @@ export default function Portfolio() {
         setExchangeStatuses({
           binance: hasExchangeData('binance'),
           okx: hasExchangeData('okx'),
-          bybit: hasExchangeData('bybit')
+          bybit: hasExchangeData('bybit'),
+          mexc: hasExchangeData('mexc'),
+          hyperliquid: hasExchangeData('hyperliquid'),
+          pionex: hasExchangeData('pionex')
         });
         
         // Mostrar toast baseado na fonte dos dados
@@ -445,6 +455,9 @@ export default function Portfolio() {
           binanceOk={exchangeStatuses.binance}
           okxOk={exchangeStatuses.okx}
           bybitOk={exchangeStatuses.bybit}
+          mexcOk={exchangeStatuses.mexc}
+          hyperliquidOk={exchangeStatuses.hyperliquid}
+          pionexOk={exchangeStatuses.pionex}
           onConfigClick={() => navigate('/arbitrage-control')}
         />
       )}

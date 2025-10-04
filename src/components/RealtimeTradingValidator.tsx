@@ -167,7 +167,10 @@ export default function RealtimeTradingValidator() {
                 <SelectContent>
                   <SelectItem value="Binance">Binance</SelectItem>
                   <SelectItem value="OKX">OKX</SelectItem>
+                  <SelectItem value="Bybit">Bybit</SelectItem>
+                  <SelectItem value="MEXC">MEXC</SelectItem>
                   <SelectItem value="Hyperliquid">Hyperliquid</SelectItem>
+                  <SelectItem value="Pionex">Pionex</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -183,7 +186,10 @@ export default function RealtimeTradingValidator() {
                 <SelectContent>
                   <SelectItem value="Binance">Binance</SelectItem>
                   <SelectItem value="OKX">OKX</SelectItem>
+                  <SelectItem value="Bybit">Bybit</SelectItem>
+                  <SelectItem value="MEXC">MEXC</SelectItem>
                   <SelectItem value="Hyperliquid">Hyperliquid</SelectItem>
+                  <SelectItem value="Pionex">Pionex</SelectItem>
                 </SelectContent>
               </Select>
             </div>

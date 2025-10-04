@@ -509,6 +509,8 @@ const SmartTransferDashboard = () => {
                     <SelectContent>
                       <SelectItem value="binance">Binance</SelectItem>
                       <SelectItem value="okx">OKX</SelectItem>
+                      <SelectItem value="bybit">Bybit</SelectItem>
+                      <SelectItem value="mexc">MEXC</SelectItem>
                       <SelectItem value="pionex">Pionex</SelectItem>
                       <SelectItem value="hyperliquid">Hyperliquid</SelectItem>
                       <SelectItem value="web3">Web3 Wallet</SelectItem>
@@ -531,6 +533,8 @@ const SmartTransferDashboard = () => {
                     <SelectContent>
                       <SelectItem value="binance">Binance</SelectItem>
                       <SelectItem value="okx">OKX</SelectItem>
+                      <SelectItem value="bybit">Bybit</SelectItem>
+                      <SelectItem value="mexc">MEXC</SelectItem>
                       <SelectItem value="pionex">Pionex</SelectItem>
                       <SelectItem value="hyperliquid">Hyperliquid</SelectItem>
                       <SelectItem value="web3">Web3 Wallet</SelectItem>
