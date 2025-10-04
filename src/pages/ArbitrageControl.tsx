@@ -41,10 +41,8 @@ import { OKXInstrumentChecker } from '@/components/OKXInstrumentChecker';
 import Web3PortfolioCard from '@/components/Web3PortfolioCard';
 import OKXPortfolioCard from '@/components/OKXPortfolioCard';
 import HyperliquidPortfolioCard from '@/components/HyperliquidPortfolioCard';
-import { MEXCPortfolioCard } from '@/components/MEXCPortfolioCard';
 import SmartTransferDashboard from '@/components/SmartTransferDashboard';
 import IPWhitelistHelper from '@/components/IPWhitelistHelper';
-import MEXCWhitelistHelper from '@/components/MEXCWhitelistHelper';
 import { IPWhitelistGuide } from '@/components/IPWhitelistGuide';
 
 import { type ArbitrageOpportunity } from '@/types/arbitrage';
@@ -763,9 +761,6 @@ export default function ArbitrageControl() {
                 </Table>
               </CardContent>
             </Card>
-
-            {/* Saldos MEXC */}
-            <MEXCPortfolioCard />
 
             {/* Carteira Web3 */}
             <Web3PortfolioCard />
