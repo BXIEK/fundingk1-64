@@ -870,14 +870,28 @@ const APIConfiguration = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              <Alert variant="destructive" className="mb-4">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>
+                  <strong>⚠️ CRÍTICO: Configuração de IP Whitelist</strong>
+                  <br />
+                  <br />Adicione o IP <code className="bg-white/10 px-2 py-1 rounded font-mono">18.228.156.0</code> na whitelist da sua API MEXC
+                  <br />
+                  <br /><strong>Como fazer:</strong>
+                  <br />1. Acesse <a href="https://www.mexc.com/user/openapi" target="_blank" className="text-primary underline font-semibold">MEXC → Account → API Management</a>
+                  <br />2. Clique em "Edit" na sua API Key
+                  <br />3. Em "IP Whitelist", adicione: <code className="bg-white/10 px-2 py-1 rounded font-mono">18.228.156.0</code>
+                  <br />4. Salve as alterações
+                </AlertDescription>
+              </Alert>
+              
               <Alert>
                 <Shield className="h-4 w-4" />
                 <AlertDescription>
-                  <strong>Importante:</strong> Para usar suas credenciais da MEXC:
-                  <br />• Acesse <a href="https://www.mexc.com/user/openapi" target="_blank" className="text-primary underline">MEXC API Management</a>
-                  <br />• Crie uma nova API Key com permissões de "Trade" e "Read"
-                  <br />• Configure a whitelist com os IPs: <code>18.231.48.154</code> e <code>15.228.34.4</code> ou use <code>0.0.0.0/0</code> (menos seguro)
-                  <br />• Teste a conexão antes de usar o modo real
+                  <strong>Instruções de Configuração:</strong>
+                  <br />• Crie uma nova API Key com permissões de "Spot" e "Read"
+                  <br />• <strong className="text-yellow-500">Obrigatório:</strong> Configure o IP whitelist acima
+                  <br />• Teste a conexão antes de operar no modo real
                 </AlertDescription>
               </Alert>
               <div className="space-y-2">
