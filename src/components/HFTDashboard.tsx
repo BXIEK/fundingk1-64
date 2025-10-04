@@ -73,7 +73,18 @@ export const HFTDashboard = () => {
           });
         });
 
-        setExchangeBalances(Array.from(balancesByExchange.values()));
+        // Ordenar exchanges: Binance, OKX, Bybit, Hyperliquid, outros
+        const exchangeOrder = ['BINANCE', 'OKX', 'BYBIT', 'HYPERLIQUID'];
+        const sortedBalances = Array.from(balancesByExchange.values()).sort((a, b) => {
+          const aIndex = exchangeOrder.indexOf(a.exchange.toUpperCase());
+          const bIndex = exchangeOrder.indexOf(b.exchange.toUpperCase());
+          if (aIndex === -1 && bIndex === -1) return a.exchange.localeCompare(b.exchange);
+          if (aIndex === -1) return 1;
+          if (bIndex === -1) return -1;
+          return aIndex - bIndex;
+        });
+
+        setExchangeBalances(sortedBalances);
       }
     } catch (error) {
       console.error('Error loading balances:', error);
@@ -201,12 +212,18 @@ export const HFTDashboard = () => {
               Nenhum saldo encontrado. Configure suas APIs nas exchanges.
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               {exchangeBalances.map((exchange) => (
                 <Card key={exchange.exchange} className="border-2">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-lg flex items-center justify-between">
-                      <span>{exchange.exchange.toUpperCase()}</span>
+                      <span className="flex items-center gap-2">
+                        {exchange.exchange.toUpperCase() === 'BINANCE' && '🟡'}
+                        {exchange.exchange.toUpperCase() === 'OKX' && '⚫'}
+                        {exchange.exchange.toUpperCase() === 'BYBIT' && '🟠'}
+                        {exchange.exchange.toUpperCase() === 'HYPERLIQUID' && '🔵'}
+                        {exchange.exchange.toUpperCase()}
+                      </span>
                       <Badge variant="default">${exchange.totalUsd.toFixed(2)}</Badge>
                     </CardTitle>
                   </CardHeader>
