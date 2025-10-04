@@ -1,287 +1,301 @@
-import React, { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Loader2, CheckCircle, XCircle, AlertTriangle, Info } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
+import { CheckCircle2, XCircle, AlertTriangle, RefreshCw, ExternalLink } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
-interface CredentialStatus {
-  exchange: string;
-  status: 'valid' | 'invalid' | 'error' | 'missing';
+interface ExchangeStatus {
+  name: string;
+  status: 'checking' | 'ok' | 'error' | 'ip_blocked';
   message: string;
   details?: any;
-  suggestions?: string[];
 }
 
-interface ValidationResult {
-  success: boolean;
-  summary: string;
-  credentials: CredentialStatus[];
-  critical_issues: string[];
-  next_steps: string[];
-  trading_config?: {
-    maxTradeSize: number;
-    dailyLimit: number;
-    maxSlippage: number;
-    maxConcurrentTrades: number;
-  };
-}
-
-export const CredentialsValidator: React.FC = () => {
+export const CredentialsValidator = () => {
+  const [statuses, setStatuses] = useState<ExchangeStatus[]>([
+    { name: 'Binance', status: 'checking', message: 'Verificando...' },
+    { name: 'OKX', status: 'checking', message: 'Verificando...' },
+    { name: 'MEXC', status: 'checking', message: 'Verificando...' },
+  ]);
   const [isValidating, setIsValidating] = useState(false);
-  const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
+  const { toast } = useToast();
 
-  const getStatusIcon = (status: CredentialStatus['status']) => {
-    switch (status) {
-      case 'valid':
-        return <CheckCircle className="h-5 w-5 text-green-500" />;
-      case 'invalid':
-        return <XCircle className="h-5 w-5 text-red-500" />;
-      case 'error':
-        return <AlertTriangle className="h-5 w-5 text-yellow-500" />;
-      case 'missing':
-        return <Info className="h-5 w-5 text-blue-500" />;
-      default:
-        return null;
-    }
-  };
-
-  const getStatusBadge = (status: CredentialStatus['status']) => {
-    const variants = {
-      valid: 'default',
-      invalid: 'destructive',
-      error: 'secondary',
-      missing: 'outline'
-    } as const;
-
-    const labels = {
-      valid: 'Válida',
-      invalid: 'Inválida',
-      error: 'Erro',
-      missing: 'Não Configurada'
-    };
-
-    return (
-      <Badge variant={variants[status]}>
-        {labels[status]}
-      </Badge>
-    );
-  };
-
-  const validateCredentials = async () => {
+  const validateAll = async () => {
     setIsValidating(true);
-    try {
-      // Obter credenciais do localStorage (mesma fonte que APIConfiguration usa)
-      const binanceCredentials = JSON.parse(localStorage.getItem('binance_credentials') || '{}');
-      const binanceApiKey = binanceCredentials.apiKey;
-      const binanceSecretKey = binanceCredentials.secretKey;
+    
+    // Reset statuses
+    setStatuses([
+      { name: 'Binance', status: 'checking', message: 'Verificando...' },
+      { name: 'OKX', status: 'checking', message: 'Verificando...' },
+      { name: 'MEXC', status: 'checking', message: 'Verificando...' },
+    ]);
 
-      const { data, error } = await supabase.functions.invoke('credentials-validator', {
-        body: {
-          binanceApiKey,
-          binanceSecretKey
+    // Validate Binance
+    try {
+      const binanceCreds = localStorage.getItem('binance_credentials');
+      if (!binanceCreds) {
+        throw new Error('Credenciais não encontradas no localStorage');
+      }
+
+      const { apiKey, secretKey } = JSON.parse(binanceCreds);
+      const { data, error } = await supabase.functions.invoke('test-binance-connection', {
+        body: { apiKey, secretKey }
+      });
+
+      if (error) throw error;
+
+      if (data.success) {
+        setStatuses(prev => prev.map(s => 
+          s.name === 'Binance' 
+            ? { ...s, status: 'ok', message: '✅ Conexão OK', details: data }
+            : s
+        ));
+      } else {
+        const isIPError = data.error?.includes('IP') || data.error?.includes('whitelist');
+        setStatuses(prev => prev.map(s => 
+          s.name === 'Binance' 
+            ? { 
+                ...s, 
+                status: isIPError ? 'ip_blocked' : 'error', 
+                message: data.error || 'Erro desconhecido',
+                details: data
+              }
+            : s
+        ));
+      }
+    } catch (error: any) {
+      setStatuses(prev => prev.map(s => 
+        s.name === 'Binance' 
+          ? { ...s, status: 'error', message: error.message }
+          : s
+      ));
+    }
+
+    // Validate OKX
+    try {
+      const okxCreds = localStorage.getItem('okx_credentials');
+      if (!okxCreds) {
+        throw new Error('Credenciais não encontradas no localStorage');
+      }
+
+      const { apiKey, secretKey, passphrase } = JSON.parse(okxCreds);
+      const { data, error } = await supabase.functions.invoke('okx-api', {
+        body: { 
+          action: 'get_balances',
+          api_key: apiKey,
+          secret_key: secretKey,
+          passphrase: passphrase
         }
       });
-      
-      if (error) {
-        throw new Error(error.message);
+
+      if (error) throw error;
+
+      if (data.success) {
+        setStatuses(prev => prev.map(s => 
+          s.name === 'OKX' 
+            ? { ...s, status: 'ok', message: '✅ Conexão OK', details: data }
+            : s
+        ));
+      } else {
+        const isIPError = data.error?.includes('IP') || data.error?.includes('whitelist');
+        setStatuses(prev => prev.map(s => 
+          s.name === 'OKX' 
+            ? { 
+                ...s, 
+                status: isIPError ? 'ip_blocked' : 'error', 
+                message: data.error || 'Erro desconhecido',
+                details: data
+              }
+            : s
+        ));
+      }
+    } catch (error: any) {
+      setStatuses(prev => prev.map(s => 
+        s.name === 'OKX' 
+          ? { ...s, status: 'error', message: error.message }
+          : s
+      ));
+    }
+
+    // Validate MEXC
+    try {
+      const mexcCreds = localStorage.getItem('mexc_credentials');
+      if (!mexcCreds) {
+        throw new Error('Credenciais não encontradas no localStorage');
       }
 
-      setValidationResult(data);
-      
-      if (data.success) {
-        toast.success('Validação concluída!', {
-          description: data.summary
-        });
-      } else {
-        toast.error('Problemas encontrados', {
-          description: data.summary
-        });
-      }
-    } catch (error) {
-      console.error('Erro na validação:', error);
-      toast.error('Erro na validação', {
-        description: error instanceof Error ? error.message : 'Erro desconhecido'
+      const { apiKey, secretKey } = JSON.parse(mexcCreds);
+      const { data, error } = await supabase.functions.invoke('mexc-api', {
+        body: { 
+          action: 'get_balances',
+          api_key: apiKey,
+          secret_key: secretKey
+        }
       });
-    } finally {
-      setIsValidating(false);
+
+      if (error) throw error;
+
+      if (data.success) {
+        setStatuses(prev => prev.map(s => 
+          s.name === 'MEXC' 
+            ? { ...s, status: 'ok', message: '✅ Conexão OK', details: data }
+            : s
+        ));
+      } else {
+        const isIPError = data.error?.includes('IP') || data.error?.includes('whitelist');
+        setStatuses(prev => prev.map(s => 
+          s.name === 'MEXC' 
+            ? { 
+                ...s, 
+                status: isIPError ? 'ip_blocked' : 'error', 
+                message: data.error || 'Erro desconhecido',
+                details: data
+              }
+            : s
+        ));
+      }
+    } catch (error: any) {
+      setStatuses(prev => prev.map(s => 
+        s.name === 'MEXC' 
+          ? { ...s, status: 'error', message: error.message }
+          : s
+      ));
     }
+
+    setIsValidating(false);
+    
+    const allOk = statuses.every(s => s.status === 'ok');
+    if (allOk) {
+      toast({
+        title: "✅ Todas as exchanges OK",
+        description: "Todas as conexões estão funcionando corretamente",
+      });
+    }
+  };
+
+  useEffect(() => {
+    validateAll();
+  }, []);
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'ok':
+        return <CheckCircle2 className="w-5 h-5 text-green-500" />;
+      case 'error':
+        return <XCircle className="w-5 h-5 text-red-500" />;
+      case 'ip_blocked':
+        return <AlertTriangle className="w-5 h-5 text-yellow-500" />;
+      default:
+        return <RefreshCw className="w-5 h-5 animate-spin text-blue-500" />;
+    }
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'ok':
+        return <Badge variant="default" className="bg-green-500">OK</Badge>;
+      case 'error':
+        return <Badge variant="destructive">ERRO</Badge>;
+      case 'ip_blocked':
+        return <Badge variant="secondary" className="bg-yellow-500 text-black">IP BLOQUEADO</Badge>;
+      default:
+        return <Badge variant="outline">Verificando...</Badge>;
+    }
+  };
+
+  const getFixInstructions = (exchange: ExchangeStatus) => {
+    if (exchange.status === 'ip_blocked') {
+      return (
+        <Alert className="mt-2">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>
+            <strong>Solução:</strong> Adicione os IPs do Supabase na whitelist da {exchange.name}.
+            Vá para a aba "IP Whitelist" para ver todos os IPs.
+          </AlertDescription>
+        </Alert>
+      );
+    }
+
+    if (exchange.status === 'error') {
+      if (exchange.name === 'Binance') {
+        return (
+          <Alert className="mt-2" variant="destructive">
+            <XCircle className="h-4 w-4" />
+            <AlertDescription>
+              <strong>Soluções possíveis:</strong>
+              <ol className="list-decimal ml-4 mt-2 space-y-1">
+                <li>Verifique se a API Key está correta e ATIVA na Binance</li>
+                <li>Verifique se a Secret Key está correta</li>
+                <li>Confirme as permissões: "Enable Reading" + "Enable Spot & Margin Trading"</li>
+                <li>Se houver restrição de IP, remova ou adicione os IPs do Supabase</li>
+                <li>Considere deletar e recriar a API Key na Binance</li>
+              </ol>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="mt-2"
+                onClick={() => window.open('https://www.binance.com/en/my/settings/api-management', '_blank')}
+              >
+                <ExternalLink className="w-4 h-4 mr-2" />
+                Abrir Binance API Management
+              </Button>
+            </AlertDescription>
+          </Alert>
+        );
+      }
+
+      return (
+        <Alert className="mt-2" variant="destructive">
+          <XCircle className="h-4 w-4" />
+          <AlertDescription>
+            <strong>Erro:</strong> {exchange.message}
+            <br />
+            Verifique suas credenciais na exchange.
+          </AlertDescription>
+        </Alert>
+      );
+    }
+
+    return null;
   };
 
   return (
-    <Card className="w-full">
-      <CardHeader className="flex flex-row items-center justify-between">
-        <div>
-          <CardTitle className="text-xl font-semibold">Validador de Credenciais</CardTitle>
-          <p className="text-sm text-muted-foreground mt-1">
-            Teste e valide suas credenciais das exchanges
-          </p>
-        </div>
-        <Button
-          onClick={validateCredentials}
-          disabled={isValidating}
-          className="min-w-[120px]"
-        >
-          {isValidating ? (
-            <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Validando...
-            </>
-          ) : (
-            'Validar Credenciais'
-          )}
-        </Button>
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center justify-between">
+          Status das Conexões
+          <Button
+            onClick={validateAll}
+            disabled={isValidating}
+            size="sm"
+          >
+            <RefreshCw className={`w-4 h-4 mr-2 ${isValidating ? 'animate-spin' : ''}`} />
+            Revalidar
+          </Button>
+        </CardTitle>
+        <CardDescription>
+          Validação automática das credenciais de cada exchange
+        </CardDescription>
       </CardHeader>
-
       <CardContent className="space-y-4">
-        {validationResult && (
-          <>
-            {/* Resumo */}
-            <Alert className={validationResult.success ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}>
-              <AlertTitle className="flex items-center gap-2">
-                {validationResult.success ? (
-                  <CheckCircle className="h-4 w-4 text-green-600" />
-                ) : (
-                  <XCircle className="h-4 w-4 text-red-600" />
-                )}
-                Status das Credenciais
-              </AlertTitle>
-              <AlertDescription className="mt-2">
-                {validationResult.summary}
-              </AlertDescription>
-            </Alert>
-
-            {/* Configurações Atuais de Trading */}
-            <Alert className="border-blue-200 bg-blue-50">
-              <Info className="h-4 w-4 text-blue-600" />
-              <AlertTitle>Configurações de Trading Ativas</AlertTitle>
-              <AlertDescription className="mt-2">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                  <div>
-                    <span className="font-medium">Tamanho Máximo:</span><br />
-                    <span className="text-blue-700">
-                      ${JSON.parse(localStorage.getItem('trading_config') || '{}').maxTradeSize || 500}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="font-medium">Limite Diário:</span><br />
-                    <span className="text-blue-700">
-                      ${JSON.parse(localStorage.getItem('trading_config') || '{}').dailyLimit || 1000}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="font-medium">Slippage Máximo:</span><br />
-                    <span className="text-blue-700">
-                      {JSON.parse(localStorage.getItem('trading_config') || '{}').maxSlippage || 0.5}%
-                    </span>
-                  </div>
-                  <div>
-                    <span className="font-medium">Trades Simultâneos:</span><br />
-                    <span className="text-blue-700">
-                      {JSON.parse(localStorage.getItem('trading_config') || '{}').maxConcurrentTrades || 3}
-                    </span>
-                  </div>
-                </div>
-                <p className="mt-2 text-xs text-blue-600">
-                  💡 Para alterar estes valores, use a aba "Trading" na página "Configuração de API"
-                </p>
-              </AlertDescription>
-            </Alert>
-
-            {/* Status detalhado por exchange */}
-            <div className="grid gap-4 md:grid-cols-3">
-              {validationResult.credentials.map((cred) => (
-                <Card key={cred.exchange} className="border-l-4 border-l-primary/20">
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-lg flex items-center gap-2">
-                        {getStatusIcon(cred.status)}
-                        {cred.exchange}
-                      </CardTitle>
-                      {getStatusBadge(cred.status)}
-                    </div>
-                  </CardHeader>
-                  <CardContent className="pt-0">
-                    <p className="text-sm text-muted-foreground mb-3">
-                      {cred.message}
-                    </p>
-                    
-                    {cred.details && (
-                      <div className="bg-muted/50 p-3 rounded-md mb-3">
-                        <p className="text-xs font-medium mb-1">Detalhes:</p>
-                        <pre className="text-xs text-muted-foreground overflow-x-auto">
-                          {JSON.stringify(cred.details, null, 2)}
-                        </pre>
-                      </div>
-                    )}
-
-                    {cred.suggestions && cred.suggestions.length > 0 && (
-                      <div className="space-y-1">
-                        <p className="text-xs font-medium text-muted-foreground">Sugestões:</p>
-                        <ul className="text-xs text-muted-foreground space-y-1">
-                          {cred.suggestions.map((suggestion, index) => (
-                            <li key={index} className="flex items-start gap-1">
-                              <span className="text-primary">•</span>
-                              <span>{suggestion}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
+        {statuses.map((exchange) => (
+          <div key={exchange.name} className="border rounded-lg p-4">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-3">
+                {getStatusIcon(exchange.status)}
+                <span className="font-semibold">{exchange.name}</span>
+              </div>
+              {getStatusBadge(exchange.status)}
             </div>
-
-            {/* Problemas críticos */}
-            {validationResult.critical_issues.length > 0 && (
-              <Alert variant="destructive">
-                <XCircle className="h-4 w-4" />
-                <AlertTitle>Problemas Críticos Encontrados</AlertTitle>
-                <AlertDescription className="mt-2">
-                  <ul className="list-disc list-inside space-y-1">
-                    {validationResult.critical_issues.map((issue, index) => (
-                      <li key={index} className="text-sm">{issue}</li>
-                    ))}
-                  </ul>
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {/* Próximos passos */}
-            {validationResult.next_steps.length > 0 && (
-              <Alert>
-                <Info className="h-4 w-4" />
-                <AlertTitle>Próximos Passos Recomendados</AlertTitle>
-                <AlertDescription className="mt-2">
-                  <ol className="list-decimal list-inside space-y-1">
-                    {validationResult.next_steps.slice(0, 5).map((step, index) => (
-                      <li key={index} className="text-sm">{step}</li>
-                    ))}
-                  </ol>
-                  {validationResult.next_steps.length > 5 && (
-                    <p className="text-xs text-muted-foreground mt-2">
-                      +{validationResult.next_steps.length - 5} mais passos...
-                    </p>
-                  )}
-                </AlertDescription>
-              </Alert>
-            )}
-          </>
-        )}
-
-        {/* Informações iniciais */}
-        {!validationResult && !isValidating && (
-          <div className="text-center py-8 text-muted-foreground">
-            <Info className="h-12 w-12 mx-auto mb-4 opacity-20" />
-            <p className="text-lg font-medium mb-2">Teste suas credenciais</p>
-            <p className="text-sm">
-              Clique em "Validar Credenciais" para verificar se suas APIs da Binance, Hyperliquid e OKX estão configuradas corretamente.
-            </p>
+            
+            <p className="text-sm text-muted-foreground mb-2">{exchange.message}</p>
+            
+            {getFixInstructions(exchange)}
           </div>
-        )}
+        ))}
       </CardContent>
     </Card>
   );

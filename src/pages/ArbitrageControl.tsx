@@ -772,8 +772,12 @@ export default function ArbitrageControl() {
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="real-mode" className="w-full">
-        <TabsList className="grid w-full grid-cols-7">
+      <Tabs defaultValue="status" className="w-full">
+        <TabsList className="grid w-full grid-cols-8">
+          <TabsTrigger value="status">
+            <CheckCircle className="h-4 w-4 mr-2" />
+            Status APIs
+          </TabsTrigger>
           <TabsTrigger value="real-mode">
             <Power className="h-4 w-4 mr-2" />
             Modo Real
@@ -792,6 +796,10 @@ export default function ArbitrageControl() {
           <TabsTrigger value="history">Histórico</TabsTrigger>
         </TabsList>
         
+        <TabsContent value="status" className="space-y-4">
+          <CredentialsValidator />
+        </TabsContent>
+
         <TabsContent value="real-mode" className="space-y-4">
           <RealModeActivator />
         </TabsContent>
