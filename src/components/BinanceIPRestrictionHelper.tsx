@@ -111,6 +111,25 @@ export const BinanceIPRestrictionHelper = () => {
           </Card>
         </div>
 
+        <Alert variant="destructive" className="bg-orange-50 border-orange-300">
+          <AlertTriangle className="h-4 w-4 text-orange-600" />
+          <AlertDescription>
+            <strong className="text-orange-700">⚠️ ATENÇÃO: Restrições Geográficas</strong>
+            <p className="mt-2 text-sm text-orange-900">
+              Mesmo com "Unrestricted", a Binance pode bloquear acessos baseado na sua região:
+            </p>
+            <ul className="list-disc ml-5 mt-2 space-y-1 text-sm text-orange-900">
+              <li><strong>Binance Global</strong> (api.binance.com) - Bloqueada em alguns países (EUA, etc.)</li>
+              <li><strong>Binance US</strong> (api.binance.us) - Apenas para usuários dos EUA</li>
+              <li><strong>Supabase</strong> usa servidores AWS em várias regiões globais</li>
+            </ul>
+            <p className="mt-2 text-sm font-semibold text-orange-900">
+              Se você está em uma região restrita, o Supabase pode conseguir acessar mesmo que você não consiga 
+              diretamente, pois os servidores Supabase estão em regiões diferentes.
+            </p>
+          </AlertDescription>
+        </Alert>
+
         <Alert>
           <AlertDescription>
             <strong>💡 Dica Final:</strong> Após selecionar "Unrestricted", aguarde 1-2 minutos e volte para 
