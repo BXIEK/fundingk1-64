@@ -89,6 +89,7 @@ export default function ArbitrageControl() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedOpportunity, setSelectedOpportunity] = useState<any>(null);
   const [portfolio, setPortfolio] = useState<PortfolioAsset[]>([]);
+  const [latency, setLatency] = useState<number | null>(null);
   
   const [settings, setSettings] = useState<TradingSettings>({
     auto_trading: false,
@@ -130,6 +131,9 @@ export default function ArbitrageControl() {
     try {
       setIsLoading(true);
       
+      // Medir latência da requisição
+      const startTime = performance.now();
+      
       // Prioridade 1: Buscar SEMPRE do banco primeiro (dados mais confiáveis)
       console.log('🔍 Buscando oportunidades do banco...');
       const { data: dbData, error: dbError } = await supabase
@@ -138,6 +142,12 @@ export default function ArbitrageControl() {
         .eq('is_active', true)
         .order('spread', { ascending: false }) // Ordenar por spread (maiores primeiro)
         .limit(50);
+      
+      // Calcular latência em ms
+      const endTime = performance.now();
+      const requestLatency = Math.round(endTime - startTime);
+      setLatency(requestLatency);
+      console.log(`⚡ Latência da requisição: ${requestLatency}ms`);
       
       let formattedOpportunities: ArbitrageOpportunity[] = [];
       
@@ -572,9 +582,20 @@ export default function ArbitrageControl() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+              <Badge 
+                variant="outline" 
+                className={`${
+                  latency === null 
+                    ? 'bg-gray-50 text-gray-700 border-gray-200'
+                    : latency < 100 
+                    ? 'bg-green-50 text-green-700 border-green-200' 
+                    : latency < 300 
+                    ? 'bg-yellow-50 text-yellow-700 border-yellow-200'
+                    : 'bg-red-50 text-red-700 border-red-200'
+                }`}
+              >
                 <Zap className="h-3 w-3 mr-1" />
-                Latência: ~50ms
+                Latência: {latency === null ? '...' : `${latency}ms`}
               </Badge>
               <Button
                 size="sm"
