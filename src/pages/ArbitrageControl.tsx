@@ -44,6 +44,7 @@ import HyperliquidPortfolioCard from '@/components/HyperliquidPortfolioCard';
 import SmartTransferDashboard from '@/components/SmartTransferDashboard';
 import IPWhitelistHelper from '@/components/IPWhitelistHelper';
 import { IPWhitelistGuide } from '@/components/IPWhitelistGuide';
+import { DirectIPConnectionTest } from '@/components/DirectIPConnectionTest';
 
 import { type ArbitrageOpportunity } from '@/types/arbitrage';
 
@@ -1130,6 +1131,7 @@ export default function ArbitrageControl() {
         </TabsContent>
 
         <TabsContent value="whitelist" className="space-y-4">
+          <DirectIPConnectionTest />
           <IPWhitelistGuide />
         </TabsContent>
 
