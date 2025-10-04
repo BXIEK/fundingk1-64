@@ -10,3 +10,6 @@ verify_jwt = false
 
 [functions.auto-transfer-crypto]
 verify_jwt = false
+
+[functions.mexc-api]
+verify_jwt = false
