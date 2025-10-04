@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 
 export interface TriangularOpportunity {
   id: string;
@@ -33,6 +33,24 @@ export const useTriangularWebSocket = (enabled: boolean) => {
   const [error, setError] = useState<string | null>(null);
   const [ws, setWs] = useState<WebSocket | null>(null);
 
+  // Queue messages while socket isn't OPEN
+  const messageQueue = useRef<string[]>([]);
+
+  const safeSend = useCallback((socket: WebSocket | null, data: any) => {
+    const payload = typeof data === 'string' ? data : JSON.stringify(data);
+    if (socket && socket.readyState === WebSocket.OPEN) {
+      try {
+        socket.send(payload);
+      } catch (err) {
+        console.error('WS send failed, queueing message:', err);
+        messageQueue.current.push(payload);
+      }
+    } else {
+      messageQueue.current.push(payload);
+    }
+  }, []);
+
+
   const connect = useCallback(() => {
     if (!enabled) return;
 
@@ -47,10 +65,16 @@ export const useTriangularWebSocket = (enabled: boolean) => {
       setIsConnected(true);
       setError(null);
       
-      // Start detection - only after connection is fully open
-      if (websocket.readyState === WebSocket.OPEN) {
-        websocket.send(JSON.stringify({ type: 'start' }));
+      // Flush queued messages first
+      while (messageQueue.current.length > 0 && websocket.readyState === WebSocket.OPEN) {
+        const queued = messageQueue.current.shift();
+        if (queued) {
+          try { websocket.send(queued); } catch (e) { console.error('Failed to flush queued msg', e); }
+        }
       }
+
+      // Start detection - queued if not OPEN for any reason
+      safeSend(websocket, { type: 'start' });
     };
 
     websocket.onmessage = (event) => {
