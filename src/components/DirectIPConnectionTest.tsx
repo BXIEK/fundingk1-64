@@ -75,11 +75,22 @@ export const DirectIPConnectionTest = () => {
     } catch (error: any) {
       setBinanceStatus('error');
       console.error('❌ Erro no teste Binance:', error);
-      toast({
-        title: "Erro na conexão com Binance",
-        description: error.message,
-        variant: "destructive",
-      });
+      
+      // Detectar erro CORS
+      if (error.message.includes('Failed to fetch') || error.message.includes('CORS')) {
+        toast({
+          title: "❌ Binance Bloqueia Chamadas Diretas",
+          description: "Binance não permite requisições diretas do browser (política CORS). Use as Edge Functions para acessar a Binance.",
+          variant: "destructive",
+          duration: 8000,
+        });
+      } else {
+        toast({
+          title: "Erro na conexão com Binance",
+          description: error.message,
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -153,7 +164,7 @@ export const DirectIPConnectionTest = () => {
           Conexão Direta via IP do Cliente
         </CardTitle>
         <CardDescription>
-          Teste a conexão usando <strong>seu IP</strong> ao invés dos IPs dinâmicos do Supabase
+          Teste a conexão direta. <strong>Nota:</strong> Binance bloqueia chamadas diretas do browser por CORS.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -200,9 +211,15 @@ export const DirectIPConnectionTest = () => {
               disabled={isLoading}
               className="w-full"
               size="sm"
+              variant="outline"
             >
-              Testar Conexão
+              {isLoading ? 'Testando...' : 'Testar (Bloqueado por CORS)'}
             </Button>
+            {binanceStatus === 'error' && (
+              <p className="text-xs text-muted-foreground mt-2">
+                ⚠️ Binance não permite requisições diretas do browser. Use Edge Functions.
+              </p>
+            )}
           </div>
 
           {/* OKX */}
