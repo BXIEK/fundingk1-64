@@ -2078,6 +2078,60 @@ export type Database = {
           },
         ]
       }
+      hft_trades: {
+        Row: {
+          buy_exchange: string
+          buy_price: number
+          created_at: string
+          error_message: string | null
+          executed_at: string | null
+          id: string
+          net_profit: number
+          sell_exchange: string
+          sell_price: number
+          spread_percentage: number
+          status: string
+          symbol: string
+          trade_amount: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          buy_exchange: string
+          buy_price: number
+          created_at?: string
+          error_message?: string | null
+          executed_at?: string | null
+          id?: string
+          net_profit: number
+          sell_exchange: string
+          sell_price: number
+          spread_percentage: number
+          status?: string
+          symbol: string
+          trade_amount: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          buy_exchange?: string
+          buy_price?: number
+          created_at?: string
+          error_message?: string | null
+          executed_at?: string | null
+          id?: string
+          net_profit?: number
+          sell_exchange?: string
+          sell_price?: number
+          spread_percentage?: number
+          status?: string
+          symbol?: string
+          trade_amount?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       historical_prices: {
         Row: {
           close_price: number
@@ -4373,6 +4427,54 @@ export type Database = {
           roi_percent?: number
           spread_percent?: number
           status?: string | null
+        }
+        Relationships: []
+      }
+      triangular_trades: {
+        Row: {
+          created_at: string
+          cycle: string[]
+          error_message: string | null
+          exchange: string
+          executed_at: string | null
+          id: string
+          net_profit_usd: number
+          prices: Json
+          profit_percentage: number
+          status: string
+          trade_amount: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          cycle: string[]
+          error_message?: string | null
+          exchange: string
+          executed_at?: string | null
+          id?: string
+          net_profit_usd: number
+          prices: Json
+          profit_percentage: number
+          status?: string
+          trade_amount: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          cycle?: string[]
+          error_message?: string | null
+          exchange?: string
+          executed_at?: string | null
+          id?: string
+          net_profit_usd?: number
+          prices?: Json
+          profit_percentage?: number
+          status?: string
+          trade_amount?: number
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
