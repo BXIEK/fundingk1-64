@@ -41,16 +41,25 @@ export const CredentialsValidator = () => {
       }
 
       const { apiKey, secretKey } = JSON.parse(binanceCreds);
-      const { data, error } = await supabase.functions.invoke('test-binance-connection', {
-        body: { apiKey, secretKey }
-      });
+      
+      const response = await fetch(
+        `https://uxhcsjlfwkhwkvhfacho.supabase.co/functions/v1/test-binance-connection`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV4aGNzamxmd2tod2t2aGZhY2hvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE0MDEzMzQsImV4cCI6MjA2Njk3NzMzNH0.WLA9LhdQHPZJpTC1qasafl3Gb7IqRvXN61XVcKnzx0U`
+          },
+          body: JSON.stringify({ apiKey, secretKey })
+        }
+      );
 
-      if (error) throw error;
+      const data = await response.json();
 
       if (data.success) {
         setStatuses(prev => prev.map(s => 
           s.name === 'Binance' 
-            ? { ...s, status: 'ok', message: '✅ Conexão OK', details: data }
+            ? { ...s, status: 'ok', message: '✅ Conexão OK - Saldos: ' + (data.totalAssets || 'N/A'), details: data }
             : s
         ));
       } else {
@@ -69,7 +78,7 @@ export const CredentialsValidator = () => {
     } catch (error: any) {
       setStatuses(prev => prev.map(s => 
         s.name === 'Binance' 
-          ? { ...s, status: 'error', message: error.message }
+          ? { ...s, status: 'error', message: error.message || 'Erro de conexão' }
           : s
       ));
     }
@@ -82,21 +91,30 @@ export const CredentialsValidator = () => {
       }
 
       const { apiKey, secretKey, passphrase } = JSON.parse(okxCreds);
-      const { data, error } = await supabase.functions.invoke('okx-api', {
-        body: { 
-          action: 'get_balances',
-          api_key: apiKey,
-          secret_key: secretKey,
-          passphrase: passphrase
+      
+      const response = await fetch(
+        `https://uxhcsjlfwkhwkvhfacho.supabase.co/functions/v1/okx-api`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV4aGNzamxmd2tod2t2aGZhY2hvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE0MDEzMzQsImV4cCI6MjA2Njk3NzMzNH0.WLA9LhdQHPZJpTC1qasafl3Gb7IqRvXN61XVcKnzx0U`
+          },
+          body: JSON.stringify({ 
+            action: 'get_balances',
+            api_key: apiKey,
+            secret_key: secretKey,
+            passphrase: passphrase
+          })
         }
-      });
+      );
 
-      if (error) throw error;
+      const data = await response.json();
 
       if (data.success) {
         setStatuses(prev => prev.map(s => 
           s.name === 'OKX' 
-            ? { ...s, status: 'ok', message: '✅ Conexão OK', details: data }
+            ? { ...s, status: 'ok', message: '✅ Conexão OK - Saldos encontrados', details: data }
             : s
         ));
       } else {
@@ -115,7 +133,7 @@ export const CredentialsValidator = () => {
     } catch (error: any) {
       setStatuses(prev => prev.map(s => 
         s.name === 'OKX' 
-          ? { ...s, status: 'error', message: error.message }
+          ? { ...s, status: 'error', message: error.message || 'Erro de conexão' }
           : s
       ));
     }
@@ -128,20 +146,29 @@ export const CredentialsValidator = () => {
       }
 
       const { apiKey, secretKey } = JSON.parse(mexcCreds);
-      const { data, error } = await supabase.functions.invoke('mexc-api', {
-        body: { 
-          action: 'get_balances',
-          api_key: apiKey,
-          secret_key: secretKey
+      
+      const response = await fetch(
+        `https://uxhcsjlfwkhwkvhfacho.supabase.co/functions/v1/mexc-api`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV4aGNzamxmd2tod2t2aGZhY2hvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE0MDEzMzQsImV4cCI6MjA2Njk3NzMzNH0.WLA9LhdQHPZJpTC1qasafl3Gb7IqRvXN61XVcKnzx0U`
+          },
+          body: JSON.stringify({ 
+            action: 'get_balances',
+            api_key: apiKey,
+            secret_key: secretKey
+          })
         }
-      });
+      );
 
-      if (error) throw error;
+      const data = await response.json();
 
       if (data.success) {
         setStatuses(prev => prev.map(s => 
           s.name === 'MEXC' 
-            ? { ...s, status: 'ok', message: '✅ Conexão OK', details: data }
+            ? { ...s, status: 'ok', message: '✅ Conexão OK - Saldos encontrados', details: data }
             : s
         ));
       } else {
@@ -160,7 +187,7 @@ export const CredentialsValidator = () => {
     } catch (error: any) {
       setStatuses(prev => prev.map(s => 
         s.name === 'MEXC' 
-          ? { ...s, status: 'error', message: error.message }
+          ? { ...s, status: 'error', message: error.message || 'Erro de conexão' }
           : s
       ));
     }
