@@ -18,10 +18,6 @@ export const CredentialsValidator = () => {
   const [statuses, setStatuses] = useState<ExchangeStatus[]>([
     { name: 'Binance', status: 'checking', message: 'Verificando...' },
     { name: 'OKX', status: 'checking', message: 'Verificando...' },
-    { name: 'Bybit', status: 'checking', message: 'Verificando...' },
-    { name: 'MEXC', status: 'checking', message: 'Verificando...' },
-    { name: 'Hyperliquid', status: 'checking', message: 'Verificando...' },
-    { name: 'Pionex', status: 'checking', message: 'Verificando...' },
   ]);
   const [isValidating, setIsValidating] = useState(false);
   const { toast } = useToast();
@@ -33,10 +29,6 @@ export const CredentialsValidator = () => {
     setStatuses([
       { name: 'Binance', status: 'checking', message: 'Verificando...' },
       { name: 'OKX', status: 'checking', message: 'Verificando...' },
-      { name: 'Bybit', status: 'checking', message: 'Verificando...' },
-      { name: 'MEXC', status: 'checking', message: 'Verificando...' },
-      { name: 'Hyperliquid', status: 'checking', message: 'Verificando...' },
-      { name: 'Pionex', status: 'checking', message: 'Verificando...' },
     ]);
 
     // Validate Binance
@@ -65,7 +57,7 @@ export const CredentialsValidator = () => {
       if (data.success) {
         setStatuses(prev => prev.map(s => 
           s.name === 'Binance' 
-            ? { ...s, status: 'ok', message: `✅ CONECTADA - ${data.totalAssets || 0} ativos encontrados`, details: data }
+            ? { ...s, status: 'ok', message: `✅ CONECTADA - ${(data.accountInfo?.totalAssets ?? 0)} ativos encontrados`, details: data }
             : s
         ));
       } else {
@@ -146,192 +138,9 @@ export const CredentialsValidator = () => {
       ));
     }
 
-    // Validate Bybit
-    try {
-      const bybitCreds = localStorage.getItem('bybit_credentials');
-      if (!bybitCreds) {
-        throw new Error('Credenciais Bybit não encontradas');
-      }
-
-      const { apiKey, secretKey } = JSON.parse(bybitCreds);
-      
-      const response = await fetch(
-        `https://uxhcsjlfwkhwkvhfacho.supabase.co/functions/v1/bybit-api`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV4aGNzamxmd2tod2t2aGZhY2hvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE0MDEzMzQsImV4cCI6MjA2Njk3NzMzNH0.WLA9LhdQHPZJpTC1qasafl3Gb7IqRvXN61XVcKnzx0U`
-          },
-          body: JSON.stringify({ 
-            action: 'get_balances',
-            api_key: apiKey,
-            secret_key: secretKey
-          })
-        }
-      );
-
-      const data = await response.json();
-
-      if (data.success && data.balances) {
-        const balanceCount = data.balances.length || 0;
-        setStatuses(prev => prev.map(s => 
-          s.name === 'Bybit' 
-            ? { ...s, status: 'ok', message: `✅ CONECTADA - ${balanceCount} saldos encontrados`, details: data }
-            : s
-        ));
-      } else {
-        const isIPError = data.error?.includes('IP') || data.error?.includes('whitelist');
-        setStatuses(prev => prev.map(s => 
-          s.name === 'Bybit' 
-            ? { 
-                ...s, 
-                status: isIPError ? 'ip_blocked' : 'error', 
-                message: data.error || 'Falha ao obter saldos',
-                details: data
-              }
-            : s
-        ));
-      }
-    } catch (error: any) {
-      setStatuses(prev => prev.map(s => 
-        s.name === 'Bybit' 
-          ? { ...s, status: 'error', message: 'Erro ao conectar: ' + (error.message || 'Desconhecido') }
-          : s
-      ));
-    }
-
-    // Validate MEXC
-    try {
-      const mexcCreds = localStorage.getItem('mexc_credentials');
-      if (!mexcCreds) {
-        throw new Error('Credenciais MEXC não encontradas');
-      }
-
-      const { apiKey, secretKey } = JSON.parse(mexcCreds);
-      
-      const response = await fetch(
-        `https://uxhcsjlfwkhwkvhfacho.supabase.co/functions/v1/mexc-api`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV4aGNzamxmd2tod2t2aGZhY2hvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE0MDEzMzQsImV4cCI6MjA2Njk3NzMzNH0.WLA9LhdQHPZJpTC1qasafl3Gb7IqRvXN61XVcKnzx0U`
-          },
-          body: JSON.stringify({ 
-            action: 'get_balances',
-            api_key: apiKey,
-            secret_key: secretKey
-          })
-        }
-      );
-
-      const data = await response.json();
-
-      if (data.success && data.balances) {
-        const balanceCount = data.balances.length || 0;
-        setStatuses(prev => prev.map(s => 
-          s.name === 'MEXC' 
-            ? { ...s, status: 'ok', message: `✅ CONECTADA - ${balanceCount} saldos encontrados`, details: data }
-            : s
-        ));
-      } else {
-        const isIPError = data.error?.includes('IP') || data.error?.includes('whitelist');
-        setStatuses(prev => prev.map(s => 
-          s.name === 'MEXC' 
-            ? { 
-                ...s, 
-                status: isIPError ? 'ip_blocked' : 'error', 
-                message: data.error || 'Falha ao obter saldos',
-                details: data
-              }
-            : s
-        ));
-      }
-    } catch (error: any) {
-      setStatuses(prev => prev.map(s => 
-        s.name === 'MEXC' 
-          ? { ...s, status: 'error', message: 'Erro ao conectar: ' + (error.message || 'Desconhecido') }
-          : s
-      ));
-    }
-
-    // Validate Hyperliquid
-    try {
-      const hyperliquidCreds = localStorage.getItem('hyperliquid_credentials');
-      if (!hyperliquidCreds) {
-        throw new Error('Credenciais Hyperliquid não encontradas');
-      }
-
-      const { walletAddress, privateKey } = JSON.parse(hyperliquidCreds);
-      
-      const response = await fetch(
-        `https://uxhcsjlfwkhwkvhfacho.supabase.co/functions/v1/hyperliquid-api`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV4aGNzamxmd2tod2t2aGZhY2hvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE0MDEzMzQsImV4cCI6MjA2Njk3NzMzNH0.WLA9LhdQHPZJpTC1qasafl3Gb7IqRvXN61XVcKnzx0U`
-          },
-          body: JSON.stringify({ 
-            action: 'get_balances',
-            wallet_address: walletAddress,
-            private_key: privateKey
-          })
-        }
-      );
-
-      const data = await response.json();
-
-      if (data.success && data.balances) {
-        const balanceCount = data.balances.length || 0;
-        setStatuses(prev => prev.map(s => 
-          s.name === 'Hyperliquid' 
-            ? { ...s, status: 'ok', message: `✅ CONECTADA - ${balanceCount} saldos encontrados`, details: data }
-            : s
-        ));
-      } else {
-        setStatuses(prev => prev.map(s => 
-          s.name === 'Hyperliquid' 
-            ? { 
-                ...s, 
-                status: 'error', 
-                message: data.error || 'Falha ao obter saldos',
-                details: data
-              }
-            : s
-        ));
-      }
-    } catch (error: any) {
-      setStatuses(prev => prev.map(s => 
-        s.name === 'Hyperliquid' 
-          ? { ...s, status: 'error', message: 'Erro ao conectar: ' + (error.message || 'Desconhecido') }
-          : s
-      ));
-    }
-
-    // Validate Pionex
-    try {
-      const pionexCreds = localStorage.getItem('pionex_credentials');
-      if (!pionexCreds) {
-        throw new Error('Credenciais Pionex não encontradas');
-      }
-
-      const { apiKey, secretKey } = JSON.parse(pionexCreds);
-      
-      // Pionex não tem edge function específica ainda, então vamos apenas marcar como configurado
-      setStatuses(prev => prev.map(s => 
-        s.name === 'Pionex' 
-          ? { ...s, status: 'ok', message: '⚙️ Credenciais configuradas (validação pendente)' }
-          : s
-      ));
-    } catch (error: any) {
-      setStatuses(prev => prev.map(s => 
-        s.name === 'Pionex' 
-          ? { ...s, status: 'error', message: 'Credenciais não encontradas' }
-          : s
-      ));
-    }
+    // Validações adicionais desativadas temporariamente para evitar chamadas indevidas (Bybit/MEXC/Hyperliquid/Pionex)
+    setIsValidating(false);
+    return;
 
     setIsValidating(false);
     

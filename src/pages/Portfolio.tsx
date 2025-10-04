@@ -132,14 +132,16 @@ export default function Portfolio() {
           };
         }
 
-        if (bybitCredentials) {
-          const bybitCreds = JSON.parse(bybitCredentials);
-          requestBody = {
-            ...requestBody,
-            bybit_api_key: bybitCreds.apiKey,
-            bybit_secret_key: bybitCreds.secretKey
-          };
-        }
+        // Bybit desativado: não enviar credenciais para evitar chamadas indevidas
+        // (Se necessário no futuro, reativar este bloco com uma configuração explícita)
+        // if (bybitCredentials) {
+        //   const bybitCreds = JSON.parse(bybitCredentials);
+        //   requestBody = {
+        //     ...requestBody,
+        //     bybit_api_key: bybitCreds.apiKey,
+        //     bybit_secret_key: bybitCreds.secretKey
+        //   };
+        // }
       }
 
       const userId = await getUserId();
