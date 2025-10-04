@@ -38,22 +38,29 @@ export const DirectIPConnectionTest = () => {
     try {
       setBinanceStatus('idle');
       
-      // Buscar credenciais do banco
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Usuário não autenticado');
+      // Buscar credenciais do Supabase
+      const { data: credsData, error: credsError } = await supabase.functions.invoke('get-binance-credentials');
 
-      const { data: credsData } = await supabase.functions.invoke('get-binance-credentials', {
-        body: { userId: user.id }
-      });
-
-      if (!credsData?.binance_api_key) {
-        throw new Error('Credenciais da Binance não encontradas');
+      if (credsError) {
+        throw new Error(`Erro ao buscar credenciais: ${credsError.message}`);
       }
+
+      if (!credsData?.success) {
+        throw new Error(credsData?.error || 'Credenciais da Binance não encontradas');
+      }
+
+      const { credentials } = credsData;
+
+      if (!credentials?.apiKey || !credentials?.secretKey) {
+        throw new Error('Credenciais da Binance incompletas');
+      }
+
+      console.log('🔑 Credenciais Binance obtidas, testando conexão...');
 
       // Fazer requisição DIRETA do cliente (usando seu IP)
       const result = await getBinanceBalances({
-        binance_api_key: credsData.binance_api_key,
-        binance_secret_key: credsData.binance_secret_key,
+        binance_api_key: credentials.apiKey,
+        binance_secret_key: credentials.secretKey,
       });
 
       if (result.success) {
@@ -67,6 +74,7 @@ export const DirectIPConnectionTest = () => {
       }
     } catch (error: any) {
       setBinanceStatus('error');
+      console.error('❌ Erro no teste Binance:', error);
       toast({
         title: "Erro na conexão com Binance",
         description: error.message,
@@ -80,22 +88,30 @@ export const DirectIPConnectionTest = () => {
     try {
       setOkxStatus('idle');
       
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Usuário não autenticado');
+      // Buscar credenciais do Supabase
+      const { data: credsData, error: credsError } = await supabase.functions.invoke('get-okx-credentials');
 
-      const { data: credsData } = await supabase.functions.invoke('get-okx-credentials', {
-        body: { userId: user.id }
-      });
-
-      if (!credsData?.okx_api_key) {
-        throw new Error('Credenciais da OKX não encontradas');
+      if (credsError) {
+        throw new Error(`Erro ao buscar credenciais: ${credsError.message}`);
       }
+
+      if (!credsData?.success) {
+        throw new Error(credsData?.error || 'Credenciais da OKX não encontradas');
+      }
+
+      const { credentials } = credsData;
+
+      if (!credentials?.apiKey || !credentials?.secretKey || !credentials?.passphrase) {
+        throw new Error('Credenciais da OKX incompletas');
+      }
+
+      console.log('🔑 Credenciais OKX obtidas, testando conexão...');
 
       // Fazer requisição DIRETA do cliente (usando seu IP)
       const result = await getOKXBalances({
-        okx_api_key: credsData.okx_api_key,
-        okx_secret_key: credsData.okx_secret_key,
-        okx_passphrase: credsData.okx_passphrase,
+        okx_api_key: credentials.apiKey,
+        okx_secret_key: credentials.secretKey,
+        okx_passphrase: credentials.passphrase,
       });
 
       if (result.success) {
@@ -109,6 +125,7 @@ export const DirectIPConnectionTest = () => {
       }
     } catch (error: any) {
       setOkxStatus('error');
+      console.error('❌ Erro no teste OKX:', error);
       toast({
         title: "Erro na conexão com OKX",
         description: error.message,
