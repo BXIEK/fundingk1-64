@@ -47,8 +47,10 @@ export const useTriangularWebSocket = (enabled: boolean) => {
       setIsConnected(true);
       setError(null);
       
-      // Start detection
-      websocket.send(JSON.stringify({ type: 'start' }));
+      // Start detection - only after connection is fully open
+      if (websocket.readyState === WebSocket.OPEN) {
+        websocket.send(JSON.stringify({ type: 'start' }));
+      }
     };
 
     websocket.onmessage = (event) => {
@@ -92,7 +94,14 @@ export const useTriangularWebSocket = (enabled: boolean) => {
 
   const disconnect = useCallback(() => {
     if (ws) {
-      ws.send(JSON.stringify({ type: 'stop' }));
+      // Only send stop message if connection is open
+      if (ws.readyState === WebSocket.OPEN) {
+        try {
+          ws.send(JSON.stringify({ type: 'stop' }));
+        } catch (error) {
+          console.error('Error sending stop message:', error);
+        }
+      }
       ws.close();
       setWs(null);
     }
