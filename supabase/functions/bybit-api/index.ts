@@ -17,8 +17,8 @@ serve(async (req) => {
 
     const baseUrl = 'https://api.bybit.com';
 
-    function generateSignature(timestamp: string, apiKey: string, params: string, secretKey: string): string {
-      const message = timestamp + apiKey + params;
+    function generateSignature(timestamp: string, apiKey: string, recvWindow: string, queryString: string, secretKey: string): string {
+      const message = timestamp + apiKey + recvWindow + queryString;
       return createHmac('sha256', secretKey).update(message).digest('hex');
     }
 
@@ -27,10 +27,11 @@ serve(async (req) => {
       console.log('🔗 CONEXÃO DIRETA BYBIT - SEM PROXIES/BYPASS');
 
       const timestamp = Date.now().toString();
-      const params = '';
-      const signature = generateSignature(timestamp, api_key, params, secret_key);
+      const recvWindow = '5000';
+      const queryString = 'accountType=UNIFIED';
+      const signature = generateSignature(timestamp, api_key, recvWindow, queryString, secret_key);
 
-      const url = `${baseUrl}/v5/account/wallet-balance?accountType=UNIFIED`;
+      const url = `${baseUrl}/v5/account/wallet-balance?${queryString}`;
       
       console.log('🌐 Bybit Direct Request: GET ' + url);
 
@@ -40,6 +41,7 @@ serve(async (req) => {
           'X-BAPI-API-KEY': api_key,
           'X-BAPI-TIMESTAMP': timestamp,
           'X-BAPI-SIGN': signature,
+          'X-BAPI-RECV-WINDOW': recvWindow,
           'Content-Type': 'application/json',
         },
       });
