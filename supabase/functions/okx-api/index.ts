@@ -451,7 +451,7 @@ serve(async (req) => {
       error: error instanceof Error ? error.message : 'Erro desconhecido na API OKX'
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 500
+      status: 200
     });
   }
 });

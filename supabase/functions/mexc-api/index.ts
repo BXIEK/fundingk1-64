@@ -350,7 +350,7 @@ serve(async (req) => {
         hint: errorMessage.includes('white list') ? 'Vá em MEXC > Account > API Management > Edit API > IP Whitelist e adicione: 18.228.156.0' : undefined
       }),
       { 
-        status: statusCode,
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       }
     );
