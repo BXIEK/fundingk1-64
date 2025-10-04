@@ -324,6 +324,8 @@ serve(async (req) => {
     const userOKXApiKey = requestData.okx_api_key;
     const userOKXSecretKey = requestData.okx_secret_key;
     const userOKXPassphrase = requestData.okx_passphrase;
+    const userBybitApiKey = requestData.bybit_api_key;
+    const userBybitSecretKey = requestData.bybit_secret_key;
 
     console.log('=== RECEBIDA REQUISIÇÃO GET-PORTFOLIO ===');
     console.log('Modo real:', realMode);
@@ -335,6 +337,8 @@ serve(async (req) => {
       hyperliquidWalletName: userHyperliquidWalletName ? userHyperliquidWalletName : 'não fornecida',
       hyperliquidWalletAddress: userHyperliquidWalletAddress ? `${userHyperliquidWalletAddress.substring(0, 8)}...` : 'não fornecida',
       hyperliquidPrivateKey: userHyperliquidPrivateKey ? `${userHyperliquidPrivateKey.substring(0, 8)}...` : 'não fornecida',
+      bybitApiKey: userBybitApiKey ? `${userBybitApiKey.substring(0, 8)}...` : 'não fornecida',
+      bybitSecretKey: userBybitSecretKey ? `${userBybitSecretKey.substring(0, 8)}...` : 'não fornecida',
     });
 
     // Usar credenciais fornecidas pelo usuário - SEM FALLBACK PARA ENV VARS
@@ -345,6 +349,8 @@ serve(async (req) => {
     const okxApiKey = userOKXApiKey;
     const okxSecretKey = userOKXSecretKey;
     const okxPassphrase = userOKXPassphrase;
+    const bybitApiKey = userBybitApiKey;
+    const bybitSecretKey = userBybitSecretKey;
 
     console.log('Credenciais finais a serem usadas:', {
       binanceApiKey: binanceApiKey ? `${binanceApiKey.substring(0, 8)}...` : 'AUSENTE',
@@ -557,6 +563,61 @@ serve(async (req) => {
           console.log('⚠️ Credenciais da OKX não fornecidas - pulando OKX');
         }
 
+        // Buscar saldos da Bybit
+        if (bybitApiKey && bybitSecretKey) {
+          try {
+            console.log('Tentando conectar na Bybit com credenciais fornecidas...');
+            const bybitResp = await fetch(`${supabaseUrl}/functions/v1/bybit-api`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${supabaseKey}` },
+              body: JSON.stringify({ 
+                action: 'get_balances', 
+                api_key: bybitApiKey, 
+                secret_key: bybitSecretKey,
+                user_id: userId 
+              })
+            });
+            const bybitJson = await bybitResp.json();
+            if (bybitJson.success) {
+              const bybitBalances = bybitJson.balances || [];
+              const processedBybitBalances = bybitBalances.map((b: any) => {
+                const assetSymbol = b.symbol;
+                const priceUsd = tokenPrices[assetSymbol] || tokenPrices[`${assetSymbol}USDT`] || (assetSymbol === 'USDT' ? 1 : 0);
+                const balance = parseFloat(b.balance || 0);
+                return {
+                  symbol: assetSymbol,
+                  balance,
+                  locked_balance: parseFloat(b.locked || 0),
+                  exchange: 'Bybit',
+                  price_usd: priceUsd,
+                  value_usd: priceUsd * balance,
+                  updated_at: new Date().toISOString()
+                };
+              });
+              realBalances = realBalances.concat(processedBybitBalances);
+              console.log(`✅ Bybit conectada com sucesso: ${bybitBalances.length} saldos carregados`);
+            } else {
+              console.warn('⚠️ Falha ao obter saldos da Bybit:', bybitJson.error);
+              if (bybitJson.error && bybitJson.error.includes('Unauthorized')) {
+                console.error('🚨 CREDENCIAIS DA BYBIT INVÁLIDAS! Verifique:');
+                console.error('1. Se a API Key está correta');
+                console.error('2. Se a Secret Key está correta');
+                console.error('3. Se as permissões incluem leitura de saldos');
+                dataSource = dataSource === 'real' ? 'partial-real' : dataSource;
+              }
+            }
+          } catch (bybitError) {
+            console.error('❌ Erro específico da Bybit:', bybitError);
+            console.error('📋 Detalhes do erro Bybit:', {
+              message: bybitError.message,
+              name: bybitError.name
+            });
+            dataSource = dataSource === 'real' ? 'partial-real' : dataSource;
+          }
+        } else {
+          console.log('⚠️ Credenciais da Bybit não fornecidas - pulando Bybit');
+        }
+
         if (realBalances.length > 0) {
           dataSource = 'real-api';
           console.log(`✅ SUCESSO: ${realBalances.length} saldos reais carregados de ${realBalances.map(b => b.exchange).filter((v, i, a) => a.indexOf(v) === i).join(', ')}`);
@@ -598,6 +659,18 @@ serve(async (req) => {
       // Agrupar saldos por exchange
       const binanceBalances = realBalances
         .filter(asset => asset.exchange === 'Binance')
+        .map(asset => ({ ...asset, symbol: asset.symbol, balance: asset.balance, exchange: 'Binance' }));
+      
+      const okxBalances = realBalances
+        .filter(asset => asset.exchange === 'OKX')
+        .map(asset => ({ ...asset, symbol: asset.symbol, balance: asset.balance, exchange: 'OKX' }));
+      
+      const hyperliquidBalances = realBalances
+        .filter(asset => asset.exchange === 'Hyperliquid')
+        .map(asset => ({ ...asset, symbol: asset.symbol, balance: asset.balance, exchange: 'Hyperliquid' }));
+      
+      const bybitBalances = realBalances
+        .filter(asset => asset.exchange === 'Bybit')
         .filter(asset => asset.balance > 0)
         .map(asset => ({
           symbol: asset.symbol,
@@ -649,6 +722,14 @@ serve(async (req) => {
             p_user_id: userId,
             p_exchange: 'Hyperliquid',
             p_balances: hyperliquidBalances
+          });
+        }
+
+        if (bybitBalances.length > 0) {
+          await supabase.rpc('sync_real_balances', {
+            p_user_id: userId,
+            p_exchange: 'Bybit',
+            p_balances: bybitBalances
           });
         }
 
