@@ -32,6 +32,11 @@ interface OKXCredentials {
   passphrase: string;
 }
 
+interface MEXCCredentials {
+  apiKey: string;
+  secretKey: string;
+}
+
 interface TradingConfig {
   minSlippage: number;
   maxSlippage: number;
@@ -52,9 +57,11 @@ const APIConfiguration = () => {
   const [showBinanceSecret, setShowBinanceSecret] = useState(false);
   const [showOKXSecret, setShowOKXSecret] = useState(false);
   const [showOKXPassphrase, setShowOKXPassphrase] = useState(false);
+  const [showMEXCSecret, setShowMEXCSecret] = useState(false);
   const [isTestingHyperliquid, setIsTestingHyperliquid] = useState(false);
   const [isTestingBinance, setIsTestingBinance] = useState(false);
   const [isTestingOKX, setIsTestingOKX] = useState(false);
+  const [isTestingMEXC, setIsTestingMEXC] = useState(false);
   
   const [hyperliquidCredentials, setHyperliquidCredentials] = useState<HyperliquidCredentials>({
     walletName: "",
@@ -71,6 +78,11 @@ const APIConfiguration = () => {
     apiKey: "",
     secretKey: "",
     passphrase: ""
+  });
+
+  const [mexcCredentials, setMexcCredentials] = useState<MEXCCredentials>({
+    apiKey: "",
+    secretKey: ""
   });
 
   const [tradingConfig, setTradingConfig] = useState<TradingConfig>({
@@ -98,6 +110,7 @@ const APIConfiguration = () => {
     const savedBinance = localStorage.getItem("binance_credentials");
     const savedHyperliquid = localStorage.getItem("hyperliquid_credentials");
     const savedOKX = localStorage.getItem("okx_credentials");
+    const savedMEXC = localStorage.getItem("mexc_credentials");
     const savedTradingConfig = localStorage.getItem("trading_config");
     
     if (savedBinance) {
@@ -110,6 +123,10 @@ const APIConfiguration = () => {
     
     if (savedOKX) {
       setOkxCredentials(JSON.parse(savedOKX));
+    }
+
+    if (savedMEXC) {
+      setMexcCredentials(JSON.parse(savedMEXC));
     }
 
     if (savedTradingConfig) {
@@ -426,6 +443,82 @@ const APIConfiguration = () => {
     }
   };
 
+  const handleSaveMEXC = () => {
+    if (!mexcCredentials.apiKey || !mexcCredentials.secretKey) {
+      toast({
+        title: "Erro",
+        description: "Por favor, preencha todos os campos da API MEXC",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    localStorage.setItem("mexc_credentials", JSON.stringify(mexcCredentials));
+    recheckCredentials();
+    toast({
+      title: "Sucesso",
+      description: "Credenciais da MEXC salvas com segurança",
+    });
+  };
+
+  const testMEXCConnection = async () => {
+    if (!mexcCredentials.apiKey || !mexcCredentials.secretKey) {
+      toast({
+        title: "Erro",
+        description: "Configure as credenciais da MEXC primeiro",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsTestingMEXC(true);
+    try {
+      console.log('🔍 Testando conexão real com MEXC API...');
+      
+      const { data, error } = await supabase.functions.invoke('mexc-api', {
+        body: { 
+          action: 'get_balance',
+          api_key: mexcCredentials.apiKey,
+          secret_key: mexcCredentials.secretKey
+        }
+      });
+
+      console.log('📊 Resposta da MEXC:', { data, error });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      if (data.success) {
+        toast({
+          title: "✅ Conexão MEXC Estabelecida",
+          description: "Conexão testada com sucesso! Credenciais válidas.",
+        });
+      } else {
+        // Verificar se é erro específico de IP whitelist
+        if (data.error && data.error.includes('whitelist')) {
+          toast({
+            title: "❌ IP não autorizado na MEXC",
+            description: "Configure a whitelist da MEXC com os IPs: 18.231.48.154 e 15.228.34.4 ou use 0.0.0.0/0",
+            variant: "destructive",
+            duration: 10000
+          });
+        } else {
+          throw new Error(data.error || 'Erro desconhecido');
+        }
+      }
+    } catch (error) {
+      console.error('❌ Erro no teste da MEXC:', error);
+      toast({
+        title: "❌ Erro de Conexão MEXC",
+        description: error instanceof Error ? error.message : "Falha ao conectar com a API MEXC. Verifique suas credenciais.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsTestingMEXC(false);
+    }
+  };
+
   const handleSaveTradingConfig = () => {
     localStorage.setItem("trading_config", JSON.stringify(tradingConfig));
     toast({
@@ -455,7 +548,7 @@ const APIConfiguration = () => {
       </Alert>
 
       <Tabs defaultValue="binance" className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="binance" className="flex items-center gap-2">
             <Key className="h-4 w-4" />
             Binance API
@@ -467,6 +560,10 @@ const APIConfiguration = () => {
           <TabsTrigger value="okx-whitelist" className="flex items-center gap-2">
             <Shield className="h-4 w-4" />
             OKX Whitelist
+          </TabsTrigger>
+          <TabsTrigger value="mexc" className="flex items-center gap-2">
+            <Key className="h-4 w-4" />
+            MEXC API
           </TabsTrigger>
           <TabsTrigger value="hyperliquid" className="flex items-center gap-2">
             <Key className="h-4 w-4" />
@@ -751,6 +848,84 @@ const APIConfiguration = () => {
 
         <TabsContent value="okx-whitelist">
           <OKXWhitelistManager />
+        </TabsContent>
+
+        <TabsContent value="mexc">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Key className="h-5 w-5" />
+                Configuração MEXC
+              </CardTitle>
+              <CardDescription>
+                Configure suas credenciais da API MEXC para executar arbitragens
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Alert>
+                <Shield className="h-4 w-4" />
+                <AlertDescription>
+                  <strong>Importante:</strong> Para usar suas credenciais da MEXC:
+                  <br />• Acesse <a href="https://www.mexc.com/user/openapi" target="_blank" className="text-primary underline">MEXC API Management</a>
+                  <br />• Crie uma nova API Key com permissões de "Trade" e "Read"
+                  <br />• Configure a whitelist com os IPs: <code>18.231.48.154</code> e <code>15.228.34.4</code> ou use <code>0.0.0.0/0</code> (menos seguro)
+                  <br />• Teste a conexão antes de usar o modo real
+                </AlertDescription>
+              </Alert>
+              <div className="space-y-2">
+                <Label htmlFor="mexc-api-key">API Key</Label>
+                <Input
+                  id="mexc-api-key"
+                  type="text"
+                  placeholder="Insira sua API Key da MEXC"
+                  value={mexcCredentials.apiKey}
+                  onChange={(e) => setMexcCredentials(prev => ({ ...prev, apiKey: e.target.value }))}
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="mexc-secret-key">Secret Key</Label>
+                <div className="relative">
+                  <Input
+                    id="mexc-secret-key"
+                    type={showMEXCSecret ? "text" : "password"}
+                    placeholder="Insira sua Secret Key da MEXC"
+                    value={mexcCredentials.secretKey}
+                    onChange={(e) => setMexcCredentials(prev => ({ ...prev, secretKey: e.target.value }))}
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                    onClick={() => setShowMEXCSecret(!showMEXCSecret)}
+                  >
+                    {showMEXCSecret ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-4">
+                <Button onClick={handleSaveMEXC} className="flex items-center gap-2">
+                  <Save className="h-4 w-4" />
+                  Salvar Credenciais
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={testMEXCConnection}
+                  disabled={isTestingMEXC}
+                  className="flex items-center gap-2"
+                >
+                  <TestTube className="h-4 w-4" />
+                  {isTestingMEXC ? "Testando..." : "Testar Conexão"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="trading">
