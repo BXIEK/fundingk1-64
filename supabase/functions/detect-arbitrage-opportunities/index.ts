@@ -232,7 +232,7 @@ async function getOKXPrices(userId?: string) {
 // Calcular oportunidades de arbitragem com critérios otimizados
 function calculateCrossExchangeOpportunities(binancePrices: any, okxPrices: any, whitelistedSymbols?: string[]): ArbitrageOpportunity[] {
   const opportunities: ArbitrageOpportunity[] = [];
-  const minSpread = 0.5; // 🔥 Aumentado de 0.05% para 0.5% para cobrir custos reais
+  const minSpread = 0.3; // 🔥 Reduzido para 0.3% para mostrar mais oportunidades
   // Sem limite máximo de spread - capturar todas as oportunidades reais
   
   // Taxas reais de transferência por ativo (baseado nas taxas reais das exchanges)
@@ -313,8 +313,8 @@ function calculateCrossExchangeOpportunities(binancePrices: any, okxPrices: any,
       const totalFees = tradingFeeBuy + tradingFeeSell + transferFee;
       const potentialProfit = grossProfit - totalFees;
       
-      // Mostrar apenas oportunidades rentáveis
-      if (potentialProfit > 0) {
+      // Mostrar todas as oportunidades com spread mínimo (mesmo com lucro zero ou pequeno)
+      if (potentialProfit >= -0.5) { // Permitir até -$0.50 de "prejuízo" para mostrar mais opções
         opportunities.push({
           symbol: binanceSymbol.replace('USDT', ''), // Retornar símbolo sem USDT (BTC)
           buy_exchange: 'Binance',
@@ -353,8 +353,8 @@ function calculateCrossExchangeOpportunities(binancePrices: any, okxPrices: any,
       const totalFees = tradingFeeBuy + tradingFeeSell + transferFee;
       const potentialProfit = grossProfit - totalFees;
       
-      // Mostrar apenas oportunidades rentáveis
-      if (potentialProfit > 0) {
+      // Mostrar todas as oportunidades com spread mínimo (mesmo com lucro zero ou pequeno)
+      if (potentialProfit >= -0.5) { // Permitir até -$0.50 de "prejuízo" para mostrar mais opções
         opportunities.push({
           symbol: binanceSymbol.replace('USDT', ''), // Retornar símbolo sem USDT (BTC)
           buy_exchange: 'OKX',
