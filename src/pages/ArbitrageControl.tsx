@@ -44,6 +44,7 @@ import HyperliquidPortfolioCard from '@/components/HyperliquidPortfolioCard';
 import { MEXCPortfolioCard } from '@/components/MEXCPortfolioCard';
 import SmartTransferDashboard from '@/components/SmartTransferDashboard';
 import IPWhitelistHelper from '@/components/IPWhitelistHelper';
+import MEXCWhitelistHelper from '@/components/MEXCWhitelistHelper';
 
 import { type ArbitrageOpportunity } from '@/types/arbitrage';
 
@@ -772,12 +773,12 @@ export default function ArbitrageControl() {
       </Card>
 
       <Tabs defaultValue="real-mode" className="w-full">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="real-mode">
             <Power className="h-4 w-4 mr-2" />
             Modo Real
           </TabsTrigger>
-          <TabsTrigger value="opportunities">Oportunidades Ativas</TabsTrigger>
+          <TabsTrigger value="opportunities">Oportunidades</TabsTrigger>
           <TabsTrigger value="auto-config">
             <Bot className="h-4 w-4 mr-2" />
             Config Auto
@@ -786,6 +787,7 @@ export default function ArbitrageControl() {
             <Settings className="h-4 w-4 mr-2" />
             APIs
           </TabsTrigger>
+          <TabsTrigger value="whitelist">IP Whitelist</TabsTrigger>
           <TabsTrigger value="transfers">Transferências</TabsTrigger>
           <TabsTrigger value="history">Histórico</TabsTrigger>
         </TabsList>
@@ -885,6 +887,23 @@ export default function ArbitrageControl() {
 
         <TabsContent value="api-config" className="space-y-4">
           <APIConfiguration />
+        </TabsContent>
+
+        <TabsContent value="whitelist" className="space-y-4">
+          <div className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Gerenciamento de IPs Whitelist</CardTitle>
+                <CardDescription>
+                  Configure IPs autorizados nas exchanges para evitar erros 403
+                </CardDescription>
+              </CardHeader>
+            </Card>
+            
+            <MEXCWhitelistHelper />
+            
+            <IPWhitelistHelper />
+          </div>
         </TabsContent>
 
         <TabsContent value="transfers" className="space-y-4">
