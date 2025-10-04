@@ -13,3 +13,15 @@ verify_jwt = false
 
 [functions.mexc-api]
 verify_jwt = false
+
+[functions.test-binance-connection]
+verify_jwt = false
+
+[functions.okx-api]
+verify_jwt = false
+
+[functions.binance-market-data]
+verify_jwt = false
+
+[functions.get-portfolio]
+verify_jwt = false
