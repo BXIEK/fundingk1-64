@@ -14,6 +14,7 @@ const AVAILABLE_EXCHANGES = ['binance', 'okx', 'bybit', 'hyperliquid'];
 
 export const HFTDashboard = () => {
   const [enabled, setEnabled] = useState(false);
+  const [autoExecute, setAutoExecute] = useState(false);
   const [selectedSymbols, setSelectedSymbols] = useState<string[]>(['BTC/USDT']);
   const [selectedExchanges, setSelectedExchanges] = useState<string[]>(['binance', 'okx']);
   const { toast } = useToast();
@@ -21,7 +22,8 @@ export const HFTDashboard = () => {
   const { data, isConnected, error } = useHFTWebSocket(
     selectedSymbols,
     selectedExchanges,
-    enabled
+    enabled,
+    autoExecute
   );
 
   const handleToggle = (checked: boolean) => {
@@ -72,6 +74,17 @@ export const HFTDashboard = () => {
           <Badge variant={isConnected ? 'default' : 'secondary'}>
             {isConnected ? '🟢 Conectado' : '⚫ Desconectado'}
           </Badge>
+          <div className="flex items-center space-x-2">
+            <Switch
+              id="auto-execute"
+              checked={autoExecute}
+              onCheckedChange={setAutoExecute}
+              disabled={!enabled}
+            />
+            <Label htmlFor="auto-execute" className="cursor-pointer">
+              {autoExecute ? '🤖 Execução Automática' : '👁️ Monitoramento'}
+            </Label>
+          </div>
           <div className="flex items-center space-x-2">
             <Switch
               id="hft-mode"
@@ -202,6 +215,83 @@ export const HFTDashboard = () => {
             </CardContent>
           </Card>
         </div>
+      )}
+
+      {/* Alerta de Modo */}
+      {autoExecute && enabled && (
+        <Card className="border-yellow-500 bg-yellow-50">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-4">
+              <div className="text-4xl">⚠️</div>
+              <div>
+                <h3 className="font-semibold text-yellow-900">
+                  Modo de Execução Automática ATIVO
+                </h3>
+                <p className="text-sm text-yellow-800">
+                  O sistema executará trades automaticamente quando detectar oportunidades rentáveis.
+                  Volume por trade: $25 USD | Lucro mínimo: $1.00 | Máximo 3 trades simultâneos
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Trades Executados */}
+      {data && data.executedTrades && data.executedTrades.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>🤖 Trades Executados Automaticamente</CardTitle>
+            <CardDescription>
+              Histórico de execuções automáticas
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {data.executedTrades.map((trade, index) => (
+                <div
+                  key={`${trade.timestamp}-${index}`}
+                  className={`flex items-center justify-between p-4 border rounded-lg ${
+                    trade.result.success ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'
+                  }`}
+                >
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="font-mono">
+                        {trade.opportunity.symbol}
+                      </Badge>
+                      <Badge variant={trade.result.success ? 'default' : 'destructive'}>
+                        {trade.result.success ? '✅ Sucesso' : '❌ Falha'}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                      <span>
+                        {trade.opportunity.buyExchange} → {trade.opportunity.sellExchange}
+                      </span>
+                      <span>
+                        {new Date(trade.timestamp).toLocaleTimeString()}
+                      </span>
+                    </div>
+                    {trade.result.error && (
+                      <div className="text-sm text-red-600">
+                        {trade.result.error}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="text-right space-y-1">
+                    <div className={`text-lg font-bold ${trade.result.success ? 'text-green-600' : 'text-red-600'}`}>
+                      {trade.result.success ? '+' : ''}${trade.opportunity.netProfit.toFixed(2)}
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      Spread: {trade.opportunity.spread.toFixed(3)}%
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Oportunidades em Tempo Real */}

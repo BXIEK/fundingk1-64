@@ -27,13 +27,25 @@ interface HFTData {
     symbol: string;
     prices: ExchangePrice[];
   }>;
+  executedTrades?: Array<{
+    opportunity: HFTOpportunity;
+    result: {
+      success: boolean;
+      details?: any;
+      error?: string;
+    };
+    timestamp: number;
+  }>;
+  activeTrades?: number;
+  autoExecuteEnabled?: boolean;
   timestamp: number;
 }
 
 export const useHFTWebSocket = (
   symbols: string[],
   exchanges: string[],
-  enabled: boolean
+  enabled: boolean,
+  autoExecute: boolean = false
 ) => {
   const [data, setData] = useState<HFTData | null>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -70,6 +82,7 @@ export const useHFTWebSocket = (
             symbols,
             exchanges,
             userId: session?.user?.id || 'anonymous',
+            autoExecute,
           }),
         });
 
@@ -134,7 +147,7 @@ export const useHFTWebSocket = (
       }
       setIsConnected(false);
     };
-  }, [symbols, exchanges, enabled]);
+  }, [symbols, exchanges, enabled, autoExecute]);
 
   return {
     data,

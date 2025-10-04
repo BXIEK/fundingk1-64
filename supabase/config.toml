@@ -25,3 +25,6 @@ verify_jwt = false
 
 [functions.get-portfolio]
 verify_jwt = false
+
+[functions.hft-websocket-engine]
+verify_jwt = false
