@@ -286,40 +286,44 @@ serve(async (req) => {
     const { action, api_key, secret_key, ...params } = await req.json();
     console.log(`🎯 MEXC API action: ${action}`);
 
+    // Usar secrets do Supabase como fallback
+    const mexcApiKey = api_key || Deno.env.get('MEXC_API_KEY');
+    const mexcSecretKey = secret_key || Deno.env.get('MEXC_SECRET_KEY');
+
     // Validar credenciais para ações signed
-    if (!api_key || !secret_key) {
-      throw new Error('MEXC API credentials (api_key, secret_key) are required');
+    if (!mexcApiKey || !mexcSecretKey) {
+      throw new Error('MEXC API credentials not configured. Please set MEXC_API_KEY and MEXC_SECRET_KEY.');
     }
 
     let result;
 
     switch (action) {
       case 'get_balances':
-        result = await getMEXCBalances(api_key, secret_key);
+        result = await getMEXCBalances(mexcApiKey, mexcSecretKey);
         break;
 
       case 'get_prices':
-        result = await getMEXCPrices(params.symbols, api_key, secret_key);
+        result = await getMEXCPrices(params.symbols, mexcApiKey, mexcSecretKey);
         break;
 
       case 'place_order':
-        result = await placeMEXCOrder(params, api_key, secret_key);
+        result = await placeMEXCOrder(params, mexcApiKey, mexcSecretKey);
         break;
 
       case 'withdraw':
-        result = await executeMEXCWithdrawal(params, api_key, secret_key);
+        result = await executeMEXCWithdrawal(params, mexcApiKey, mexcSecretKey);
         break;
 
       case 'get_withdraw_history':
-        result = await getMEXCWithdrawHistory(params.coin, api_key, secret_key);
+        result = await getMEXCWithdrawHistory(params.coin, mexcApiKey, mexcSecretKey);
         break;
 
       case 'get_deposit_address':
-        result = await getMEXCDepositAddress(params.coin, params.network, api_key, secret_key);
+        result = await getMEXCDepositAddress(params.coin, params.network, mexcApiKey, mexcSecretKey);
         break;
 
       case 'get_currency_info':
-        result = await getMEXCCurrencyInfo(api_key, secret_key);
+        result = await getMEXCCurrencyInfo(mexcApiKey, mexcSecretKey);
         break;
 
       default:

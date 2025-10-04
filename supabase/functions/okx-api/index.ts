@@ -382,10 +382,15 @@ serve(async (req) => {
     
     console.log(`🎯 Ação OKX solicitada: ${action}`);
 
-    const creds = api_key && secret_key && passphrase ? {
-      apiKey: api_key,
-      secretKey: secret_key,
-      passphrase: passphrase
+    // Usar secrets do Supabase como fallback
+    const okxApiKey = api_key || Deno.env.get('OKX_API_KEY');
+    const okxSecretKey = secret_key || Deno.env.get('OKX_SECRET_KEY');
+    const okxPassphrase = passphrase || Deno.env.get('OKX_PASSPHRASE');
+
+    const creds = okxApiKey && okxSecretKey && okxPassphrase ? {
+      apiKey: okxApiKey,
+      secretKey: okxSecretKey,
+      passphrase: okxPassphrase
     } : undefined;
 
     switch (action) {
