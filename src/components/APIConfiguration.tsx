@@ -477,7 +477,7 @@ const APIConfiguration = () => {
       
       const { data, error } = await supabase.functions.invoke('mexc-api', {
         body: { 
-          action: 'get_balance',
+          action: 'get_balances',
           api_key: mexcCredentials.apiKey,
           secret_key: mexcCredentials.secretKey
         }
