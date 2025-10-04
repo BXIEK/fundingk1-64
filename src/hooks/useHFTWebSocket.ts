@@ -92,13 +92,18 @@ export const useHFTWebSocket = (
         if (!response.ok) {
           const errorText = await response.text();
           console.error('❌ Erro na resposta:', errorText);
+          setError(`Falha ao conectar: ${response.status}`);
+          setIsConnected(false);
           throw new Error(`Falha ao conectar: ${response.status} - ${errorText}`);
         }
 
         if (!response.body) {
+          setError('Sem resposta do servidor');
+          setIsConnected(false);
           throw new Error('No response body');
         }
 
+        // Marca como conectado IMEDIATAMENTE ao receber o stream
         console.log('✅ Conexão estabelecida, iniciando leitura do stream...');
         setIsConnected(true);
         setError(null);
