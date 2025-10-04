@@ -5,8 +5,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const MEXC_API_KEY = Deno.env.get('MEXC_API_KEY');
-const MEXC_SECRET_KEY = Deno.env.get('MEXC_SECRET_KEY');
 const MEXC_BASE_URL = 'https://api.mexc.com';
 
 interface MEXCRequestOptions {
@@ -38,7 +36,7 @@ async function generateSignature(queryString: string, secretKey: string): Promis
 }
 
 // Make authenticated request to MEXC
-async function makeMEXCRequest(options: MEXCRequestOptions): Promise<any> {
+async function makeMEXCRequest(options: MEXCRequestOptions, apiKey: string, secretKey: string): Promise<any> {
   const { endpoint, method, params = {}, signed = false } = options;
   
   let url = `${MEXC_BASE_URL}${endpoint}`;
@@ -47,11 +45,11 @@ async function makeMEXCRequest(options: MEXCRequestOptions): Promise<any> {
   };
 
   if (signed) {
-    if (!MEXC_API_KEY || !MEXC_SECRET_KEY) {
+    if (!apiKey || !secretKey) {
       throw new Error('MEXC API credentials not configured');
     }
 
-    headers['X-MEXC-APIKEY'] = MEXC_API_KEY;
+    headers['X-MEXC-APIKEY'] = apiKey;
     
     // Add timestamp
     params.timestamp = Date.now();
@@ -64,7 +62,7 @@ async function makeMEXCRequest(options: MEXCRequestOptions): Promise<any> {
       .join('&');
     
     // Generate signature
-    const signature = await generateSignature(sortedParams, MEXC_SECRET_KEY);
+    const signature = await generateSignature(sortedParams, secretKey);
     
     // Add signature to params
     params.signature = signature;
@@ -102,14 +100,14 @@ async function makeMEXCRequest(options: MEXCRequestOptions): Promise<any> {
 }
 
 // Get account balances
-async function getMEXCBalances(): Promise<any[]> {
+async function getMEXCBalances(apiKey: string, secretKey: string): Promise<any[]> {
   console.log('🔍 Getting MEXC account balances...');
   
   const data = await makeMEXCRequest({
     endpoint: '/api/v3/account',
     method: 'GET',
     signed: true,
-  });
+  }, apiKey, secretKey);
 
   const balances = data.balances
     .filter((b: any) => parseFloat(b.free) > 0 || parseFloat(b.locked) > 0)
@@ -125,14 +123,14 @@ async function getMEXCBalances(): Promise<any[]> {
 }
 
 // Get market prices (24hr ticker)
-async function getMEXCPrices(symbols?: string[]): Promise<any> {
+async function getMEXCPrices(symbols?: string[], apiKey?: string, secretKey?: string): Promise<any> {
   console.log('📊 Getting MEXC market prices...');
   
   const data = await makeMEXCRequest({
     endpoint: '/api/v3/ticker/24hr',
     method: 'GET',
     signed: false,
-  });
+  }, apiKey || '', secretKey || '');
 
   // Filter by symbols if provided
   let tickers = Array.isArray(data) ? data : [];
@@ -161,7 +159,7 @@ async function placeMEXCOrder(params: {
   type: 'LIMIT' | 'MARKET';
   quantity: number;
   price?: number;
-}): Promise<any> {
+}, apiKey: string, secretKey: string): Promise<any> {
   console.log(`📝 Placing MEXC order:`, params);
   
   const orderParams: Record<string, any> = {
@@ -181,7 +179,7 @@ async function placeMEXCOrder(params: {
     method: 'POST',
     params: orderParams,
     signed: true,
-  });
+  }, apiKey, secretKey);
 
   console.log('✅ Order placed successfully:', data);
   return data;
@@ -194,7 +192,7 @@ async function executeMEXCWithdrawal(params: {
   amount: number;
   network?: string;
   memo?: string;
-}): Promise<any> {
+}, apiKey: string, secretKey: string): Promise<any> {
   console.log(`💸 Executing MEXC withdrawal:`, params);
   
   const withdrawParams: Record<string, any> = {
@@ -216,14 +214,14 @@ async function executeMEXCWithdrawal(params: {
     method: 'POST',
     params: withdrawParams,
     signed: true,
-  });
+  }, apiKey, secretKey);
 
   console.log('✅ Withdrawal executed:', data);
   return data;
 }
 
 // Get withdrawal history
-async function getMEXCWithdrawHistory(coin?: string): Promise<any[]> {
+async function getMEXCWithdrawHistory(coin?: string, apiKey?: string, secretKey?: string): Promise<any[]> {
   console.log(`📜 Getting MEXC withdrawal history...`);
   
   const params: Record<string, any> = {};
@@ -236,14 +234,14 @@ async function getMEXCWithdrawHistory(coin?: string): Promise<any[]> {
     method: 'GET',
     params,
     signed: true,
-  });
+  }, apiKey || '', secretKey || '');
 
   console.log(`✅ Withdrawal history obtained: ${data.length || 0} records`);
   return Array.isArray(data) ? data : [];
 }
 
 // Get deposit address
-async function getMEXCDepositAddress(coin: string, network?: string): Promise<any> {
+async function getMEXCDepositAddress(coin: string, network?: string, apiKey?: string, secretKey?: string): Promise<any> {
   console.log(`🏦 Getting MEXC deposit address for ${coin}...`);
   
   const params: Record<string, any> = {
@@ -259,21 +257,21 @@ async function getMEXCDepositAddress(coin: string, network?: string): Promise<an
     method: 'GET',
     params,
     signed: true,
-  });
+  }, apiKey || '', secretKey || '');
 
   console.log('✅ Deposit address obtained:', data);
   return data;
 }
 
 // Get currency/network information
-async function getMEXCCurrencyInfo(): Promise<any[]> {
+async function getMEXCCurrencyInfo(apiKey?: string, secretKey?: string): Promise<any[]> {
   console.log('📋 Getting MEXC currency information...');
   
   const data = await makeMEXCRequest({
     endpoint: '/api/v3/capital/config/getall',
     method: 'GET',
     signed: false,
-  });
+  }, apiKey || '', secretKey || '');
 
   console.log(`✅ Currency info obtained: ${data.length || 0} currencies`);
   return Array.isArray(data) ? data : [];
@@ -285,38 +283,43 @@ serve(async (req) => {
   }
 
   try {
-    const { action, ...params } = await req.json();
+    const { action, api_key, secret_key, ...params } = await req.json();
     console.log(`🎯 MEXC API action: ${action}`);
+
+    // Validar credenciais para ações signed
+    if (!api_key || !secret_key) {
+      throw new Error('MEXC API credentials (api_key, secret_key) are required');
+    }
 
     let result;
 
     switch (action) {
       case 'get_balances':
-        result = await getMEXCBalances();
+        result = await getMEXCBalances(api_key, secret_key);
         break;
 
       case 'get_prices':
-        result = await getMEXCPrices(params.symbols);
+        result = await getMEXCPrices(params.symbols, api_key, secret_key);
         break;
 
       case 'place_order':
-        result = await placeMEXCOrder(params);
+        result = await placeMEXCOrder(params, api_key, secret_key);
         break;
 
       case 'withdraw':
-        result = await executeMEXCWithdrawal(params);
+        result = await executeMEXCWithdrawal(params, api_key, secret_key);
         break;
 
       case 'get_withdraw_history':
-        result = await getMEXCWithdrawHistory(params.coin);
+        result = await getMEXCWithdrawHistory(params.coin, api_key, secret_key);
         break;
 
       case 'get_deposit_address':
-        result = await getMEXCDepositAddress(params.coin, params.network);
+        result = await getMEXCDepositAddress(params.coin, params.network, api_key, secret_key);
         break;
 
       case 'get_currency_info':
-        result = await getMEXCCurrencyInfo();
+        result = await getMEXCCurrencyInfo(api_key, secret_key);
         break;
 
       default:

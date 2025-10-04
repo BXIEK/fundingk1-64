@@ -33,8 +33,21 @@ export const useMEXC = () => {
     try {
       setLoading(true);
       
+      // Buscar credenciais do localStorage
+      const savedMEXC = localStorage.getItem("mexc_credentials");
+      if (!savedMEXC) {
+        throw new Error("Credenciais MEXC não configuradas");
+      }
+      
+      const credentials = JSON.parse(savedMEXC);
+      
       const { data, error } = await supabase.functions.invoke('mexc-api', {
-        body: { action, ...params }
+        body: { 
+          action, 
+          api_key: credentials.apiKey,
+          secret_key: credentials.secretKey,
+          ...params 
+        }
       });
 
       if (error) throw error;
