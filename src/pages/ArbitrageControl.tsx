@@ -45,6 +45,7 @@ import { MEXCPortfolioCard } from '@/components/MEXCPortfolioCard';
 import SmartTransferDashboard from '@/components/SmartTransferDashboard';
 import IPWhitelistHelper from '@/components/IPWhitelistHelper';
 import MEXCWhitelistHelper from '@/components/MEXCWhitelistHelper';
+import { IPWhitelistGuide } from '@/components/IPWhitelistGuide';
 
 import { type ArbitrageOpportunity } from '@/types/arbitrage';
 
@@ -898,20 +899,7 @@ export default function ArbitrageControl() {
         </TabsContent>
 
         <TabsContent value="whitelist" className="space-y-4">
-          <div className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Gerenciamento de IPs Whitelist</CardTitle>
-                <CardDescription>
-                  Configure IPs autorizados nas exchanges para evitar erros 403
-                </CardDescription>
-              </CardHeader>
-            </Card>
-            
-            <MEXCWhitelistHelper />
-            
-            <IPWhitelistHelper />
-          </div>
+          <IPWhitelistGuide />
         </TabsContent>
 
         <TabsContent value="transfers" className="space-y-4">
