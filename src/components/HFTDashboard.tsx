@@ -6,10 +6,12 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useHFTWebSocket } from '@/hooks/useHFTWebSocket';
-import { Activity, TrendingUp, Zap, Clock, DollarSign, Percent, Wallet } from 'lucide-react';
+import { Activity, TrendingUp, Zap, Clock, DollarSign, Percent, Wallet, PlayCircle, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { getUserId } from '@/lib/userUtils';
+import ArbitrageExecutionModal from '@/components/ArbitrageExecutionModal';
+import { useTradingMode } from '@/contexts/TradingModeContext';
 
 const AVAILABLE_SYMBOLS = ['BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'BNB/USDT'];
 const AVAILABLE_EXCHANGES = ['binance', 'okx', 'bybit', 'hyperliquid'];
@@ -27,7 +29,11 @@ export const HFTDashboard = () => {
   const [selectedExchanges, setSelectedExchanges] = useState<string[]>(['binance', 'okx']);
   const [exchangeBalances, setExchangeBalances] = useState<ExchangeBalance[]>([]);
   const [loadingBalances, setLoadingBalances] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedOpportunity, setSelectedOpportunity] = useState<any>(null);
+  const [executingIds, setExecutingIds] = useState<Set<string>>(new Set());
   const { toast } = useToast();
+  const { isRealMode } = useTradingMode();
 
   const { data, isConnected, error } = useHFTWebSocket(
     selectedSymbols,
@@ -109,14 +115,121 @@ export const HFTDashboard = () => {
     setEnabled(checked);
     if (checked) {
       toast({
-        title: '🚀 HFT Engine Iniciado',
-        description: 'Monitorando oportunidades em tempo real via WebSocket',
+        title: '🚀 HFT Engine Ativado - MODO HÍBRIDO',
+        description: 'Monitorando E executando trades em tempo real',
       });
     } else {
       toast({
         title: '⏸️ HFT Engine Pausado',
-        description: 'Monitoramento de oportunidades pausado',
+        description: 'Sistema pausado',
       });
+    }
+  };
+
+  const openExecutionModal = (opportunity: any) => {
+    const modalOpportunity = {
+      id: `hft-${opportunity.symbol}-${Date.now()}`,
+      symbol: opportunity.symbol,
+      buy_exchange: opportunity.buyExchange,
+      sell_exchange: opportunity.sellExchange,
+      buy_price: opportunity.buyPrice,
+      sell_price: opportunity.sellPrice,
+      spread: opportunity.spread,
+      potential: opportunity.netProfit,
+      net_profit: opportunity.netProfit,
+      risk_level: 'MEDIUM',
+      base_currency: opportunity.symbol.split('/')[0],
+      quote_currency: opportunity.symbol.split('/')[1] || 'USDT',
+      transfer_fee: 0.001,
+      transfer_time: 120
+    };
+    setSelectedOpportunity(modalOpportunity);
+    setIsModalOpen(true);
+  };
+
+  const executeArbitrage = async (opportunity: any, config: any) => {
+    try {
+      console.log('🚀 Executando HFT arbitragem:', { opportunity, config });
+      const oppId = `${opportunity.symbol}-${opportunity.buy_exchange}-${opportunity.sell_exchange}`;
+      setExecutingIds(prev => new Set(prev).add(oppId));
+
+      const binanceCredentials = localStorage.getItem('binance_credentials');
+      const okxCredentials = localStorage.getItem('okx_credentials');
+      
+      if (!binanceCredentials || !okxCredentials) {
+        toast({
+          title: "⚠️ Credenciais Necessárias",
+          description: "Configure suas APIs da Binance e OKX primeiro",
+          variant: "destructive"
+        });
+        setExecutingIds(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(oppId);
+          return newSet;
+        });
+        return;
+      }
+
+      const binanceCreds = JSON.parse(binanceCredentials);
+      const okxCreds = JSON.parse(okxCredentials);
+      const userId = await getUserId();
+
+      const { data, error } = await supabase.functions.invoke('execute-cross-exchange-arbitrage', {
+        body: {
+          opportunityId: opportunity.id || 'hft-manual',
+          userId: userId,
+          symbol: opportunity.symbol,
+          buyExchange: opportunity.buy_exchange,
+          sellExchange: opportunity.sell_exchange,
+          buyPrice: opportunity.buy_price,
+          sellPrice: opportunity.sell_price,
+          mode: isRealMode ? 'real' : 'simulation',
+          binanceApiKey: binanceCreds.apiKey,
+          binanceSecretKey: binanceCreds.secretKey,
+          okxApiKey: okxCreds.apiKey,
+          okxSecretKey: okxCreds.secretKey,
+          okxPassphrase: okxCreds.passphrase,
+          config: {
+            investmentAmount: config.investmentAmount,
+            maxSlippage: config.maxSlippage,
+            customFeeRate: 0.2,
+            stopLossPercentage: config.stopLossPercentage,
+            prioritizeSpeed: true
+          }
+        }
+      });
+
+      if (error) throw error;
+
+      if (data.success) {
+        toast({
+          title: "✅ Trade Executado!",
+          description: `${opportunity.symbol} - Lucro: $${data.result?.net_profit?.toFixed(2) || '0.00'}`,
+        });
+        await loadExchangeBalances();
+      } else {
+        toast({
+          title: "❌ Erro na Execução",
+          description: data.error || "Falha ao executar trade",
+          variant: "destructive"
+        });
+      }
+    } catch (error: any) {
+      console.error('❌ Erro:', error);
+      toast({
+        title: "❌ Erro",
+        description: error.message || "Erro ao executar arbitragem",
+        variant: "destructive"
+      });
+    } finally {
+      const oppId = `${opportunity.symbol}-${opportunity.buy_exchange}-${opportunity.sell_exchange}`;
+      setExecutingIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(oppId);
+        return newSet;
+      });
+      setIsModalOpen(false);
+      setSelectedOpportunity(null);
     }
   };
 
@@ -143,16 +256,25 @@ export const HFTDashboard = () => {
           <h1 className="text-3xl font-bold flex items-center gap-2">
             <Zap className="h-8 w-8 text-yellow-500" />
             HFT Trading System
+            <Badge variant="default" className="ml-2 bg-gradient-to-r from-blue-600 to-purple-600">
+              🚀 MODO HÍBRIDO
+            </Badge>
           </h1>
           <p className="text-muted-foreground">
-            Alta Frequência com WebSocket - Latência Ultra-Baixa
+            Detecção ultra-rápida + Execução automática de trades cross-exchange
           </p>
         </div>
         
         <div className="flex items-center gap-4">
-          <Badge variant={isConnected ? 'default' : 'secondary'}>
-            {isConnected ? '🟢 Conectado' : '⚫ Desconectado'}
+          <Badge variant={isConnected ? 'default' : 'destructive'} className="text-sm">
+            {isConnected ? '🟢 Conectado' : '🔴 Desconectado'}
           </Badge>
+          {error && (
+            <Badge variant="destructive" className="flex items-center gap-1">
+              <AlertCircle className="h-3 w-3" />
+              Erro: {error}
+            </Badge>
+          )}
           <div className="flex items-center space-x-2">
             <Switch
               id="auto-execute"
@@ -470,15 +592,22 @@ export const HFTDashboard = () => {
                                   </Badge>
                                 </div>
                               </div>
-                              {autoExecute && opp.netProfit >= 1.00 && (
-                                <Button 
-                                  size="sm" 
-                                  className="w-full mt-2"
-                                  disabled
-                                >
-                                  ⚡ Auto-Exec
-                                </Button>
-                              )}
+                              {/* Botão de Execução Manual */}
+                              <Button 
+                                size="sm" 
+                                className="w-full mt-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
+                                onClick={() => openExecutionModal(opp)}
+                                disabled={executingIds.has(`${opp.symbol}-${opp.buyExchange}-${opp.sellExchange}`)}
+                              >
+                                {executingIds.has(`${opp.symbol}-${opp.buyExchange}-${opp.sellExchange}`) ? (
+                                  <>⏳ Executando...</>
+                                ) : (
+                                  <>
+                                    <PlayCircle className="h-4 w-4 mr-1" />
+                                    Executar Trade
+                                  </>
+                                )}
+                              </Button>
                             </div>
                           </div>
                         </CardContent>
@@ -745,6 +874,20 @@ export const HFTDashboard = () => {
             </Button>
           </CardContent>
         </Card>
+      )}
+
+      {/* Modal de Execução */}
+      {selectedOpportunity && (
+        <ArbitrageExecutionModal
+          isOpen={isModalOpen}
+          onClose={() => {
+            setIsModalOpen(false);
+            setSelectedOpportunity(null);
+          }}
+          opportunity={selectedOpportunity}
+          onExecute={executeArbitrage}
+          isExecuting={executingIds.has(`${selectedOpportunity.symbol}-${selectedOpportunity.buy_exchange}-${selectedOpportunity.sell_exchange}`)}
+        />
       )}
     </div>
   );
