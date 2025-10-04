@@ -59,17 +59,18 @@ export const CredentialsValidator = () => {
       if (data.success) {
         setStatuses(prev => prev.map(s => 
           s.name === 'Binance' 
-            ? { ...s, status: 'ok', message: '✅ Conexão OK - Saldos: ' + (data.totalAssets || 'N/A'), details: data }
+            ? { ...s, status: 'ok', message: `✅ CONECTADA - ${data.totalAssets || 0} ativos encontrados`, details: data }
             : s
         ));
       } else {
         const isIPError = data.error?.includes('IP') || data.error?.includes('whitelist');
+        const isCredError = data.error?.includes('API Key') || data.error?.includes('inválida') || data.error?.includes('Invalid API-key');
         setStatuses(prev => prev.map(s => 
           s.name === 'Binance' 
             ? { 
                 ...s, 
                 status: isIPError ? 'ip_blocked' : 'error', 
-                message: data.error || 'Erro desconhecido',
+                message: isCredError ? '❌ API Key ou Secret Key INVÁLIDAS' : data.error || 'Erro desconhecido',
                 details: data
               }
             : s
@@ -78,16 +79,16 @@ export const CredentialsValidator = () => {
     } catch (error: any) {
       setStatuses(prev => prev.map(s => 
         s.name === 'Binance' 
-          ? { ...s, status: 'error', message: error.message || 'Erro de conexão' }
+          ? { ...s, status: 'error', message: 'Erro ao conectar: ' + (error.message || 'Desconhecido') }
           : s
       ));
     }
 
-    // Validate OKX
+    // Validate OKX - TESTE REAL DE BALANCES
     try {
       const okxCreds = localStorage.getItem('okx_credentials');
       if (!okxCreds) {
-        throw new Error('Credenciais não encontradas no localStorage');
+        throw new Error('Credenciais OKX não encontradas');
       }
 
       const { apiKey, secretKey, passphrase } = JSON.parse(okxCreds);
@@ -111,20 +112,21 @@ export const CredentialsValidator = () => {
 
       const data = await response.json();
 
-      if (data.success) {
+      if (data.success && data.balances) {
+        const balanceCount = data.balances.length || 0;
         setStatuses(prev => prev.map(s => 
           s.name === 'OKX' 
-            ? { ...s, status: 'ok', message: '✅ Conexão OK - Saldos encontrados', details: data }
+            ? { ...s, status: 'ok', message: `✅ CONECTADA - ${balanceCount} saldos encontrados`, details: data }
             : s
         ));
       } else {
-        const isIPError = data.error?.includes('IP') || data.error?.includes('whitelist');
+        const isIPError = data.error?.includes('IP') || data.error?.includes('whitelist') || data.error?.includes('not included');
         setStatuses(prev => prev.map(s => 
           s.name === 'OKX' 
             ? { 
                 ...s, 
                 status: isIPError ? 'ip_blocked' : 'error', 
-                message: data.error || 'Erro desconhecido',
+                message: data.error || 'Falha ao obter saldos',
                 details: data
               }
             : s
@@ -133,7 +135,7 @@ export const CredentialsValidator = () => {
     } catch (error: any) {
       setStatuses(prev => prev.map(s => 
         s.name === 'OKX' 
-          ? { ...s, status: 'error', message: error.message || 'Erro de conexão' }
+          ? { ...s, status: 'error', message: 'Erro ao conectar: ' + (error.message || 'Desconhecido') }
           : s
       ));
     }
@@ -165,20 +167,21 @@ export const CredentialsValidator = () => {
 
       const data = await response.json();
 
-      if (data.success) {
+      if (data.success && data.balances) {
+        const balanceCount = data.balances.length || 0;
         setStatuses(prev => prev.map(s => 
           s.name === 'MEXC' 
-            ? { ...s, status: 'ok', message: '✅ Conexão OK - Saldos encontrados', details: data }
+            ? { ...s, status: 'ok', message: `✅ CONECTADA - ${balanceCount} saldos encontrados`, details: data }
             : s
         ));
       } else {
-        const isIPError = data.error?.includes('IP') || data.error?.includes('whitelist');
+        const isIPError = data.error?.includes('IP') || data.error?.includes('whitelist') || data.error?.includes('white list');
         setStatuses(prev => prev.map(s => 
           s.name === 'MEXC' 
             ? { 
                 ...s, 
                 status: isIPError ? 'ip_blocked' : 'error', 
-                message: data.error || 'Erro desconhecido',
+                message: data.error || 'Falha ao obter saldos',
                 details: data
               }
             : s
@@ -187,7 +190,7 @@ export const CredentialsValidator = () => {
     } catch (error: any) {
       setStatuses(prev => prev.map(s => 
         s.name === 'MEXC' 
-          ? { ...s, status: 'error', message: error.message || 'Erro de conexão' }
+          ? { ...s, status: 'error', message: 'Erro ao conectar: ' + (error.message || 'Desconhecido') }
           : s
       ));
     }
@@ -236,11 +239,16 @@ export const CredentialsValidator = () => {
   const getFixInstructions = (exchange: ExchangeStatus) => {
     if (exchange.status === 'ip_blocked') {
       return (
-        <Alert className="mt-2">
-          <AlertTriangle className="h-4 w-4" />
+        <Alert className="mt-2 border-yellow-500 bg-yellow-50 dark:bg-yellow-950">
+          <AlertTriangle className="h-4 w-4 text-yellow-600" />
           <AlertDescription>
-            <strong>Solução:</strong> Adicione os IPs do Supabase na whitelist da {exchange.name}.
-            Vá para a aba "IP Whitelist" para ver todos os IPs.
+            <strong className="text-yellow-700 dark:text-yellow-300">🔒 IP BLOQUEADO</strong>
+            <p className="mt-2 text-sm">
+              O servidor Supabase não tem permissão para acessar sua conta {exchange.name}.
+            </p>
+            <p className="mt-2 text-sm font-semibold">
+              Vá para a aba "IP Whitelist" nesta página para ver os IPs que devem ser adicionados na whitelist da sua API Key {exchange.name}.
+            </p>
           </AlertDescription>
         </Alert>
       );
@@ -252,23 +260,40 @@ export const CredentialsValidator = () => {
           <Alert className="mt-2" variant="destructive">
             <XCircle className="h-4 w-4" />
             <AlertDescription>
-              <strong>Soluções possíveis:</strong>
-              <ol className="list-decimal ml-4 mt-2 space-y-1">
-                <li>Verifique se a API Key está correta e ATIVA na Binance</li>
-                <li>Verifique se a Secret Key está correta</li>
-                <li>Confirme as permissões: "Enable Reading" + "Enable Spot & Margin Trading"</li>
-                <li>Se houver restrição de IP, remova ou adicione os IPs do Supabase</li>
-                <li>Considere deletar e recriar a API Key na Binance</li>
+              <strong>⚠️ CREDENCIAIS INVÁLIDAS - Ação Imediata Necessária:</strong>
+              <ol className="list-decimal ml-4 mt-2 space-y-2 text-sm">
+                <li><strong>Verifique a API Key</strong> - Confirme que copiou TODA a chave sem espaços</li>
+                <li><strong>Verifique a Secret Key</strong> - Deve ter sido copiada no momento da criação</li>
+                <li><strong>Permissões obrigatórias</strong>: "Enable Reading" + "Enable Spot & Margin Trading"</li>
+                <li><strong>Restrição de IP</strong>: Se ativada, adicione os IPs da aba "IP Whitelist" OU desative a restrição</li>
+                <li><strong>Última tentativa</strong>: Delete a API Key atual e crie uma NOVA na Binance</li>
               </ol>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="mt-2"
-                onClick={() => window.open('https://www.binance.com/en/my/settings/api-management', '_blank')}
-              >
-                <ExternalLink className="w-4 h-4 mr-2" />
-                Abrir Binance API Management
-              </Button>
+              <div className="flex gap-2 mt-3">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => window.open('https://www.binance.com/en/my/settings/api-management', '_blank')}
+                >
+                  <ExternalLink className="w-4 h-4 mr-2" />
+                  Binance API Management
+                </Button>
+              </div>
+            </AlertDescription>
+          </Alert>
+        );
+      }
+
+      if (exchange.name === 'OKX') {
+        return (
+          <Alert className="mt-2" variant="destructive">
+            <XCircle className="h-4 w-4" />
+            <AlertDescription>
+              <strong>Soluções:</strong>
+              <ol className="list-decimal ml-4 mt-2 space-y-1">
+                <li>Verifique API Key, Secret Key e Passphrase</li>
+                <li>Confirme as permissões de leitura na API</li>
+                <li>Verifique se a API está ativa</li>
+              </ol>
             </AlertDescription>
           </Alert>
         );

@@ -14,6 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Wallet, Activity, RefreshCw, Settings, Shield, AlertTriangle, Plus, AlertCircle } from 'lucide-react';
 import APIConfiguration from '@/components/APIConfiguration';
 import RealtimeTradingValidator from '@/components/RealtimeTradingValidator';
+import { ExchangeStatusBanner } from '@/components/ExchangeStatusBanner';
 
 import { useTradingMode } from '@/contexts/TradingModeContext';
 import { getUserId } from '@/lib/userUtils';
@@ -68,6 +69,7 @@ export default function Portfolio() {
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [depositAmount, setDepositAmount] = useState('');
   const [dataSource, setDataSource] = useState('');
+  const [exchangeStatuses, setExchangeStatuses] = useState({ binance: false, okx: false, mexc: false });
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -142,6 +144,19 @@ export default function Portfolio() {
         setTrades(response.data.recent_trades || []);
         setStats(response.data.statistics || null);
         setDataSource(response.data.data_source || 'unknown');
+        
+        // Check which exchanges have data
+        const hasExchangeData = (exchange: string) => {
+          return (response.data.portfolio || []).some((asset: PortfolioAsset) => 
+            asset.exchange?.toLowerCase() === exchange.toLowerCase() && asset.balance > 0
+          );
+        };
+        
+        setExchangeStatuses({
+          binance: hasExchangeData('binance'),
+          okx: hasExchangeData('okx'),
+          mexc: hasExchangeData('mexc')
+        });
         
         // Mostrar toast baseado na fonte dos dados
         if (isRealMode) {
@@ -423,6 +438,16 @@ export default function Portfolio() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Status das Exchanges - Mostrar apenas em modo real */}
+      {isRealMode && (
+        <ExchangeStatusBanner
+          binanceOk={exchangeStatuses.binance}
+          okxOk={exchangeStatuses.okx}
+          mexcOk={exchangeStatuses.mexc}
+          onConfigClick={() => navigate('/arbitrage-control')}
+        />
+      )}
 
       {/* Mostrar estado vazio se não há dados reais em modo real */}
       {shouldShowEmptyState ? (
