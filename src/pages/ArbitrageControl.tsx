@@ -762,6 +762,147 @@ export default function ArbitrageControl() {
               </CardContent>
             </Card>
 
+            {/* Saldos Bybit */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Activity className="h-5 w-5 text-orange-500" />
+                  Bybit
+                </CardTitle>
+                <CardDescription>Seus saldos na Bybit</CardDescription>
+              </CardHeader>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[80px]">Asset</TableHead>
+                      <TableHead className="text-right w-[80px]">Saldo</TableHead>
+                      <TableHead className="text-right w-[80px]">USD</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {portfolio.filter(asset => asset.exchange === 'Bybit').length > 0 ? (
+                      portfolio.filter(asset => asset.exchange === 'Bybit').map((asset) => (
+                        <TableRow key={`bybit-${asset.symbol}`}>
+                          <TableCell className="font-medium">
+                            <Badge variant="outline" className="text-orange-700">
+                              {asset.symbol}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-xs">
+                            {asset.balance.toFixed(asset.balance < 1 ? 6 : 2)}
+                          </TableCell>
+                          <TableCell className="text-right text-xs font-medium">
+                            {asset.price_usd ? formatCurrency(asset.price_usd * asset.balance) : '-'}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={3} className="text-center text-muted-foreground py-8">
+                          {isRealMode ? 'Nenhum saldo encontrado' : 'Configure API no modo real'}
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+
+            {/* Saldos MEXC */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Activity className="h-5 w-5 text-green-500" />
+                  MEXC
+                </CardTitle>
+                <CardDescription>Seus saldos na MEXC</CardDescription>
+              </CardHeader>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[80px]">Asset</TableHead>
+                      <TableHead className="text-right w-[80px]">Saldo</TableHead>
+                      <TableHead className="text-right w-[80px]">USD</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {portfolio.filter(asset => asset.exchange === 'MEXC').length > 0 ? (
+                      portfolio.filter(asset => asset.exchange === 'MEXC').map((asset) => (
+                        <TableRow key={`mexc-${asset.symbol}`}>
+                          <TableCell className="font-medium">
+                            <Badge variant="outline" className="text-green-700">
+                              {asset.symbol}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-xs">
+                            {asset.balance.toFixed(asset.balance < 1 ? 6 : 2)}
+                          </TableCell>
+                          <TableCell className="text-right text-xs font-medium">
+                            {asset.price_usd ? formatCurrency(asset.price_usd * asset.balance) : '-'}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={3} className="text-center text-muted-foreground py-8">
+                          {isRealMode ? 'Nenhum saldo encontrado' : 'Configure API no modo real'}
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+
+            {/* Saldos Pionex */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Activity className="h-5 w-5 text-cyan-500" />
+                  Pionex
+                </CardTitle>
+                <CardDescription>Seus saldos na Pionex</CardDescription>
+              </CardHeader>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[80px]">Asset</TableHead>
+                      <TableHead className="text-right w-[80px]">Saldo</TableHead>
+                      <TableHead className="text-right w-[80px]">USD</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {portfolio.filter(asset => asset.exchange === 'Pionex').length > 0 ? (
+                      portfolio.filter(asset => asset.exchange === 'Pionex').map((asset) => (
+                        <TableRow key={`pionex-${asset.symbol}`}>
+                          <TableCell className="font-medium">
+                            <Badge variant="outline" className="text-cyan-700">
+                              {asset.symbol}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-xs">
+                            {asset.balance.toFixed(asset.balance < 1 ? 6 : 2)}
+                          </TableCell>
+                          <TableCell className="text-right text-xs font-medium">
+                            {asset.price_usd ? formatCurrency(asset.price_usd * asset.balance) : '-'}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={3} className="text-center text-muted-foreground py-8">
+                          {isRealMode ? 'Nenhum saldo encontrado' : 'Configure API no modo real'}
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+
             {/* Carteira Web3 */}
             <Web3PortfolioCard />
           </div>
