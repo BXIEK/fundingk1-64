@@ -15,6 +15,21 @@ serve(async (req) => {
     const { action, api_key, secret_key } = await req.json();
     console.log(`🎯 Ação Bybit solicitada: ${action}`);
 
+    // Usar secrets do Supabase como fallback
+    const bybitApiKey = api_key || Deno.env.get('BYBIT_API_KEY');
+    const bybitSecretKey = secret_key || Deno.env.get('BYBIT_SECRET_KEY');
+
+    if (!bybitApiKey || !bybitSecretKey) {
+      console.error('❌ Credenciais Bybit não fornecidas');
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Credenciais Bybit não configuradas'
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      );
+    }
+
     const baseUrl = 'https://api.bybit.com';
 
     function generateSignature(timestamp: string, apiKey: string, recvWindow: string, queryString: string, secretKey: string): string {
@@ -29,7 +44,7 @@ serve(async (req) => {
       const timestamp = Date.now().toString();
       const recvWindow = '5000';
       const queryString = 'accountType=UNIFIED';
-      const signature = generateSignature(timestamp, api_key, recvWindow, queryString, secret_key);
+      const signature = generateSignature(timestamp, bybitApiKey, recvWindow, queryString, bybitSecretKey);
 
       const url = `${baseUrl}/v5/account/wallet-balance?${queryString}`;
       
@@ -38,7 +53,7 @@ serve(async (req) => {
       const response = await fetch(url, {
         method: 'GET',
         headers: {
-          'X-BAPI-API-KEY': api_key,
+          'X-BAPI-API-KEY': bybitApiKey,
           'X-BAPI-TIMESTAMP': timestamp,
           'X-BAPI-SIGN': signature,
           'X-BAPI-RECV-WINDOW': recvWindow,
