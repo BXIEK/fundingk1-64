@@ -48,61 +48,79 @@ export const useHFTWebSocket = (
 
     const connect = async () => {
       try {
+        console.log('🔌 Iniciando conexão HFT Engine...');
+        console.log('Símbolos:', symbols);
+        console.log('Exchanges:', exchanges);
+
         const { data: { session } } = await supabase.auth.getSession();
         
-        const url = new URL(
-          'https://uxhcsjlfwkhwkvhfacho.supabase.co/functions/v1/hft-websocket-engine'
-        );
+        const url = 'https://uxhcsjlfwkhwkvhfacho.supabase.co/functions/v1/hft-websocket-engine';
 
-        const response = await fetch(url.toString(), {
+        console.log('📡 Fazendo POST para:', url);
+
+        const response = await fetch(url, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${session?.access_token || ''}`,
+            'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV4aGNzamxmd2tod2t2aGZhY2hvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE0MDEzMzQsImV4cCI6MjA2Njk3NzMzNH0.WLA9LhdQHPZJpTC1qasafl3Gb7IqRvXN61XVcKnzx0U',
           },
           body: JSON.stringify({
             action: 'start',
             symbols,
             exchanges,
-            userId: session?.user?.id,
+            userId: session?.user?.id || 'anonymous',
           }),
         });
 
+        console.log('📨 Response status:', response.status);
+        console.log('📨 Response headers:', Object.fromEntries(response.headers.entries()));
+
         if (!response.ok) {
-          throw new Error('Falha ao conectar ao HFT Engine');
+          const errorText = await response.text();
+          console.error('❌ Erro na resposta:', errorText);
+          throw new Error(`Falha ao conectar: ${response.status} - ${errorText}`);
         }
 
-        const reader = response.body?.getReader();
-        const decoder = new TextDecoder();
-
-        if (!reader) {
-          throw new Error('No reader available');
+        if (!response.body) {
+          throw new Error('No response body');
         }
 
+        console.log('✅ Conexão estabelecida, iniciando leitura do stream...');
         setIsConnected(true);
         setError(null);
 
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
         while (true) {
           const { value, done } = await reader.read();
-          if (done) break;
+          
+          if (done) {
+            console.log('🏁 Stream finalizado');
+            break;
+          }
 
-          const chunk = decoder.decode(value);
-          const lines = chunk.split('\n\n');
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
 
           for (const line of lines) {
-            if (line.startsWith('data: ')) {
+            if (line.trim().startsWith('data: ')) {
               try {
-                const jsonData = JSON.parse(line.substring(6));
+                const jsonData = JSON.parse(line.trim().substring(6));
+                console.log('📊 Dados recebidos:', jsonData);
                 setData(jsonData);
               } catch (e) {
-                console.error('Erro ao parsear dados:', e);
+                console.error('⚠️ Erro ao parsear dados:', e, 'linha:', line);
               }
             }
           }
         }
 
       } catch (err) {
-        console.error('Erro na conexão HFT:', err);
+        console.error('❌ Erro na conexão HFT:', err);
         setError(err instanceof Error ? err.message : 'Erro desconhecido');
         setIsConnected(false);
       }

@@ -11,7 +11,7 @@ const HFT_CONFIG = {
   MAX_DECISION_TIME_MS: 30,
   MIN_PROFIT_THRESHOLD_USD: 1.00,
   TAKER_FEE: 0.001, // 0.1%
-  MAX_SLIPPAGE: 0.002, // 0.2%
+  TRADE_SIZE: 0.001, // 0.001 BTC por exemplo
 };
 
 interface ExchangePrice {
@@ -34,331 +34,246 @@ interface ArbitrageOpportunity {
   timestamp: number;
 }
 
-// WebSocket URLs das exchanges
-const WS_URLS = {
-  binance: (symbol: string) => `wss://stream.binance.com:9443/ws/${symbol.toLowerCase()}@trade`,
-  okx: 'wss://ws.okx.com:8443/ws/v5/public',
-  bybit: 'wss://stream.bybit.com/v5/public/spot',
-  hyperliquid: 'wss://api.hyperliquid.xyz/ws',
-};
-
-class HFTEngine {
-  private prices: Map<string, Map<string, ExchangePrice>> = new Map();
-  private opportunities: ArbitrageOpportunity[] = [];
-  private connections: Map<string, WebSocket> = new Map();
-
-  async start(symbols: string[], enabledExchanges: string[]) {
-    console.log('🚀 Iniciando HFT Engine...');
-    console.log('Símbolos:', symbols);
-    console.log('Exchanges:', enabledExchanges);
-
-    // Conectar WebSockets de todas as exchanges
-    for (const exchange of enabledExchanges) {
-      for (const symbol of symbols) {
-        await this.connectExchangeWS(exchange, symbol);
-      }
-    }
-  }
-
-  private async connectExchangeWS(exchange: string, symbol: string) {
-    try {
-      const key = `${exchange}-${symbol}`;
-      
-      if (exchange === 'binance') {
-        const ws = new WebSocket(WS_URLS.binance(symbol));
-        
-        ws.onmessage = (event) => {
-          const data = JSON.parse(event.data);
-          this.updatePrice(exchange, symbol, {
-            exchange,
-            symbol,
-            price: parseFloat(data.p),
-            timestamp: data.T,
-            volume: parseFloat(data.q),
-          });
-        };
-
-        ws.onopen = () => {
-          console.log(`✅ Conectado: ${exchange} - ${symbol}`);
-        };
-
-        ws.onerror = (error) => {
-          console.error(`❌ Erro WebSocket ${exchange}:`, error);
-        };
-
-        this.connections.set(key, ws);
-      } 
-      else if (exchange === 'okx') {
-        const ws = new WebSocket(WS_URLS.okx);
-        
-        ws.onopen = () => {
-          // Subscribe to trades channel
-          ws.send(JSON.stringify({
-            op: 'subscribe',
-            args: [{
-              channel: 'trades',
-              instId: symbol.replace('/', '-'),
-            }],
-          }));
-          console.log(`✅ Conectado: ${exchange} - ${symbol}`);
-        };
-
-        ws.onmessage = (event) => {
-          const data = JSON.parse(event.data);
-          if (data.data && data.data[0]) {
-            const trade = data.data[0];
-            this.updatePrice(exchange, symbol, {
-              exchange,
-              symbol,
-              price: parseFloat(trade.px),
-              timestamp: parseInt(trade.ts),
-              volume: parseFloat(trade.sz),
-            });
-          }
-        };
-
-        this.connections.set(key, ws);
-      }
-      else if (exchange === 'bybit') {
-        const ws = new WebSocket(WS_URLS.bybit);
-        
-        ws.onopen = () => {
-          ws.send(JSON.stringify({
-            op: 'subscribe',
-            args: [`publicTrade.${symbol.replace('/', '')}`],
-          }));
-          console.log(`✅ Conectado: ${exchange} - ${symbol}`);
-        };
-
-        ws.onmessage = (event) => {
-          const data = JSON.parse(event.data);
-          if (data.data && data.data[0]) {
-            const trade = data.data[0];
-            this.updatePrice(exchange, symbol, {
-              exchange,
-              symbol,
-              price: parseFloat(trade.p),
-              timestamp: parseInt(trade.T),
-              volume: parseFloat(trade.v),
-            });
-          }
-        };
-
-        this.connections.set(key, ws);
-      }
-      else if (exchange === 'hyperliquid') {
-        const ws = new WebSocket(WS_URLS.hyperliquid);
-        
-        ws.onopen = () => {
-          ws.send(JSON.stringify({
-            method: 'subscribe',
-            subscription: {
-              type: 'trades',
-              coin: symbol.split('/')[0],
-            },
-          }));
-          console.log(`✅ Conectado: ${exchange} - ${symbol}`);
-        };
-
-        ws.onmessage = (event) => {
-          const data = JSON.parse(event.data);
-          if (data.channel === 'trades' && data.data) {
-            const trade = data.data;
-            this.updatePrice(exchange, symbol, {
-              exchange,
-              symbol,
-              price: parseFloat(trade.px),
-              timestamp: trade.time,
-              volume: parseFloat(trade.sz),
-            });
-          }
-        };
-
-        this.connections.set(key, ws);
-      }
-
-    } catch (error) {
-      console.error(`Erro ao conectar ${exchange} - ${symbol}:`, error);
-    }
-  }
-
-  private updatePrice(exchange: string, symbol: string, price: ExchangePrice) {
-    if (!this.prices.has(symbol)) {
-      this.prices.set(symbol, new Map());
-    }
+async function fetchBinancePrice(symbol: string): Promise<ExchangePrice | null> {
+  try {
+    const formattedSymbol = symbol.replace('/', '');
+    const response = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${formattedSymbol}`);
+    const data = await response.json();
     
-    this.prices.get(symbol)!.set(exchange, price);
-    
-    // Detectar oportunidades após cada atualização de preço
-    this.detectOpportunities(symbol);
-  }
-
-  private detectOpportunities(symbol: string) {
-    const startTime = performance.now();
-    const symbolPrices = this.prices.get(symbol);
-    
-    if (!symbolPrices || symbolPrices.size < 2) return;
-
-    const exchanges = Array.from(symbolPrices.keys());
-    
-    // Verifica todos os pares de exchanges
-    for (let i = 0; i < exchanges.length; i++) {
-      for (let j = i + 1; j < exchanges.length; j++) {
-        const exchange1 = exchanges[i];
-        const exchange2 = exchanges[j];
-        
-        const price1 = symbolPrices.get(exchange1)!;
-        const price2 = symbolPrices.get(exchange2)!;
-
-        // Oportunidade 1: Comprar em exchange1, vender em exchange2
-        const netProfit1 = this.calculateNetProfit(
-          price1.price,
-          price2.price,
-          HFT_CONFIG.TAKER_FEE
-        );
-
-        if (netProfit1 > HFT_CONFIG.MIN_PROFIT_THRESHOLD_USD) {
-          const decisionTime = performance.now() - startTime;
-          
-          if (decisionTime <= HFT_CONFIG.MAX_DECISION_TIME_MS) {
-            const opportunity: ArbitrageOpportunity = {
-              symbol,
-              buyExchange: exchange1,
-              sellExchange: exchange2,
-              buyPrice: price1.price,
-              sellPrice: price2.price,
-              spread: ((price2.price - price1.price) / price1.price) * 100,
-              netProfit: netProfit1,
-              roi: (netProfit1 / (price1.price * 0.001)) * 100, // ROI baseado em 0.001 BTC
-              timestamp: Date.now(),
-            };
-
-            this.opportunities.push(opportunity);
-            console.log(`🎯 OPORTUNIDADE DETECTADA:`, opportunity);
-          }
-        }
-
-        // Oportunidade 2: Comprar em exchange2, vender em exchange1
-        const netProfit2 = this.calculateNetProfit(
-          price2.price,
-          price1.price,
-          HFT_CONFIG.TAKER_FEE
-        );
-
-        if (netProfit2 > HFT_CONFIG.MIN_PROFIT_THRESHOLD_USD) {
-          const decisionTime = performance.now() - startTime;
-          
-          if (decisionTime <= HFT_CONFIG.MAX_DECISION_TIME_MS) {
-            const opportunity: ArbitrageOpportunity = {
-              symbol,
-              buyExchange: exchange2,
-              sellExchange: exchange1,
-              buyPrice: price2.price,
-              sellPrice: price1.price,
-              spread: ((price1.price - price2.price) / price2.price) * 100,
-              netProfit: netProfit2,
-              roi: (netProfit2 / (price2.price * 0.001)) * 100,
-              timestamp: Date.now(),
-            };
-
-            this.opportunities.push(opportunity);
-            console.log(`🎯 OPORTUNIDADE DETECTADA:`, opportunity);
-          }
-        }
-      }
-    }
-
-    // Limpar oportunidades antigas (> 5 segundos)
-    const now = Date.now();
-    this.opportunities = this.opportunities.filter(
-      (opp) => now - opp.timestamp < 5000
-    );
-  }
-
-  private calculateNetProfit(buyPrice: number, sellPrice: number, fee: number): number {
-    const amount = 0.001; // 0.001 BTC como exemplo
-    const buyFee = buyPrice * amount * fee;
-    const sellFee = sellPrice * amount * fee;
-    const grossProfit = (sellPrice - buyPrice) * amount;
-    return grossProfit - buyFee - sellFee;
-  }
-
-  getOpportunities(): ArbitrageOpportunity[] {
-    return this.opportunities;
-  }
-
-  getCurrentPrices(): Map<string, Map<string, ExchangePrice>> {
-    return this.prices;
-  }
-
-  disconnect() {
-    this.connections.forEach((ws, key) => {
-      console.log(`🔌 Desconectando: ${key}`);
-      ws.close();
-    });
-    this.connections.clear();
+    return {
+      exchange: 'binance',
+      symbol,
+      price: parseFloat(data.lastPrice),
+      timestamp: data.closeTime,
+      volume: parseFloat(data.volume),
+    };
+  } catch (error) {
+    console.error(`Erro Binance ${symbol}:`, error);
+    return null;
   }
 }
 
+async function fetchOKXPrice(symbol: string): Promise<ExchangePrice | null> {
+  try {
+    const formattedSymbol = symbol.replace('/', '-');
+    const response = await fetch(`https://www.okx.com/api/v5/market/ticker?instId=${formattedSymbol}`);
+    const data = await response.json();
+    
+    if (data.data && data.data[0]) {
+      return {
+        exchange: 'okx',
+        symbol,
+        price: parseFloat(data.data[0].last),
+        timestamp: parseInt(data.data[0].ts),
+        volume: parseFloat(data.data[0].vol24h),
+      };
+    }
+    return null;
+  } catch (error) {
+    console.error(`Erro OKX ${symbol}:`, error);
+    return null;
+  }
+}
+
+async function fetchBybitPrice(symbol: string): Promise<ExchangePrice | null> {
+  try {
+    const formattedSymbol = symbol.replace('/', '');
+    const response = await fetch(`https://api.bybit.com/v5/market/tickers?category=spot&symbol=${formattedSymbol}`);
+    const data = await response.json();
+    
+    if (data.result && data.result.list && data.result.list[0]) {
+      return {
+        exchange: 'bybit',
+        symbol,
+        price: parseFloat(data.result.list[0].lastPrice),
+        timestamp: parseInt(data.time),
+        volume: parseFloat(data.result.list[0].volume24h),
+      };
+    }
+    return null;
+  } catch (error) {
+    console.error(`Erro Bybit ${symbol}:`, error);
+    return null;
+  }
+}
+
+function calculateNetProfit(buyPrice: number, sellPrice: number, tradeSize: number): number {
+  const buyFee = buyPrice * tradeSize * HFT_CONFIG.TAKER_FEE;
+  const sellFee = sellPrice * tradeSize * HFT_CONFIG.TAKER_FEE;
+  const grossProfit = (sellPrice - buyPrice) * tradeSize;
+  return grossProfit - buyFee - sellFee;
+}
+
+function detectOpportunities(prices: Map<string, ExchangePrice[]>): ArbitrageOpportunity[] {
+  const opportunities: ArbitrageOpportunity[] = [];
+  const startTime = performance.now();
+
+  for (const [symbol, exchangePrices] of prices.entries()) {
+    if (exchangePrices.length < 2) continue;
+
+    // Comparar cada par de exchanges
+    for (let i = 0; i < exchangePrices.length; i++) {
+      for (let j = i + 1; j < exchangePrices.length; j++) {
+        const exchange1 = exchangePrices[i];
+        const exchange2 = exchangePrices[j];
+
+        // Oportunidade 1: Comprar em exchange1, vender em exchange2
+        const netProfit1 = calculateNetProfit(
+          exchange1.price,
+          exchange2.price,
+          HFT_CONFIG.TRADE_SIZE
+        );
+
+        if (netProfit1 > HFT_CONFIG.MIN_PROFIT_THRESHOLD_USD) {
+          const spread = ((exchange2.price - exchange1.price) / exchange1.price) * 100;
+          opportunities.push({
+            symbol,
+            buyExchange: exchange1.exchange,
+            sellExchange: exchange2.exchange,
+            buyPrice: exchange1.price,
+            sellPrice: exchange2.price,
+            spread,
+            netProfit: netProfit1,
+            roi: (netProfit1 / (exchange1.price * HFT_CONFIG.TRADE_SIZE)) * 100,
+            timestamp: Date.now(),
+          });
+        }
+
+        // Oportunidade 2: Comprar em exchange2, vender em exchange1
+        const netProfit2 = calculateNetProfit(
+          exchange2.price,
+          exchange1.price,
+          HFT_CONFIG.TRADE_SIZE
+        );
+
+        if (netProfit2 > HFT_CONFIG.MIN_PROFIT_THRESHOLD_USD) {
+          const spread = ((exchange1.price - exchange2.price) / exchange2.price) * 100;
+          opportunities.push({
+            symbol,
+            buyExchange: exchange2.exchange,
+            sellExchange: exchange1.exchange,
+            buyPrice: exchange2.price,
+            sellPrice: exchange1.price,
+            spread,
+            netProfit: netProfit2,
+            roi: (netProfit2 / (exchange2.price * HFT_CONFIG.TRADE_SIZE)) * 100,
+            timestamp: Date.now(),
+          });
+        }
+      }
+    }
+  }
+
+  const decisionTime = performance.now() - startTime;
+  console.log(`⚡ Detectadas ${opportunities.length} oportunidades em ${decisionTime.toFixed(2)}ms`);
+
+  return opportunities;
+}
+
 serve(async (req) => {
+  console.log('📨 Requisição recebida:', req.method);
+
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { action, symbols, exchanges, userId } = await req.json();
+    const { action, symbols, exchanges } = await req.json();
+    console.log('📊 Parâmetros:', { action, symbols, exchanges });
 
-    if (action === 'start') {
-      const engine = new HFTEngine();
-      await engine.start(symbols, exchanges);
+    if (action !== 'start') {
+      return new Response(
+        JSON.stringify({ error: 'Ação inválida' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
-      // Retorna stream de oportunidades via SSE
-      const stream = new ReadableStream({
-        async start(controller) {
-          const encoder = new TextEncoder();
-          
-          const interval = setInterval(() => {
-            const opportunities = engine.getOpportunities();
-            const prices = Array.from(engine.getCurrentPrices().entries()).map(([symbol, priceMap]) => ({
+    // Criar stream de dados
+    const stream = new ReadableStream({
+      async start(controller) {
+        const encoder = new TextEncoder();
+        console.log('🚀 Iniciando stream HFT...');
+
+        try {
+          // Loop para buscar preços periodicamente
+          for (let iteration = 0; iteration < 300; iteration++) { // 300 iterações = 30 segundos
+            const allPrices = new Map<string, ExchangePrice[]>();
+
+            // Buscar preços de todas as exchanges para cada símbolo
+            for (const symbol of symbols) {
+              const prices: ExchangePrice[] = [];
+
+              // Buscar de cada exchange habilitada
+              const pricePromises: Promise<ExchangePrice | null>[] = [];
+
+              if (exchanges.includes('binance')) {
+                pricePromises.push(fetchBinancePrice(symbol));
+              }
+              if (exchanges.includes('okx')) {
+                pricePromises.push(fetchOKXPrice(symbol));
+              }
+              if (exchanges.includes('bybit')) {
+                pricePromises.push(fetchBybitPrice(symbol));
+              }
+
+              const results = await Promise.all(pricePromises);
+              
+              for (const price of results) {
+                if (price) prices.push(price);
+              }
+
+              if (prices.length > 0) {
+                allPrices.set(symbol, prices);
+              }
+            }
+
+            console.log(`📊 Preços obtidos para ${allPrices.size} símbolos`);
+
+            // Detectar oportunidades
+            const opportunities = detectOpportunities(allPrices);
+
+            // Preparar dados para enviar
+            const pricesArray = Array.from(allPrices.entries()).map(([symbol, prices]) => ({
               symbol,
-              prices: Array.from(priceMap.values()),
+              prices,
             }));
 
             const data = JSON.stringify({
               opportunities,
-              prices,
+              prices: pricesArray,
               timestamp: Date.now(),
+              iteration,
             });
 
+            // Enviar dados via SSE
             controller.enqueue(encoder.encode(`data: ${data}\n\n`));
-          }, 100); // Atualiza a cada 100ms
+            console.log(`✅ Dados enviados (iteração ${iteration + 1})`);
 
-          // Cleanup após 30 segundos
-          setTimeout(() => {
-            clearInterval(interval);
-            engine.disconnect();
-            controller.close();
-          }, 30000);
-        },
-      });
+            // Aguardar 100ms antes da próxima iteração
+            await new Promise((resolve) => setTimeout(resolve, 100));
+          }
 
-      return new Response(stream, {
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'text/event-stream',
-          'Cache-Control': 'no-cache',
-          'Connection': 'keep-alive',
-        },
-      });
-    }
+          console.log('🏁 Stream finalizado');
+          controller.close();
 
-    return new Response(
-      JSON.stringify({ error: 'Ação inválida' }),
-      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+        } catch (error) {
+          console.error('❌ Erro no stream:', error);
+          controller.error(error);
+        }
+      },
+    });
+
+    return new Response(stream, {
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      },
+    });
 
   } catch (error) {
-    console.error('Erro no HFT Engine:', error);
+    console.error('❌ Erro no HFT Engine:', error);
     const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
     return new Response(
       JSON.stringify({ error: errorMessage }),
