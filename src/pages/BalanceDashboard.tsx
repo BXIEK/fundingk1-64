@@ -1,35 +1,13 @@
-import { useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { useIsMobile } from "@/hooks/use-mobile"
 import SmartBalanceDashboard from "@/components/SmartBalanceDashboard"
 import Web3WalletManager from "@/components/Web3WalletManager"
 import CrossPlatformTransferHub from "@/components/CrossPlatformTransferHub"
 import MobileAPIManager from "@/components/MobileAPIManger"
-import { supabase } from "@/integrations/supabase/client"
-import { useToast } from "@/hooks/use-toast"
 
 export default function BalanceDashboard() {
   const navigate = useNavigate()
-  const { toast } = useToast()
   const isMobile = useIsMobile()
-
-  useEffect(() => {
-    const checkAuth = async () => {
-      const { data: { user }, error } = await supabase.auth.getUser()
-      
-      if (error || !user) {
-        toast({
-          title: "Acesso negado",
-          description: "Você precisa estar logado para acessar esta página.",
-          variant: "destructive"
-        })
-        navigate("/")
-        return
-      }
-    }
-
-    checkAuth()
-  }, [navigate, toast])
 
   if (isMobile) {
     return (
