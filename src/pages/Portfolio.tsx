@@ -101,6 +101,7 @@ export default function Portfolio() {
         const binanceCredentials = localStorage.getItem('binance_credentials');
         const hyperliquidCredentials = localStorage.getItem('hyperliquid_credentials');
         const okxCredentials = localStorage.getItem('okx_credentials');
+        const bybitCredentials = localStorage.getItem('bybit_credentials');
         
         if (binanceCredentials) {
           const binanceCreds = JSON.parse(binanceCredentials);
@@ -128,6 +129,15 @@ export default function Portfolio() {
             okx_api_key: okxCreds.apiKey,
             okx_secret_key: okxCreds.secretKey,
             okx_passphrase: okxCreds.passphrase
+          };
+        }
+
+        if (bybitCredentials) {
+          const bybitCreds = JSON.parse(bybitCredentials);
+          requestBody = {
+            ...requestBody,
+            bybit_api_key: bybitCreds.apiKey,
+            bybit_secret_key: bybitCreds.secretKey
           };
         }
       }
