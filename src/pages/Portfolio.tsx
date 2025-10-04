@@ -69,7 +69,7 @@ export default function Portfolio() {
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [depositAmount, setDepositAmount] = useState('');
   const [dataSource, setDataSource] = useState('');
-  const [exchangeStatuses, setExchangeStatuses] = useState({ binance: false, okx: false, mexc: false });
+  const [exchangeStatuses, setExchangeStatuses] = useState({ binance: false, okx: false, bybit: false });
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -155,7 +155,7 @@ export default function Portfolio() {
         setExchangeStatuses({
           binance: hasExchangeData('binance'),
           okx: hasExchangeData('okx'),
-          mexc: hasExchangeData('mexc')
+          bybit: hasExchangeData('bybit')
         });
         
         // Mostrar toast baseado na fonte dos dados
@@ -444,7 +444,7 @@ export default function Portfolio() {
         <ExchangeStatusBanner
           binanceOk={exchangeStatuses.binance}
           okxOk={exchangeStatuses.okx}
-          mexcOk={exchangeStatuses.mexc}
+          bybitOk={exchangeStatuses.bybit}
           onConfigClick={() => navigate('/arbitrage-control')}
         />
       )}

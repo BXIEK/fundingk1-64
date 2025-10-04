@@ -46,10 +46,10 @@ export const AutoWhitelistAssistant = () => {
     },
     {
       id: 3,
-      exchange: 'MEXC',
+      exchange: 'Bybit',
       status: 'pending',
       description: 'Abrir página de API Management e copiar IPs',
-      url: 'https://www.mexc.com/user/openapi'
+      url: 'https://www.bybit.com/app/user/api-management'
     }
   ]);
 

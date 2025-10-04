@@ -5,14 +5,14 @@ import { Button } from '@/components/ui/button';
 interface ExchangeStatusBannerProps {
   binanceOk: boolean;
   okxOk: boolean;
-  mexcOk: boolean;
+  bybitOk: boolean;
   onConfigClick: () => void;
 }
 
-export const ExchangeStatusBanner = ({ binanceOk, okxOk, mexcOk, onConfigClick }: ExchangeStatusBannerProps) => {
-  const allOk = binanceOk && okxOk && mexcOk;
-  const someOk = binanceOk || okxOk || mexcOk;
-  const noneOk = !binanceOk && !okxOk && !mexcOk;
+export const ExchangeStatusBanner = ({ binanceOk, okxOk, bybitOk, onConfigClick }: ExchangeStatusBannerProps) => {
+  const allOk = binanceOk && okxOk && bybitOk;
+  const someOk = binanceOk || okxOk || bybitOk;
+  const noneOk = !binanceOk && !okxOk && !bybitOk;
 
   if (allOk) {
     return (
@@ -20,7 +20,7 @@ export const ExchangeStatusBanner = ({ binanceOk, okxOk, mexcOk, onConfigClick }
         <CheckCircle2 className="h-5 w-5 text-green-600" />
         <AlertDescription>
           <strong className="text-green-700 dark:text-green-300">✅ Todas as exchanges conectadas!</strong>
-          <p className="text-sm mt-1">Binance, OKX e MEXC estão funcionando corretamente.</p>
+          <p className="text-sm mt-1">Binance, OKX e Bybit estão funcionando corretamente.</p>
         </AlertDescription>
       </Alert>
     );
@@ -59,8 +59,8 @@ export const ExchangeStatusBanner = ({ binanceOk, okxOk, mexcOk, onConfigClick }
               {okxOk ? '✅' : '❌'} OKX
             </span>
             {' | '}
-            <span className={mexcOk ? 'text-green-600' : 'text-red-600'}>
-              {mexcOk ? '✅' : '❌'} MEXC
+            <span className={bybitOk ? 'text-green-600' : 'text-red-600'}>
+              {bybitOk ? '✅' : '❌'} Bybit
             </span>
           </p>
         </div>

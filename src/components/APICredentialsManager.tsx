@@ -155,56 +155,9 @@ const APICredentialsManager = () => {
         console.error('Stack trace:', edgeFunctionError instanceof Error ? edgeFunctionError.stack : 'N/A');
       }
 
-      // GARANTIR que credenciais sejam sempre carregadas (fallback absoluto)
-      console.log('🔑 [DIAGNÓSTICO] Verificando se precisa carregar fallback...');
+      // Não usar mais credenciais hardcoded
+      console.log('🔑 [DIAGNÓSTICO] Verificando credenciais carregadas...');
       console.log('🔑 [DIAGNÓSTICO] credentialsLoaded =', credentialsLoaded);
-      
-      if (!credentialsLoaded) {
-        console.log('🔑 [DIAGNÓSTICO] Edge functions não retornaram credenciais');
-        console.log('🔑 [DIAGNÓSTICO] Carregando credenciais hardcoded como fallback ABSOLUTO...');
-        
-        // Credenciais Binance autorizadas
-        const binanceCredentials = {
-          apiKey: "4lQevGkhJHfKQupjRejJ6FJfX8EBMAh5LhaTRyGLm8Bw1Gxf2wnqe8GOgZ9M4thl",
-          secretKey: "jVg7t8YaBdX5X3VsZLwx0ugS7Jw6qTawAfFtAJnJ8z2Lmfs4nxK5fHNjvJ5M8pQL"
-        };
-        
-        // Credenciais OKX autorizadas  
-        const okxCredentials = {
-          apiKey: "3c4b8d2f-a1e7-4096-b5c3-1f2e3d4c5b6a",
-          secretKey: "F8A2B5C4E7D6F9A1B3E8C7D2F5A9B4E1C6D8F2A5B7C3E9D1F4A6B8C5E2D7F3A9",
-          passphrase: "TradingBot2024!"
-        };
-
-        console.log('💾 [DIAGNÓSTICO] Salvando no state e localStorage...');
-
-        // Definir credenciais Binance
-        setCredentials(prev => ({ 
-          ...prev, 
-          binance: binanceCredentials
-        }));
-        setConnectionStatus(prev => ({ 
-          ...prev, 
-          binance: 'configured' 
-        }));
-        localStorage.setItem("binance_credentials", JSON.stringify(binanceCredentials));
-
-        // Definir credenciais OKX
-        setCredentials(prev => ({ 
-          ...prev, 
-          okx: okxCredentials
-        }));
-        setConnectionStatus(prev => ({ 
-          ...prev, 
-          okx: 'configured' 
-        }));
-        localStorage.setItem("okx_credentials", JSON.stringify(okxCredentials));
-
-        credentialsLoaded = true;
-        console.log('✅ [DIAGNÓSTICO] Credenciais hardcoded carregadas e salvas com sucesso');
-        console.log('✅ [DIAGNÓSTICO] Binance Key:', binanceCredentials.apiKey.substring(0, 20) + '...');
-        console.log('✅ [DIAGNÓSTICO] OKX Key:', okxCredentials.apiKey);
-      }
 
       // Forçar atualização da interface
       if (credentialsLoaded) {

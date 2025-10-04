@@ -19,7 +19,6 @@ export const CredentialsValidator = () => {
     { name: 'Binance', status: 'checking', message: 'Verificando...' },
     { name: 'OKX', status: 'checking', message: 'Verificando...' },
     { name: 'Bybit', status: 'checking', message: 'Verificando...' },
-    { name: 'MEXC', status: 'checking', message: 'Verificando...' },
   ]);
   const [isValidating, setIsValidating] = useState(false);
   const { toast } = useToast();
@@ -32,7 +31,6 @@ export const CredentialsValidator = () => {
       { name: 'Binance', status: 'checking', message: 'Verificando...' },
       { name: 'OKX', status: 'checking', message: 'Verificando...' },
       { name: 'Bybit', status: 'checking', message: 'Verificando...' },
-      { name: 'MEXC', status: 'checking', message: 'Verificando...' },
     ]);
 
     // Validate Binance
@@ -197,61 +195,6 @@ export const CredentialsValidator = () => {
       ));
     }
 
-    // Validate MEXC
-    try {
-      const mexcCreds = localStorage.getItem('mexc_credentials');
-      if (!mexcCreds) {
-        throw new Error('Credenciais não encontradas no localStorage');
-      }
-
-      const { apiKey, secretKey } = JSON.parse(mexcCreds);
-      
-      const response = await fetch(
-        `https://uxhcsjlfwkhwkvhfacho.supabase.co/functions/v1/mexc-api`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV4aGNzamxmd2tod2t2aGZhY2hvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE0MDEzMzQsImV4cCI6MjA2Njk3NzMzNH0.WLA9LhdQHPZJpTC1qasafl3Gb7IqRvXN61XVcKnzx0U`
-          },
-          body: JSON.stringify({ 
-            action: 'get_balances',
-            api_key: apiKey,
-            secret_key: secretKey
-          })
-        }
-      );
-
-      const data = await response.json();
-
-      if (data.success && data.balances) {
-        const balanceCount = data.balances.length || 0;
-        setStatuses(prev => prev.map(s => 
-          s.name === 'MEXC' 
-            ? { ...s, status: 'ok', message: `✅ CONECTADA - ${balanceCount} saldos encontrados`, details: data }
-            : s
-        ));
-      } else {
-        const isIPError = data.error?.includes('IP') || data.error?.includes('whitelist') || data.error?.includes('white list');
-        setStatuses(prev => prev.map(s => 
-          s.name === 'MEXC' 
-            ? { 
-                ...s, 
-                status: isIPError ? 'ip_blocked' : 'error', 
-                message: data.error || 'Falha ao obter saldos',
-                details: data
-              }
-            : s
-        ));
-      }
-    } catch (error: any) {
-      setStatuses(prev => prev.map(s => 
-        s.name === 'MEXC' 
-          ? { ...s, status: 'error', message: 'Erro ao conectar: ' + (error.message || 'Desconhecido') }
-          : s
-      ));
-    }
-
     setIsValidating(false);
     
     const allOk = statuses.every(s => s.status === 'ok');
@@ -354,6 +297,23 @@ export const CredentialsValidator = () => {
                 <li>Verifique API Key, Secret Key e Passphrase</li>
                 <li>Confirme as permissões de leitura na API</li>
                 <li>Verifique se a API está ativa</li>
+              </ol>
+            </AlertDescription>
+          </Alert>
+        );
+      }
+
+      if (exchange.name === 'Bybit') {
+        return (
+          <Alert className="mt-2" variant="destructive">
+            <XCircle className="h-4 w-4" />
+            <AlertDescription>
+              <strong>Soluções:</strong>
+              <ol className="list-decimal ml-4 mt-2 space-y-1">
+                <li>Verifique API Key e Secret Key</li>
+                <li>Confirme as permissões de leitura na API</li>
+                <li>Verifique se a API está ativa</li>
+                <li>Certifique-se de que a conta Unified está habilitada</li>
               </ol>
             </AlertDescription>
           </Alert>
