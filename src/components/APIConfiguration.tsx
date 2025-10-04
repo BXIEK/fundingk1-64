@@ -32,7 +32,7 @@ interface OKXCredentials {
   passphrase: string;
 }
 
-interface MEXCCredentials {
+interface BybitCredentials {
   apiKey: string;
   secretKey: string;
 }
@@ -57,11 +57,11 @@ const APIConfiguration = () => {
   const [showBinanceSecret, setShowBinanceSecret] = useState(false);
   const [showOKXSecret, setShowOKXSecret] = useState(false);
   const [showOKXPassphrase, setShowOKXPassphrase] = useState(false);
-  const [showMEXCSecret, setShowMEXCSecret] = useState(false);
+  const [showBybitSecret, setShowBybitSecret] = useState(false);
   const [isTestingHyperliquid, setIsTestingHyperliquid] = useState(false);
   const [isTestingBinance, setIsTestingBinance] = useState(false);
   const [isTestingOKX, setIsTestingOKX] = useState(false);
-  const [isTestingMEXC, setIsTestingMEXC] = useState(false);
+  const [isTestingBybit, setIsTestingBybit] = useState(false);
   
   const [hyperliquidCredentials, setHyperliquidCredentials] = useState<HyperliquidCredentials>({
     walletName: "",
@@ -80,7 +80,7 @@ const APIConfiguration = () => {
     passphrase: ""
   });
 
-  const [mexcCredentials, setMexcCredentials] = useState<MEXCCredentials>({
+  const [bybitCredentials, setBybitCredentials] = useState<BybitCredentials>({
     apiKey: "",
     secretKey: ""
   });
@@ -110,7 +110,7 @@ const APIConfiguration = () => {
     const savedBinance = localStorage.getItem("binance_credentials");
     const savedHyperliquid = localStorage.getItem("hyperliquid_credentials");
     const savedOKX = localStorage.getItem("okx_credentials");
-    const savedMEXC = localStorage.getItem("mexc_credentials");
+    const savedBybit = localStorage.getItem("bybit_credentials");
     const savedTradingConfig = localStorage.getItem("trading_config");
     
     if (savedBinance) {
@@ -125,8 +125,8 @@ const APIConfiguration = () => {
       setOkxCredentials(JSON.parse(savedOKX));
     }
 
-    if (savedMEXC) {
-      setMexcCredentials(JSON.parse(savedMEXC));
+    if (savedBybit) {
+      setBybitCredentials(JSON.parse(savedBybit));
     }
 
     if (savedTradingConfig) {
@@ -443,47 +443,47 @@ const APIConfiguration = () => {
     }
   };
 
-  const handleSaveMEXC = () => {
-    if (!mexcCredentials.apiKey || !mexcCredentials.secretKey) {
+  const handleSaveBybit = () => {
+    if (!bybitCredentials.apiKey || !bybitCredentials.secretKey) {
       toast({
         title: "Erro",
-        description: "Por favor, preencha todos os campos da API MEXC",
+        description: "Por favor, preencha todos os campos da API Bybit",
         variant: "destructive"
       });
       return;
     }
 
-    localStorage.setItem("mexc_credentials", JSON.stringify(mexcCredentials));
+    localStorage.setItem("bybit_credentials", JSON.stringify(bybitCredentials));
     recheckCredentials();
     toast({
       title: "Sucesso",
-      description: "Credenciais da MEXC salvas com segurança",
+      description: "Credenciais da Bybit salvas com segurança",
     });
   };
 
-  const testMEXCConnection = async () => {
-    if (!mexcCredentials.apiKey || !mexcCredentials.secretKey) {
+  const testBybitConnection = async () => {
+    if (!bybitCredentials.apiKey || !bybitCredentials.secretKey) {
       toast({
         title: "Erro",
-        description: "Configure as credenciais da MEXC primeiro",
+        description: "Configure as credenciais da Bybit primeiro",
         variant: "destructive"
       });
       return;
     }
 
-    setIsTestingMEXC(true);
+    setIsTestingBybit(true);
     try {
-      console.log('🔍 Testando conexão real com MEXC API...');
+      console.log('🔍 Testando conexão real com Bybit API...');
       
-      const { data, error } = await supabase.functions.invoke('mexc-api', {
+      const { data, error } = await supabase.functions.invoke('bybit-api', {
         body: { 
           action: 'get_balances',
-          api_key: mexcCredentials.apiKey,
-          secret_key: mexcCredentials.secretKey
+          api_key: bybitCredentials.apiKey,
+          secret_key: bybitCredentials.secretKey
         }
       });
 
-      console.log('📊 Resposta da MEXC:', { data, error });
+      console.log('📊 Resposta da Bybit:', { data, error });
 
       if (error) {
         throw new Error(error.message);
@@ -491,16 +491,15 @@ const APIConfiguration = () => {
 
       if (data.success) {
         toast({
-          title: "✅ Conexão MEXC Estabelecida",
-          description: "Conexão testada com sucesso! Credenciais válidas.",
+          title: "✅ Conexão Bybit Estabelecida",
+          description: `Conexão testada com sucesso! ${data.total_assets || 0} ativos encontrados.`,
         });
       } else {
-        // Verificar se é erro específico de IP whitelist
         const errorMsg = data.error || '';
-        if (errorMsg.includes('whitelist') || errorMsg.includes('white list') || errorMsg.includes('IP')) {
+        if (errorMsg.includes('whitelist') || errorMsg.includes('IP')) {
           toast({
-            title: "🔒 IP não autorizado na MEXC",
-            description: data.hint || "Adicione o IP 18.228.156.0 na whitelist da sua API Key MEXC (Account > API Management > Edit API > IP Whitelist)",
+            title: "🔒 IP não autorizado na Bybit",
+            description: "Configure o IP whitelist na Bybit API Management",
             variant: "destructive",
             duration: 12000
           });
@@ -509,21 +508,21 @@ const APIConfiguration = () => {
         }
       }
     } catch (error: any) {
-      console.error('❌ Erro no teste da MEXC:', error);
+      console.error('❌ Erro no teste da Bybit:', error);
       
-      let errorMsg = error.message || "Falha ao conectar com a API MEXC";
-      if (errorMsg.includes('whitelist') || errorMsg.includes('white list') || errorMsg.includes('IP')) {
-        errorMsg = "🔒 IP não autorizado. Adicione 18.228.156.0 na whitelist da MEXC";
+      let errorMsg = error.message || "Falha ao conectar com a API Bybit";
+      if (errorMsg.includes('whitelist') || errorMsg.includes('IP')) {
+        errorMsg = "🔒 IP não autorizado. Configure o whitelist na Bybit";
       }
       
       toast({
-        title: "❌ Erro de Conexão MEXC",
+        title: "❌ Erro de Conexão Bybit",
         description: errorMsg,
         variant: "destructive",
         duration: 8000
       });
     } finally {
-      setIsTestingMEXC(false);
+      setIsTestingBybit(false);
     }
   };
 
@@ -569,9 +568,9 @@ const APIConfiguration = () => {
             <Shield className="h-4 w-4" />
             OKX Whitelist
           </TabsTrigger>
-          <TabsTrigger value="mexc" className="flex items-center gap-2">
+          <TabsTrigger value="bybit" className="flex items-center gap-2">
             <Key className="h-4 w-4" />
-            MEXC API
+            Bybit API
           </TabsTrigger>
           <TabsTrigger value="hyperliquid" className="flex items-center gap-2">
             <Key className="h-4 w-4" />
@@ -858,71 +857,57 @@ const APIConfiguration = () => {
           <OKXWhitelistManager />
         </TabsContent>
 
-        <TabsContent value="mexc">
+        <TabsContent value="bybit">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Key className="h-5 w-5" />
-                Configuração MEXC
+                Configuração Bybit
               </CardTitle>
               <CardDescription>
-                Configure suas credenciais da API MEXC para executar arbitragens
+                Configure suas credenciais da API Bybit para executar arbitragens
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Alert variant="destructive" className="mb-4">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertDescription>
-                  <strong>⚠️ CRÍTICO: Configuração de IP Whitelist</strong>
-                  <br />
-                  <br />Adicione o IP <code className="bg-white/10 px-2 py-1 rounded font-mono">18.228.156.0</code> na whitelist da sua API MEXC
-                  <br />
-                  <br /><strong>Como fazer:</strong>
-                  <br />1. Acesse <a href="https://www.mexc.com/user/openapi" target="_blank" className="text-primary underline font-semibold">MEXC → Account → API Management</a>
-                  <br />2. Clique em "Edit" na sua API Key
-                  <br />3. Em "IP Whitelist", adicione: <code className="bg-white/10 px-2 py-1 rounded font-mono">18.228.156.0</code>
-                  <br />4. Salve as alterações
-                </AlertDescription>
-              </Alert>
-              
               <Alert>
                 <Shield className="h-4 w-4" />
                 <AlertDescription>
                   <strong>Instruções de Configuração:</strong>
-                  <br />• Crie uma nova API Key com permissões de "Spot" e "Read"
-                  <br />• <strong className="text-yellow-500">Obrigatório:</strong> Configure o IP whitelist acima
+                  <br />• Crie uma nova API Key com permissões de "Read" e "Trade"
+                  <br />• Habilite a conta Unified Trading Account
+                  <br />• Configure IP whitelist se necessário
                   <br />• Teste a conexão antes de operar no modo real
                 </AlertDescription>
               </Alert>
               <div className="space-y-2">
-                <Label htmlFor="mexc-api-key">API Key</Label>
+                <Label htmlFor="bybit-api-key">API Key</Label>
                 <Input
-                  id="mexc-api-key"
+                  id="bybit-api-key"
                   type="text"
-                  placeholder="Insira sua API Key da MEXC"
-                  value={mexcCredentials.apiKey}
-                  onChange={(e) => setMexcCredentials(prev => ({ ...prev, apiKey: e.target.value }))}
+                  placeholder="Insira sua API Key da Bybit"
+                  value={bybitCredentials.apiKey}
+                  onChange={(e) => setBybitCredentials(prev => ({ ...prev, apiKey: e.target.value }))}
                 />
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="mexc-secret-key">Secret Key</Label>
+                <Label htmlFor="bybit-secret-key">Secret Key</Label>
                 <div className="relative">
                   <Input
-                    id="mexc-secret-key"
-                    type={showMEXCSecret ? "text" : "password"}
-                    placeholder="Insira sua Secret Key da MEXC"
-                    value={mexcCredentials.secretKey}
-                    onChange={(e) => setMexcCredentials(prev => ({ ...prev, secretKey: e.target.value }))}
+                    id="bybit-secret-key"
+                    type={showBybitSecret ? "text" : "password"}
+                    placeholder="Insira sua Secret Key da Bybit"
+                    value={bybitCredentials.secretKey}
+                    onChange={(e) => setBybitCredentials(prev => ({ ...prev, secretKey: e.target.value }))}
                   />
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
                     className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                    onClick={() => setShowMEXCSecret(!showMEXCSecret)}
+                    onClick={() => setShowBybitSecret(!showBybitSecret)}
                   >
-                    {showMEXCSecret ? (
+                    {showBybitSecret ? (
                       <EyeOff className="h-4 w-4" />
                     ) : (
                       <Eye className="h-4 w-4" />
@@ -932,18 +917,18 @@ const APIConfiguration = () => {
               </div>
 
               <div className="flex gap-2 pt-4">
-                <Button onClick={handleSaveMEXC} className="flex items-center gap-2">
+                <Button onClick={handleSaveBybit} className="flex items-center gap-2">
                   <Save className="h-4 w-4" />
                   Salvar Credenciais
                 </Button>
                 <Button 
                   variant="outline" 
-                  onClick={testMEXCConnection}
-                  disabled={isTestingMEXC}
+                  onClick={testBybitConnection}
+                  disabled={isTestingBybit}
                   className="flex items-center gap-2"
                 >
                   <TestTube className="h-4 w-4" />
-                  {isTestingMEXC ? "Testando..." : "Testar Conexão"}
+                  {isTestingBybit ? "Testando..." : "Testar Conexão"}
                 </Button>
               </div>
             </CardContent>
