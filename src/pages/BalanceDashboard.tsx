@@ -103,15 +103,6 @@ export default function BalanceDashboard() {
         binanceBalance={binanceBalance} 
         okxBalance={okxBalance}
         totalBaseline={200}
-        spreadData={bestExchange && binancePrice && okxPrice ? {
-          symbol: selectedToken,
-          spreadPercent: parseFloat(bestExchange.spreadPercent),
-          buyExchange: bestExchange.buy === 'binance' ? 'Binance' : 'OKX',
-          sellExchange: bestExchange.sell === 'binance' ? 'Binance' : 'OKX',
-          buyPrice: bestExchange.buy === 'binance' ? binancePrice : okxPrice,
-          sellPrice: bestExchange.sell === 'binance' ? binancePrice : okxPrice,
-          priceChange24h: bestExchange.buy === 'binance' ? binancePriceChange : okxPriceChange,
-        } : null}
       />
         </div>
         
