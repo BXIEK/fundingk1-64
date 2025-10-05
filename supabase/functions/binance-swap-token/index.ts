@@ -129,12 +129,11 @@ serve(async (req) => {
     const notionalFilter = symbolInfo.filters.find((f: any) => f.filterType === 'MIN_NOTIONAL' || f.filterType === 'NOTIONAL');
     const minNotional = notionalFilter ? parseFloat(notionalFilter.minNotional) : 0;
 
-    // Ajustar quantidade ao step size
-    // Para USDT: 1 casa decimal, demais tokens: 2 casas decimais
-    const targetPrecision = (direction === 'toToken' && symbol === 'USDT') ? 1 : 2;
-    const precision = Math.max(stepSize.toString().split('.')[1]?.length || 0, targetPrecision);
+    // Ajustar quantidade ao step size com até 8 casas decimais
+    const precision = Math.max(stepSize.toString().split('.')[1]?.length || 0, 8);
     orderQuantity = Math.floor(orderQuantity / stepSize) * stepSize;
-    orderQuantity = parseFloat(orderQuantity.toFixed(targetPrecision));
+    // Usar até 8 casas decimais para máxima flexibilidade
+    orderQuantity = parseFloat(orderQuantity.toFixed(8));
 
     // Validar NOTIONAL mínimo da Binance
     if (minNotional > 0) {
@@ -170,9 +169,9 @@ serve(async (req) => {
         }
       }
 
-      // Reaplicar arredondamento após ajustes
+      // Reaplicar arredondamento após ajustes com 8 casas decimais
       orderQuantity = Math.floor(orderQuantity / stepSize) * stepSize;
-      orderQuantity = parseFloat(orderQuantity.toFixed(precision));
+      orderQuantity = parseFloat(orderQuantity.toFixed(8));
     }
 
     console.log(`📏 Quantidade ajustada: ${orderQuantity} ${symbol}`);

@@ -116,11 +116,11 @@ serve(async (req) => {
     const minSize = parseFloat(instrument.minSz || '0');
     const lotSize = parseFloat(instrument.lotSz || '0.00000001');
 
-    // Ajustar quantidade ao lot size usando a precisão do instrumento
+    // Ajustar quantidade ao lot size com até 8 casas decimais
     if (lotSize > 0) {
       orderSize = Math.floor(orderSize / lotSize) * lotSize;
-      const lotPrecision = lotSize.toString().split('.')[1]?.length || 0;
-      orderSize = parseFloat(orderSize.toFixed(Math.min(lotPrecision, 8)));
+      // Usar até 8 casas decimais para máxima flexibilidade
+      orderSize = parseFloat(orderSize.toFixed(8));
     }
     // Se zerou após o ajuste, tentar usar minSize (apenas para SELL -> toUsdt) se couber no saldo
     if (orderSize <= 0 && direction === 'toUsdt' && minSize > 0 && minSize <= sourceBalance) {
