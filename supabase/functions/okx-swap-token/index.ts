@@ -86,17 +86,13 @@ serve(async (req) => {
 
       const currentPrice = parseFloat(tickerResponse.data[0].last);
       
-      if (customAmount) {
-        // Se valor personalizado de USDT foi especificado
-        const usdtToSpend = customAmount;
-        if (usdtToSpend > sourceBalance) {
-          throw new Error(`Saldo insuficiente. Disponível: ${sourceBalance} USDT`);
-        }
-        orderSize = usdtToSpend / currentPrice;
-      } else {
-        // Usar 95% do saldo USDT
-        orderSize = (sourceBalance * 0.95) / currentPrice;
+      // Definir orçamento em USDT com 1 casa decimal
+      const usdtToSpend = customAmount ? Number(customAmount) : sourceBalance * 0.95;
+      const usdtRounded = parseFloat(usdtToSpend.toFixed(1));
+      if (usdtRounded > sourceBalance) {
+        throw new Error(`Saldo insuficiente. Disponível: ${sourceBalance} USDT`);
       }
+      orderSize = usdtRounded / currentPrice;
 
       console.log(`📊 Preço atual de ${symbol}: $${currentPrice}`);
       console.log(`🎯 Quantidade a comprar: ${orderSize} ${symbol}`);
@@ -120,12 +116,15 @@ serve(async (req) => {
     const minSize = parseFloat(instrument.minSz || '0');
     const lotSize = parseFloat(instrument.lotSz || '0.00000001');
 
-    // Ajustar quantidade ao lot size
-    // Para USDT: 1 casa decimal, demais tokens: 2 casas decimais
+    // Ajustar quantidade ao lot size usando a precisão do instrumento
     if (lotSize > 0) {
       orderSize = Math.floor(orderSize / lotSize) * lotSize;
-      const targetPrecision = (direction === 'toToken' && symbol === 'USDT') ? 1 : 2;
-      orderSize = parseFloat(orderSize.toFixed(targetPrecision));
+      const lotPrecision = lotSize.toString().split('.')[1]?.length || 0;
+      orderSize = parseFloat(orderSize.toFixed(Math.min(lotPrecision, 8)));
+    }
+    // Se zerou após o ajuste, tentar usar minSize (apenas para SELL -> toUsdt) se couber no saldo
+    if (orderSize <= 0 && direction === 'toUsdt' && minSize > 0 && minSize <= sourceBalance) {
+      orderSize = minSize;
     }
 
     console.log(`📏 Quantidade ajustada: ${orderSize} ${symbol}`);
@@ -161,8 +160,11 @@ serve(async (req) => {
         limitPrice = currentPrice * 0.9995;
       }
 
-      // Arredondar para precisão adequada (8 casas decimais)
-      limitPrice = parseFloat(limitPrice.toFixed(8));
+      // Ajustar preço ao tickSz do instrumento
+      const tickSize = parseFloat(instrument.tickSz || '0.01');
+      const tickPrecision = tickSize.toString().split('.')[1]?.length || 0;
+      limitPrice = Math.floor(limitPrice / tickSize) * tickSize;
+      limitPrice = parseFloat(limitPrice.toFixed(tickPrecision));
       console.log(`💹 Preço limite ajustado: $${limitPrice} (mercado: $${currentPrice})`);
     }
 
