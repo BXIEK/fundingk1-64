@@ -147,9 +147,14 @@ export const TotalBalanceCard = ({
             const spread = ((okxPrice - binancePrice) / binancePrice) * 100;
             setTokenPrices({ binance: binancePrice, okx: okxPrice, spread });
 
+            console.log(`📊 ${selectedToken} - Spread: ${spread.toFixed(3)}% | Threshold: 0.3%`);
+            
             // Se spread absoluto > 0.3%, executar conversão
             if (Math.abs(spread) > 0.3 && !isProcessing) {
+              console.log(`✅ Spread suficiente detectado! Iniciando conversão de ${selectedToken}...`);
               await executeAutoConversion(binancePrice, okxPrice);
+            } else if (Math.abs(spread) <= 0.3) {
+              console.log(`⏸️ Spread insuficiente (${spread.toFixed(3)}%) - aguardando oportunidade melhor`);
             }
           }
         }
@@ -230,6 +235,7 @@ export const TotalBalanceCard = ({
         const minTokenNeeded = minNotionalUSD / okxPrice;
         
         if (okxTokenBalance < minTokenNeeded) {
+          console.log(`❌ Saldo ${selectedToken} insuficiente na OKX: ${okxTokenBalance} (necessário: ${minTokenNeeded.toFixed(6)})`);
           toast.warning(`⚠️ Saldo ${selectedToken} insuficiente na OKX`, {
             description: `Necessário: ${minTokenNeeded.toFixed(6)} ${selectedToken}`,
             duration: 5000
@@ -237,7 +243,7 @@ export const TotalBalanceCard = ({
           return;
         }
 
-        console.log(`🎯 Vender ${selectedToken} → USDT na OKX ($${okxPrice})`);
+        console.log(`🎯 Executando: Vender ${selectedToken} → USDT na OKX ($${okxPrice})`);
         const response = await supabase.functions.invoke('okx-swap-token', {
           body: {
             apiKey: okxCreds.api_key,
@@ -250,12 +256,14 @@ export const TotalBalanceCard = ({
         result = response.data;
         error = response.error;
         executedAction = `${selectedToken} → USDT (OKX)`;
+        console.log('📊 Resultado OKX:', result);
 
       } else if (binancePrice > okxPrice && Math.abs(tokenPrices.spread) > 0.3) {
         // Binance mais caro: Vender token na Binance por USDT
         const minTokenNeeded = minNotionalUSD / binancePrice;
         
         if (binanceTokenBalance < minTokenNeeded) {
+          console.log(`❌ Saldo ${selectedToken} insuficiente na Binance: ${binanceTokenBalance} (necessário: ${minTokenNeeded.toFixed(6)})`);
           toast.warning(`⚠️ Saldo ${selectedToken} insuficiente na Binance`, {
             description: `Necessário: ${minTokenNeeded.toFixed(6)} ${selectedToken}`,
             duration: 5000
@@ -263,7 +271,7 @@ export const TotalBalanceCard = ({
           return;
         }
 
-        console.log(`🎯 Vender ${selectedToken} → USDT na Binance ($${binancePrice})`);
+        console.log(`🎯 Executando: Vender ${selectedToken} → USDT na Binance ($${binancePrice})`);
         const response = await supabase.functions.invoke('binance-swap-token', {
           body: {
             apiKey: binanceCreds.api_key,
@@ -275,8 +283,9 @@ export const TotalBalanceCard = ({
         result = response.data;
         error = response.error;
         executedAction = `${selectedToken} → USDT (Binance)`;
+        console.log('📊 Resultado Binance:', result);
       } else {
-        console.log('⏸️ Spread insuficiente para conversão');
+        console.log(`⏸️ Spread insuficiente (${tokenPrices.spread.toFixed(3)}%) - aguardando melhor oportunidade`);
         return;
       }
 
