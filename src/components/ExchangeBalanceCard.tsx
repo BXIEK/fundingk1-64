@@ -292,14 +292,21 @@ export const ExchangeBalanceCard = ({
           const data = await response.json();
           setRealtimePrice(parseFloat(data.lastPrice));
           setPriceChange24h(parseFloat(data.priceChangePercent));
+          console.log(`✅ Preço Binance ${symbol}: $${data.lastPrice} (${data.priceChangePercent}%)`);
         }
       } else if (exchange === 'okx') {
-        const { data, error } = await supabase.functions.invoke('okx-api', {
-          body: { action: 'get_price', symbol: selectedToken }
-        });
-        if (!error && data?.success) {
-          setRealtimePrice(data.price);
-          setPriceChange24h(data.priceChange24h);
+        // Usar API pública da OKX diretamente
+        const response = await fetch(`https://www.okx.com/api/v5/market/ticker?instId=${selectedToken}-USDT`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.data && data.data[0]) {
+            const ticker = data.data[0];
+            const price = parseFloat(ticker.last);
+            const change24h = ((parseFloat(ticker.last) - parseFloat(ticker.open24h)) / parseFloat(ticker.open24h)) * 100;
+            setRealtimePrice(price);
+            setPriceChange24h(change24h);
+            console.log(`✅ Preço OKX ${symbol}: $${price} (${change24h.toFixed(2)}%)`);
+          }
         }
       }
     } catch (error) {
@@ -409,17 +416,23 @@ export const ExchangeBalanceCard = ({
             </div>
             
             {/* Preço em Tempo Real */}
-            {realtimePrice && (
-              <div className="p-3 border rounded-lg bg-background">
-                <p className="text-xs text-muted-foreground mb-1">Preço em Tempo Real</p>
-                <div className="flex items-center gap-2">
-                  <p className="text-2xl font-bold">${realtimePrice.toFixed(selectedToken === 'BTC' || selectedToken === 'ETH' ? 2 : 6)}</p>
-                  <Badge variant={priceChange24h && priceChange24h >= 0 ? "default" : "destructive"} className="text-xs">
-                    24h: {priceChange24h ? `${priceChange24h >= 0 ? '+' : ''}${priceChange24h.toFixed(2)}%` : '...'}
-                  </Badge>
-                </div>
+            <div className="p-3 border rounded-lg bg-background">
+              <p className="text-xs text-muted-foreground mb-1">💹 Preço em Tempo Real ({exchangeNames[exchange]})</p>
+              <div className="flex items-center gap-2">
+                {realtimePrice ? (
+                  <>
+                    <p className="text-2xl font-bold">
+                      ${realtimePrice.toFixed(selectedToken === 'BTC' || selectedToken === 'ETH' ? 2 : 6)}
+                    </p>
+                    <Badge variant={priceChange24h && priceChange24h >= 0 ? "default" : "destructive"} className="text-xs">
+                      24h: {priceChange24h ? `${priceChange24h >= 0 ? '+' : ''}${priceChange24h.toFixed(2)}%` : '...'}
+                    </Badge>
+                  </>
+                ) : (
+                  <p className="text-lg text-muted-foreground">Carregando preço...</p>
+                )}
               </div>
-            )}
+            </div>
 
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div>
