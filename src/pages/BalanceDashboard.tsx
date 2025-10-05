@@ -7,6 +7,7 @@ import CrossPlatformTransferHub from "@/components/CrossPlatformTransferHub"
 import MobileAPIManager from "@/components/MobileAPIManger"
 import { ExchangeBalanceCard } from "@/components/ExchangeBalanceCard"
 import { TotalBalanceCard } from "@/components/TotalBalanceCard"
+import { AutoTokenConverter } from "@/components/AutoTokenConverter"
 
 export default function BalanceDashboard() {
   const navigate = useNavigate()
@@ -76,6 +77,11 @@ export default function BalanceDashboard() {
             totalBaseline={200}
           />
         </div>
+      </section>
+
+      {/* Conversão Automatizada de Tokens */}
+      <section>
+        <AutoTokenConverter />
       </section>
 
       {/* Carteira Web3 */}
