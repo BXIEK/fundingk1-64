@@ -130,9 +130,11 @@ serve(async (req) => {
     const minNotional = notionalFilter ? parseFloat(notionalFilter.minNotional) : 0;
 
     // Ajustar quantidade ao step size
-    const precision = stepSize.toString().split('.')[1]?.length || 0;
+    // Para USDT: 1 casa decimal, demais tokens: 2 casas decimais
+    const targetPrecision = (direction === 'toToken' && symbol === 'USDT') ? 1 : 2;
+    const precision = Math.max(stepSize.toString().split('.')[1]?.length || 0, targetPrecision);
     orderQuantity = Math.floor(orderQuantity / stepSize) * stepSize;
-    orderQuantity = parseFloat(orderQuantity.toFixed(precision));
+    orderQuantity = parseFloat(orderQuantity.toFixed(targetPrecision));
 
     // Validar NOTIONAL mínimo da Binance
     if (minNotional > 0) {
@@ -220,8 +222,8 @@ serve(async (req) => {
         console.log(`📊 Quantidade a vender: ${orderQuantity} ${symbol}`);
         orderQuery += `&quantity=${orderQuantity}`;
       } else {
-        // Para BUY, usar quoteOrderQty (valor em USDT) arredondado para 2 casas decimais
-        const usdtRounded = parseFloat(usdtAmountForBuy.toFixed(2));
+        // Para BUY, usar quoteOrderQty (valor em USDT) arredondado para 1 casa decimal
+        const usdtRounded = parseFloat(usdtAmountForBuy.toFixed(1));
         orderQuery += `&quoteOrderQty=${usdtRounded}`;
         console.log(`💵 USDT a gastar (arredondado): ${usdtRounded}`);
       }

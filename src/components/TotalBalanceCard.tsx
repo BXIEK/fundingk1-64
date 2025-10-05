@@ -268,7 +268,7 @@ export const TotalBalanceCard = ({
               secretKey: binanceCreds.secret_key,
               symbol: token.symbol,
               direction: 'toUsdt',
-              orderType: 'market'
+              orderType: 'limit'
             }
           });
           
@@ -334,7 +334,7 @@ export const TotalBalanceCard = ({
               passphrase: okxCreds.passphrase,
               symbol: token.symbol,
               direction: 'toUsdt',
-              orderType: 'market'
+              orderType: 'limit'
             }
           });
           

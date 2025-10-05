@@ -121,11 +121,11 @@ serve(async (req) => {
     const lotSize = parseFloat(instrument.lotSz || '0.00000001');
 
     // Ajustar quantidade ao lot size
+    // Para USDT: 1 casa decimal, demais tokens: 2 casas decimais
     if (lotSize > 0) {
       orderSize = Math.floor(orderSize / lotSize) * lotSize;
-      // Arredondar para a precisão correta baseada no lotSize
-      const lotPrecision = lotSize.toString().split('.')[1]?.length || 0;
-      orderSize = parseFloat(orderSize.toFixed(lotPrecision));
+      const targetPrecision = (direction === 'toToken' && symbol === 'USDT') ? 1 : 2;
+      orderSize = parseFloat(orderSize.toFixed(targetPrecision));
     }
 
     console.log(`📏 Quantidade ajustada: ${orderSize} ${symbol}`);
