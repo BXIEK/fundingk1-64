@@ -446,6 +446,17 @@ export const ExchangeBalanceCard = ({
             <ArrowRightLeft className={`h-4 w-4 mr-2 ${converting ? 'animate-spin' : ''}`} />
             → USDT
           </Button>
+
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setShowSwapDialog(true)}
+            disabled={loading}
+            className="flex-1"
+          >
+            <Repeat className="h-4 w-4 mr-2" />
+            Converter
+          </Button>
         </div>
       </CardContent>
 
