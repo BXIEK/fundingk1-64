@@ -197,18 +197,74 @@ export const TotalBalanceCard = ({
       console.log(`🤖 Auto-Conversão: BTC Binance ($${binancePrice}) vs OKX ($${okxPrice})`);
       console.log(`📊 Spread: ${btcPrices.spread.toFixed(3)}%`);
 
-      // Determinar qual exchange tem BTC mais caro e converter apenas nela
+      // Buscar saldos de BTC em ambas as exchanges
+      console.log('💰 Verificando saldos de BTC...');
+      const { data: portfolioData } = await supabase.functions.invoke('get-portfolio', {
+        body: { 
+          user_id: user.id,
+          real_mode: true,
+          force_refresh: false
+        }
+      });
+
+      if (!portfolioData?.success || !portfolioData?.data?.portfolio) {
+        throw new Error('Não foi possível verificar o saldo de BTC');
+      }
+
+      // Filtrar saldos de BTC
+      const binanceBTC = portfolioData.data.portfolio.find(
+        (item: any) => item.exchange === 'Binance' && item.symbol === 'BTC'
+      );
+      const okxBTC = portfolioData.data.portfolio.find(
+        (item: any) => item.exchange === 'OKX' && item.symbol === 'BTC'
+      );
+
+      const binanceBTCBalance = binanceBTC ? parseFloat(binanceBTC.balance) : 0;
+      const okxBTCBalance = okxBTC ? parseFloat(okxBTC.balance) : 0;
+
+      console.log(`💰 Saldo BTC Binance: ${binanceBTCBalance}`);
+      console.log(`💰 Saldo BTC OKX: ${okxBTCBalance}`);
+
+      // Determinar qual exchange tem BTC mais caro e verificar saldo
       const btcMoreExpensiveOnOkx = okxPrice > binancePrice;
       const expensiveExchange = btcMoreExpensiveOnOkx ? 'OKX' : 'Binance';
       const expensivePrice = btcMoreExpensiveOnOkx ? okxPrice : binancePrice;
+      const btcBalance = btcMoreExpensiveOnOkx ? okxBTCBalance : binanceBTCBalance;
       
+      // Calcular valor mínimo necessário (5 USDT)
+      const minNotionalUSD = 5;
+      const minBTCNeeded = minNotionalUSD / expensivePrice;
+
       console.log(`🎯 ESTRATÉGIA: Converter BTC → USDT na ${expensiveExchange} (preço: $${expensivePrice})`);
+      console.log(`📊 Saldo disponível: ${btcBalance} BTC`);
+      console.log(`📏 Mínimo necessário: ${minBTCNeeded.toFixed(8)} BTC (${minNotionalUSD} USDT)`);
+
+      // Verificar se há saldo suficiente
+      if (btcBalance < minBTCNeeded) {
+        console.log(`⚠️ Saldo insuficiente. Necessário: ${minBTCNeeded.toFixed(8)} BTC, disponível: ${btcBalance} BTC`);
+        toast.warning('⚠️ Saldo BTC insuficiente', {
+          description: `Saldo de BTC na ${expensiveExchange} é muito baixo para conversão (mínimo: ${minNotionalUSD} USDT)`,
+          duration: 5000
+        });
+        return;
+      }
+
+      // Verificar se vale a pena converter (saldo deve valer pelo menos $10 para compensar)
+      const btcValueUSD = btcBalance * expensivePrice;
+      if (btcValueUSD < 10) {
+        console.log(`⚠️ Valor muito baixo para conversão: $${btcValueUSD.toFixed(2)}`);
+        toast.info('💡 Saldo BTC muito baixo', {
+          description: `Valor em BTC ($${btcValueUSD.toFixed(2)}) é muito baixo. Aguardando acúmulo maior.`,
+          duration: 5000
+        });
+        return;
+      }
 
       let result, error;
 
       if (btcMoreExpensiveOnOkx) {
         // Vender BTC na OKX (mais caro)
-        console.log('💰 Invocando okx-swap-token (SELL)...');
+        console.log('💰 Invocando okx-swap-token (SELL) com saldo disponível...');
         const response = await supabase.functions.invoke('okx-swap-token', {
           body: {
             apiKey: okxCreds.api_key,
@@ -223,7 +279,7 @@ export const TotalBalanceCard = ({
         console.log('📦 Resultado OKX:', result);
       } else {
         // Vender BTC na Binance (mais caro)
-        console.log('💰 Invocando binance-swap-token (SELL)...');
+        console.log('💰 Invocando binance-swap-token (SELL) com saldo disponível...');
         const response = await supabase.functions.invoke('binance-swap-token', {
           body: {
             apiKey: binanceCreds.api_key,
@@ -253,7 +309,8 @@ export const TotalBalanceCard = ({
       const profit = result.executedQty * Math.abs(okxPrice - binancePrice);
       
       toast.success(`✅ Conversão automática executada!`, {
-        description: `Lucro estimado: $${profit.toFixed(2)} | Spread: ${btcPrices.spread.toFixed(3)}%`
+        description: `${result.executedQty.toFixed(6)} BTC → USDT | Lucro: $${profit.toFixed(2)}`,
+        duration: 7000
       });
 
       setLastExecution(new Date().toLocaleTimeString('pt-BR'));
