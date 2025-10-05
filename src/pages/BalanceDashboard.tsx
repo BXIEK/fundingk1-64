@@ -25,7 +25,7 @@ export default function BalanceDashboard() {
       buy: binancePrice < okxPrice ? 'binance' : 'okx',  // Comprar na mais barata
       sell: binancePrice > okxPrice ? 'binance' : 'okx',  // Vender na mais cara
       spread: Math.abs(binancePrice - okxPrice),
-      spreadPercent: ((Math.abs(binancePrice - okxPrice) / Math.min(binancePrice, okxPrice)) * 100).toFixed(2)
+      spreadPercent: ((Math.abs(binancePrice - okxPrice) / Math.min(binancePrice, okxPrice)) * 100).toFixed(4)
     };
   };
 
