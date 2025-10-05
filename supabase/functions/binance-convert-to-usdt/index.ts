@@ -19,9 +19,12 @@ serve(async (req) => {
   }
 
   try {
+    console.log('🔄 Edge Function binance-convert-to-usdt iniciada');
+    
     const { apiKey, secretKey, minUsdValue = 10 } = await req.json()
 
     if (!apiKey || !secretKey) {
+      console.log('❌ Credenciais ausentes');
       return new Response(
         JSON.stringify({ success: false, error: 'API Key e Secret Key obrigatórios' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
@@ -109,9 +112,32 @@ serve(async (req) => {
         // Buscar info do símbolo para ajustar quantidade
         const exchangeInfoResp = await fetch(`https://api.binance.com/api/v3/exchangeInfo?symbol=${symbol}`)
         const exchangeInfo = await exchangeInfoResp.json()
-        const symbolInfo = exchangeInfo.symbols[0]
         
+        if (!exchangeInfo.symbols || exchangeInfo.symbols.length === 0) {
+          console.warn(`⚠️ Info do símbolo ${symbol} não encontrada`)
+          conversions.push({
+            symbol: token.asset,
+            amount: token.balance.toString(),
+            success: false,
+            error: 'Informações do par de trading não disponíveis'
+          })
+          continue
+        }
+        
+        const symbolInfo = exchangeInfo.symbols[0]
         const lotSizeFilter = symbolInfo.filters.find((f: any) => f.filterType === 'LOT_SIZE')
+        
+        if (!lotSizeFilter) {
+          console.warn(`⚠️ LOT_SIZE não encontrado para ${symbol}`)
+          conversions.push({
+            symbol: token.asset,
+            amount: token.balance.toString(),
+            success: false,
+            error: 'Configuração de trading não disponível'
+          })
+          continue
+        }
+        
         const stepSize = parseFloat(lotSizeFilter.stepSize)
         
         // Arredondar quantidade para o stepSize
