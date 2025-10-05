@@ -25,6 +25,7 @@ interface TotalBalanceCardProps {
     sellExchange: string;
     buyPrice: number;
     sellPrice: number;
+    priceChange24h?: number;
   } | null;
   onAutoArbitrage?: (enabled: boolean) => void;
 }
@@ -47,24 +48,42 @@ export const TotalBalanceCard = ({
   const isProfit = profitLoss > 0;
   const isLoss = profitLoss < 0;
 
-  // Arbitragem automática - executa a cada 60 segundos se spread for positivo
+  // Arbitragem automática - executa a cada 60 segundos se token estiver em tendência de alta
   useEffect(() => {
-    if (!autoArbitrageEnabled || !spreadData || spreadData.spreadPercent <= 0) {
+    if (!autoArbitrageEnabled || !spreadData) {
       return;
     }
 
     const executeArbitrage = async () => {
+      // Verificar se o token está em tendência de alta (priceChange24h > 0)
+      const isUptrend = spreadData.priceChange24h && spreadData.priceChange24h > 0;
+      
+      if (!isUptrend) {
+        console.log(`⏸️ Token ${spreadData.symbol} não está em tendência de alta (${spreadData.priceChange24h?.toFixed(2)}%). Aguardando...`);
+        toast({
+          title: "⏸️ Aguardando Tendência de Alta",
+          description: `${spreadData.symbol} em ${spreadData.priceChange24h?.toFixed(2)}% nas últimas 24h. Arbitragem pausada.`,
+        });
+        return;
+      }
+
+      // Verificar se há spread positivo
+      if (spreadData.spreadPercent <= 0) {
+        console.log(`⏸️ Spread negativo ou neutro (${spreadData.spreadPercent.toFixed(4)}%). Aguardando spread positivo...`);
+        return;
+      }
+
       setIsExecuting(true);
       
       try {
-        console.log(`🤖 Executando arbitragem automática:
-          • Comprar ${spreadData.symbol} na ${spreadData.buyExchange} por $${spreadData.buyPrice}
-          • Vender ${spreadData.symbol} na ${spreadData.sellExchange} por $${spreadData.sellPrice}
+        console.log(`🤖 Executando arbitragem automática (Token em alta +${spreadData.priceChange24h.toFixed(2)}%):
+          • Comprar ${spreadData.symbol} na ${spreadData.buyExchange} por $${spreadData.buyPrice.toFixed(4)}
+          • Vender ${spreadData.symbol} na ${spreadData.sellExchange} por $${spreadData.sellPrice.toFixed(4)}
           • Spread: ${spreadData.spreadPercent.toFixed(4)}%`);
 
         toast({
           title: "🤖 Arbitragem Automática Executando",
-          description: `Comprando ${spreadData.symbol} na ${spreadData.buyExchange} e vendendo na ${spreadData.sellExchange}. Spread: ${spreadData.spreadPercent.toFixed(4)}%`,
+          description: `${spreadData.symbol} em alta +${spreadData.priceChange24h.toFixed(2)}%! Comprando na ${spreadData.buyExchange} e vendendo na ${spreadData.sellExchange}.`,
         });
 
         // Aqui você implementaria a lógica real de arbitragem
@@ -75,7 +94,7 @@ export const TotalBalanceCard = ({
         
         toast({
           title: "✅ Arbitragem Concluída",
-          description: `${spreadData.symbol} convertido com sucesso!`,
+          description: `${spreadData.symbol} convertido com sucesso! Lucro do spread: ${spreadData.spreadPercent.toFixed(4)}%`,
         });
 
       } catch (error) {
@@ -201,50 +220,85 @@ export const TotalBalanceCard = ({
                     </Label>
                     <p className="text-xs text-muted-foreground">
                       {autoArbitrageEnabled 
-                        ? `Executando a cada 60s • Última: ${lastExecution?.toLocaleTimeString() || 'Aguardando...'}` 
-                        : "Compra/venda automática baseada em spread positivo"}
+                        ? `A cada 60s quando token em alta • Última: ${lastExecution?.toLocaleTimeString() || 'Aguardando...'}` 
+                        : "Compra/venda automática em tendência de alta"}
                     </p>
                   </div>
                 </div>
                 <Switch
                   id="auto-arbitrage"
                   checked={autoArbitrageEnabled}
-                  disabled={spreadData.spreadPercent <= 0 || isExecuting}
+                  disabled={isExecuting}
                   onCheckedChange={(checked) => {
                     setAutoArbitrageEnabled(checked);
                     onAutoArbitrage?.(checked);
+                    const trendText = spreadData.priceChange24h 
+                      ? ` (Tendência: ${spreadData.priceChange24h > 0 ? '+' : ''}${spreadData.priceChange24h.toFixed(2)}%)`
+                      : '';
                     toast({
                       title: checked ? "🤖 Arbitragem Automática Ativada" : "⏸️ Arbitragem Automática Pausada",
                       description: checked 
-                        ? `Executando arbitragem de ${spreadData.symbol} a cada 60 segundos com spread de ${spreadData.spreadPercent.toFixed(4)}%` 
+                        ? `Monitorando ${spreadData.symbol} a cada 60s. Executará quando em tendência de alta${trendText}` 
                         : "Arbitragem automática foi pausada",
                     });
                   }}
                 />
               </div>
 
-              {spreadData.spreadPercent > 0 && (
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div className="p-2 bg-green-500/10 border border-green-500/20 rounded">
-                    <p className="text-muted-foreground">Comprar em</p>
-                    <p className="font-semibold text-green-600">{spreadData.buyExchange}</p>
-                    <p className="text-muted-foreground">${spreadData.buyPrice.toFixed(4)}</p>
-                  </div>
-                  <div className="p-2 bg-red-500/10 border border-red-500/20 rounded">
-                    <p className="text-muted-foreground">Vender em</p>
-                    <p className="font-semibold text-red-600">{spreadData.sellExchange}</p>
-                    <p className="text-muted-foreground">${spreadData.sellPrice.toFixed(4)}</p>
+              <div className="space-y-2">
+                {/* Status da Tendência */}
+                <div className={`p-2 rounded border ${
+                  spreadData.priceChange24h && spreadData.priceChange24h > 0 
+                    ? 'bg-green-500/10 border-green-500/20' 
+                    : 'bg-orange-500/10 border-orange-500/20'
+                }`}>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">Tendência 24h:</span>
+                    <span className={`font-semibold ${
+                      spreadData.priceChange24h && spreadData.priceChange24h > 0 
+                        ? 'text-green-600' 
+                        : 'text-orange-600'
+                    }`}>
+                      {spreadData.priceChange24h 
+                        ? `${spreadData.priceChange24h > 0 ? '📈 +' : '📉 '}${spreadData.priceChange24h.toFixed(2)}%`
+                        : 'N/A'}
+                    </span>
                   </div>
                 </div>
-              )}
 
-              {spreadData.spreadPercent <= 0 && (
-                <div className="text-center p-2 bg-muted/50 rounded">
-                  <p className="text-xs text-muted-foreground">
-                    ⏸️ Spread negativo ou neutro. Aguardando spread positivo para ativar.
-                  </p>
-                </div>
-              )}
+                {/* Spreads e Exchanges */}
+                {spreadData.spreadPercent > 0 && (
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="p-2 bg-green-500/10 border border-green-500/20 rounded">
+                      <p className="text-muted-foreground">Comprar em</p>
+                      <p className="font-semibold text-green-600">{spreadData.buyExchange}</p>
+                      <p className="text-muted-foreground">${spreadData.buyPrice.toFixed(4)}</p>
+                    </div>
+                    <div className="p-2 bg-red-500/10 border border-red-500/20 rounded">
+                      <p className="text-muted-foreground">Vender em</p>
+                      <p className="font-semibold text-red-600">{spreadData.sellExchange}</p>
+                      <p className="text-muted-foreground">${spreadData.sellPrice.toFixed(4)}</p>
+                    </div>
+                  </div>
+                )}
+
+                {spreadData.spreadPercent <= 0 && (
+                  <div className="text-center p-2 bg-muted/50 rounded">
+                    <p className="text-xs text-muted-foreground">
+                      ⏸️ Spread negativo ou neutro. Aguardando spread positivo.
+                    </p>
+                  </div>
+                )}
+
+                {/* Aviso sobre tendência */}
+                {(!spreadData.priceChange24h || spreadData.priceChange24h <= 0) && (
+                  <div className="text-center p-2 bg-orange-500/10 border border-orange-500/20 rounded">
+                    <p className="text-xs text-orange-600">
+                      ⚠️ Arbitragem pausada: aguardando tendência de alta
+                    </p>
+                  </div>
+                )}
+              </div>
 
               {isExecuting && (
                 <div className="text-center">

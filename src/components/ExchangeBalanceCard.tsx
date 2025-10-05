@@ -33,6 +33,7 @@ interface ExchangeBalanceCardProps {
   baseline?: number; // Valor inicial esperado (padrão 100 USD)
   onBalanceChange?: (totalValue: number) => void;
   onPriceUpdate?: (exchange: 'binance' | 'okx', price: number | null) => void;
+  onPriceChangeUpdate?: (exchange: 'binance' | 'okx', priceChange: number | null) => void;
   bestAction?: 'buy' | 'sell' | null;
   spreadPercent?: string | null;
 }
@@ -42,6 +43,7 @@ export const ExchangeBalanceCard = ({
   baseline = 100,
   onBalanceChange,
   onPriceUpdate,
+  onPriceChangeUpdate,
   bestAction = null,
   spreadPercent = null
 }: ExchangeBalanceCardProps) => {
@@ -309,13 +311,17 @@ export const ExchangeBalanceCard = ({
         if (response.ok) {
           const data = await response.json();
           const price = parseFloat(data.lastPrice);
+          const change24h = parseFloat(data.priceChangePercent);
           setRealtimePrice(price);
-          setPriceChange24h(parseFloat(data.priceChangePercent));
+          setPriceChange24h(change24h);
           console.log(`✅ Preço Binance ${symbol}: $${data.lastPrice} (${data.priceChangePercent}%)`);
           
-          // Notificar preço atualizado
+          // Notificar preço e mudança atualizada
           if (onPriceUpdate) {
             onPriceUpdate(exchange, price);
+          }
+          if (onPriceChangeUpdate) {
+            onPriceChangeUpdate(exchange, change24h);
           }
         }
       } else if (exchange === 'okx') {
@@ -331,9 +337,12 @@ export const ExchangeBalanceCard = ({
             setPriceChange24h(change24h);
             console.log(`✅ Preço OKX ${symbol}: $${price} (${change24h.toFixed(2)}%)`);
             
-            // Notificar preço atualizado
+            // Notificar preço e mudança atualizada
             if (onPriceUpdate) {
               onPriceUpdate(exchange, price);
+            }
+            if (onPriceChangeUpdate) {
+              onPriceChangeUpdate(exchange, change24h);
             }
           }
         }

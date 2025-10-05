@@ -16,6 +16,8 @@ export default function BalanceDashboard() {
   const [okxBalance, setOkxBalance] = useState(0)
   const [binancePrice, setBinancePrice] = useState<number | null>(null)
   const [okxPrice, setOkxPrice] = useState<number | null>(null)
+  const [binancePriceChange, setBinancePriceChange] = useState<number | null>(null)
+  const [okxPriceChange, setOkxPriceChange] = useState<number | null>(null)
 
   // Determinar qual exchange é melhor para comprar/vender
   const getBestExchange = () => {
@@ -77,6 +79,7 @@ export default function BalanceDashboard() {
             baseline={100}
             onBalanceChange={setBinanceBalance}
             onPriceUpdate={(ex, price) => setBinancePrice(price)}
+            onPriceChangeUpdate={(ex, change) => setBinancePriceChange(change)}
             bestAction={bestExchange?.buy === 'binance' ? 'buy' : bestExchange?.sell === 'binance' ? 'sell' : null}
             spreadPercent={bestExchange?.spreadPercent || null}
           />
@@ -87,6 +90,7 @@ export default function BalanceDashboard() {
             baseline={100}
             onBalanceChange={setOkxBalance}
             onPriceUpdate={(ex, price) => setOkxPrice(price)}
+            onPriceChangeUpdate={(ex, change) => setOkxPriceChange(change)}
             bestAction={bestExchange?.buy === 'okx' ? 'buy' : bestExchange?.sell === 'okx' ? 'sell' : null}
             spreadPercent={bestExchange?.spreadPercent || null}
           />
@@ -103,6 +107,7 @@ export default function BalanceDashboard() {
           sellExchange: bestExchange.sell === 'binance' ? 'Binance' : 'OKX',
           buyPrice: bestExchange.buy === 'binance' ? binancePrice : okxPrice,
           sellPrice: bestExchange.sell === 'binance' ? binancePrice : okxPrice,
+          priceChange24h: bestExchange.buy === 'binance' ? binancePriceChange : okxPriceChange,
         } : null}
       />
         </div>
