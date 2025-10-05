@@ -35,6 +35,8 @@ interface ExchangeBalanceCardProps {
   onBalanceChange?: (totalValue: number) => void;
   otherExchangePrice?: number; // Preço do token na outra exchange para comparação
   onPriceUpdate?: (price: number) => void; // Callback para enviar preço atualizado
+  selectedToken?: string; // Token selecionado externamente
+  onTokenChange?: (token: string) => void; // Callback quando token muda
 }
 
 export const ExchangeBalanceCard = ({ 
@@ -42,7 +44,9 @@ export const ExchangeBalanceCard = ({
   baseline = 100,
   onBalanceChange,
   otherExchangePrice,
-  onPriceUpdate
+  onPriceUpdate,
+  selectedToken: externalSelectedToken,
+  onTokenChange
 }: ExchangeBalanceCardProps) => {
   const { toast } = useToast();
   const [balances, setBalances] = useState<Balance[]>([]);
@@ -50,11 +54,14 @@ export const ExchangeBalanceCard = ({
   const [converting, setConverting] = useState(false);
   const [swapping, setSwapping] = useState(false);
   const [totalValue, setTotalValue] = useState(0);
-  const [selectedToken, setSelectedToken] = useState<string>('BTC');
+  const [internalSelectedToken, setInternalSelectedToken] = useState<string>('SOL');
   const [showTokenFilter, setShowTokenFilter] = useState(false);
   const [showSwapDialog, setShowSwapDialog] = useState(false);
   const [realtimePrice, setRealtimePrice] = useState<number | null>(null);
   const [priceChange24h, setPriceChange24h] = useState<number | null>(null);
+
+  // Usar token externo se fornecido, senão usar interno
+  const selectedToken = externalSelectedToken || internalSelectedToken;
 
   const exchangeNames = {
     binance: 'Binance',
@@ -301,10 +308,21 @@ export const ExchangeBalanceCard = ({
     return () => clearInterval(interval);
   }, [exchange]);
 
-  // Notificar mudança de token selecionado para o pai
+  // Notificar mudança de token selecionado para o pai e acionar conversão
   useEffect(() => {
-    // Token selecionado atualizado internamente apenas
-  }, [selectedToken]);
+    if (onTokenChange && internalSelectedToken !== externalSelectedToken && internalSelectedToken) {
+      console.log(`🔄 Token alterado para ${internalSelectedToken} na ${exchangeNames[exchange]}`);
+      onTokenChange(internalSelectedToken);
+      
+      // Acionar conversão automática quando token mudar (somente se não for USDT)
+      if (internalSelectedToken !== 'USDT') {
+        console.log(`🎯 Iniciando conversão automática de ${internalSelectedToken}...`);
+        setTimeout(() => {
+          handleConvertToUSDT();
+        }, 500); // Pequeno delay para evitar conflitos
+      }
+    }
+  }, [internalSelectedToken]);
 
   const handleSwapToken = async () => {
     setSwapping(true);
@@ -499,7 +517,12 @@ export const ExchangeBalanceCard = ({
           <div className="mt-3">
             <TokenFilter
               selectedToken={selectedToken}
-              onTokenChange={setSelectedToken}
+              onTokenChange={(token) => {
+                setInternalSelectedToken(token);
+                if (onTokenChange) {
+                  onTokenChange(token);
+                }
+              }}
               showOnlyUptrend={true}
             />
           </div>

@@ -97,6 +97,7 @@ export default function ArbitrageControl() {
   const [okxBalance, setOkxBalance] = useState(0);
   const [binancePrice, setBinancePrice] = useState(0);
   const [okxPrice, setOkxPrice] = useState(0);
+  const [selectedToken, setSelectedToken] = useState<string>('SOL');
   
   const [settings, setSettings] = useState<TradingSettings>({
     auto_trading: false,
@@ -719,6 +720,8 @@ export default function ArbitrageControl() {
               onBalanceChange={setBinanceBalance}
               otherExchangePrice={okxPrice}
               onPriceUpdate={setBinancePrice}
+              selectedToken={selectedToken}
+              onTokenChange={setSelectedToken}
             />
             
             {/* Saldo OKX */}
@@ -728,6 +731,8 @@ export default function ArbitrageControl() {
               onBalanceChange={setOkxBalance}
               otherExchangePrice={binancePrice}
               onPriceUpdate={setOkxPrice}
+              selectedToken={selectedToken}
+              onTokenChange={setSelectedToken}
             />
             
             {/* Saldo Total */}
@@ -735,6 +740,7 @@ export default function ArbitrageControl() {
               binanceBalance={binanceBalance} 
               okxBalance={okxBalance}
               totalBaseline={200}
+              selectedToken={selectedToken}
             />
           </div>
         </TabsContent>
@@ -778,6 +784,8 @@ export default function ArbitrageControl() {
                 onBalanceChange={setBinanceBalance}
                 otherExchangePrice={okxPrice}
                 onPriceUpdate={setBinancePrice}
+                selectedToken={selectedToken}
+                onTokenChange={setSelectedToken}
               />
               
               {/* Saldo OKX */}
@@ -787,6 +795,8 @@ export default function ArbitrageControl() {
                 onBalanceChange={setOkxBalance}
                 otherExchangePrice={binancePrice}
                 onPriceUpdate={setOkxPrice}
+                selectedToken={selectedToken}
+                onTokenChange={setSelectedToken}
               />
               
               {/* Saldo Total */}
@@ -794,6 +804,7 @@ export default function ArbitrageControl() {
                 binanceBalance={binanceBalance} 
                 okxBalance={okxBalance}
                 totalBaseline={200}
+                selectedToken={selectedToken}
               />
             </div>
 

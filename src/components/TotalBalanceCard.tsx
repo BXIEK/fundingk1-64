@@ -23,6 +23,7 @@ interface TotalBalanceCardProps {
   binanceBalance: number;
   okxBalance: number;
   totalBaseline?: number;
+  selectedToken?: string;
 }
 
 interface PriceData {
@@ -50,11 +51,15 @@ interface TokenBalance {
 export const TotalBalanceCard = ({ 
   binanceBalance, 
   okxBalance,
-  totalBaseline = 200
+  totalBaseline = 200,
+  selectedToken: externalSelectedToken
 }: TotalBalanceCardProps) => {
   const [autoConvertEnabled, setAutoConvertEnabled] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [selectedToken, setSelectedToken] = useState<string>('BTC');
+  const [internalSelectedToken, setInternalSelectedToken] = useState<string>('SOL');
+  
+  // Usar token externo se fornecido, senão usar interno
+  const selectedToken = externalSelectedToken || internalSelectedToken;
   const [tokenPrices, setTokenPrices] = useState<PriceData>({ binance: 0, okx: 0, spread: 0 });
   const [lastExecution, setLastExecution] = useState<string>('');
   const [binanceTokens, setBinanceTokens] = useState<TokenBalance[]>([]);
@@ -130,6 +135,50 @@ export const TotalBalanceCard = ({
     return () => clearInterval(interval);
   }, []);
 
+  // Acionar conversões quando token externo mudar
+  useEffect(() => {
+    if (externalSelectedToken && externalSelectedToken !== 'USDT' && !isProcessing) {
+      console.log(`🔄 Token externo mudou para ${externalSelectedToken}, verificando oportunidades...`);
+      
+      // Buscar preços do token selecionado e verificar spread
+      const checkTokenSpread = async () => {
+        try {
+          const symbol = `${externalSelectedToken}USDT`;
+          const { data: binanceData } = await supabase.functions.invoke('binance-market-data', {
+            body: { action: 'tickers', symbols: [symbol] }
+          });
+
+          const { data: okxData } = await supabase.functions.invoke('okx-api', {
+            body: { action: 'get_prices' }
+          });
+
+          if (binanceData?.success && okxData?.success) {
+            const binancePrice = binanceData.data?.[symbol]?.lastPrice || binanceData.data?.[symbol]?.price || 0;
+            const okxPrice = okxData.data?.[externalSelectedToken] || 0;
+
+            if (binancePrice > 0 && okxPrice > 0) {
+              const spread = ((okxPrice - binancePrice) / binancePrice) * 100;
+              setTokenPrices({ binance: binancePrice, okx: okxPrice, spread });
+              
+              console.log(`📊 ${externalSelectedToken} - Binance: $${binancePrice}, OKX: $${okxPrice}, Spread: ${spread.toFixed(3)}%`);
+              
+              if (Math.abs(spread) > 0.3) {
+                console.log(`✅ Executando conversão automática para ${externalSelectedToken}...`);
+                await executeAutoConversion(binancePrice, okxPrice, externalSelectedToken);
+              } else {
+                console.log(`⏸️ Spread insuficiente (${spread.toFixed(3)}%) - aguardando melhor oportunidade`);
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Erro ao verificar spread do token:', error);
+        }
+      };
+
+      checkTokenSpread();
+    }
+  }, [externalSelectedToken]);
+
   // Monitorar todos os tokens e escolher o melhor spread automaticamente
   useEffect(() => {
     if (!autoConvertEnabled) return;
@@ -175,7 +224,7 @@ export const TotalBalanceCard = ({
           const best = spreads[0];
           if (best) {
             setBestToken(best);
-            setSelectedToken(best.symbol);
+            setInternalSelectedToken(best.symbol);
             setTokenPrices({ 
               binance: best.binancePrice, 
               okx: best.okxPrice, 
