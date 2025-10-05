@@ -15,6 +15,8 @@ export default function BalanceDashboard() {
   
   const [binanceBalance, setBinanceBalance] = useState(0)
   const [okxBalance, setOkxBalance] = useState(0)
+  const [binancePrice, setBinancePrice] = useState(0)
+  const [okxPrice, setOkxPrice] = useState(0)
 
   if (isMobile) {
     return (
@@ -61,6 +63,8 @@ export default function BalanceDashboard() {
             exchange="binance"
             baseline={100}
             onBalanceChange={setBinanceBalance}
+            otherExchangePrice={okxPrice}
+            onPriceUpdate={setBinancePrice}
           />
           
           {/* Saldo OKX */}
@@ -68,6 +72,8 @@ export default function BalanceDashboard() {
             exchange="okx"
             baseline={100}
             onBalanceChange={setOkxBalance}
+            otherExchangePrice={binancePrice}
+            onPriceUpdate={setOkxPrice}
           />
           
           {/* Saldo Total */}

@@ -18,7 +18,8 @@ import {
   Filter,
   Repeat,
   Zap,
-  Settings
+  Settings,
+  Circle
 } from 'lucide-react';
 
 interface Balance {
@@ -32,12 +33,16 @@ interface ExchangeBalanceCardProps {
   exchange: 'binance' | 'okx';
   baseline?: number; // Valor inicial esperado (padrão 100 USD)
   onBalanceChange?: (totalValue: number) => void;
+  otherExchangePrice?: number; // Preço do token na outra exchange para comparação
+  onPriceUpdate?: (price: number) => void; // Callback para enviar preço atualizado
 }
 
 export const ExchangeBalanceCard = ({ 
   exchange, 
   baseline = 100,
-  onBalanceChange
+  onBalanceChange,
+  otherExchangePrice,
+  onPriceUpdate
 }: ExchangeBalanceCardProps) => {
   const { toast } = useToast();
   const [balances, setBalances] = useState<Balance[]>([]);
@@ -451,6 +456,13 @@ export const ExchangeBalanceCard = ({
     }
   }, [selectedToken, exchange]);
 
+  // Notificar preço atualizado ao componente pai
+  useEffect(() => {
+    if (realtimePrice && onPriceUpdate) {
+      onPriceUpdate(realtimePrice);
+    }
+  }, [realtimePrice, onPriceUpdate]);
+
 
   const profitLoss = totalValue - baseline;
   const profitLossPercent = baseline > 0 ? (profitLoss / baseline) * 100 : 0;
@@ -511,9 +523,21 @@ export const ExchangeBalanceCard = ({
             </div>
             <div className="text-right flex items-center gap-2">
               {realtimePrice ? (
-                <p className="text-lg font-bold">
-                  ${formatBRL(realtimePrice, selectedToken === 'BTC' || selectedToken === 'ETH' ? 2 : 6)}
-                </p>
+                <>
+                  {/* Indicador de preço comparativo */}
+                  {otherExchangePrice && realtimePrice !== otherExchangePrice && (
+                    <Circle 
+                      className={`h-4 w-4 ${
+                        realtimePrice < otherExchangePrice 
+                          ? 'fill-green-500 text-green-500' 
+                          : 'fill-red-500 text-red-500'
+                      }`}
+                    />
+                  )}
+                  <p className="text-lg font-bold">
+                    ${formatBRL(realtimePrice, selectedToken === 'BTC' || selectedToken === 'ETH' ? 2 : 6)}
+                  </p>
+                </>
               ) : (
                 <p className="text-sm text-muted-foreground">Carregando...</p>
               )}
