@@ -34,6 +34,7 @@ interface ExchangeBalanceCardProps {
   onBalanceChange?: (totalValue: number) => void;
   onPriceUpdate?: (exchange: 'binance' | 'okx', price: number | null) => void;
   onPriceChangeUpdate?: (exchange: 'binance' | 'okx', priceChange: number | null) => void;
+  onTokenSelect?: (token: string) => void;
   bestAction?: 'buy' | 'sell' | null;
   spreadPercent?: string | null;
 }
@@ -44,6 +45,7 @@ export const ExchangeBalanceCard = ({
   onBalanceChange,
   onPriceUpdate,
   onPriceChangeUpdate,
+  onTokenSelect,
   bestAction = null,
   spreadPercent = null
 }: ExchangeBalanceCardProps) => {
@@ -209,6 +211,13 @@ export const ExchangeBalanceCard = ({
     const interval = setInterval(fetchBalances, 60000); // Atualiza a cada 60s
     return () => clearInterval(interval);
   }, [exchange]);
+
+  // Notificar mudança de token selecionado para o pai
+  useEffect(() => {
+    if (onTokenSelect) {
+      onTokenSelect(selectedToken);
+    }
+  }, [selectedToken, onTokenSelect]);
 
   const handleSwapToken = async () => {
     setSwapping(true);
