@@ -85,7 +85,7 @@ export const TotalBalanceCard = ({
           description: `${spreadData.symbol}${trendInfo} - Spread ${spreadData.spreadPercent.toFixed(4)}%`,
         });
 
-        // Executar arbitragem real via edge function
+        // Executar arbitragem real via edge function (usa saldos disponíveis automaticamente)
         const { data, error } = await supabase.functions.invoke('execute-cross-exchange-arbitrage', {
           body: {
             user_id: user.id,
@@ -94,8 +94,8 @@ export const TotalBalanceCard = ({
             sell_exchange: spreadData.sellExchange,
             buy_price: spreadData.buyPrice,
             sell_price: spreadData.sellPrice,
-            investment_amount: 10, // Ajustado para $10 (mais acessível)
             trading_mode: 'real'
+            // investment_amount foi removido - sistema usa saldo disponível automaticamente
           }
         });
 
@@ -126,8 +126,8 @@ export const TotalBalanceCard = ({
         // Tratar erros específicos
         if (error.message?.includes('Usuário não autenticado')) {
           errorMessage = "Você precisa fazer login para usar a arbitragem automática";
-        } else if (error.message?.includes('Valor muito baixo')) {
-          errorMessage = "Saldo insuficiente. Mínimo $10 USDT necessário.";
+        } else if (error.message?.includes('Sem saldo disponível')) {
+          errorMessage = "Saldo insuficiente. Deposite USDT ou tokens para continuar.";
         } else if (error.message) {
           errorMessage = error.message;
         }

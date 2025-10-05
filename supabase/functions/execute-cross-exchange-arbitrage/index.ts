@@ -25,7 +25,7 @@ interface ExecuteCrossExchangeRequest {
   hyperliquidWalletAddress?: string;
   hyperliquidPrivateKey?: string;
   config?: {
-    investmentAmount: number;
+    investmentAmount?: number; // Opcional - usa saldo disponível se não fornecido
     maxSlippage: number;
     customFeeRate: number;
     stopLossPercentage: number;
@@ -58,7 +58,6 @@ serve(async (req) => {
       hyperliquidWalletAddress,
       hyperliquidPrivateKey,
       config = {
-        investmentAmount: 10,
         maxSlippage: 0.3,
         customFeeRate: 0.2, // 0.2% para cross-exchange
         stopLossPercentage: 2.0,
@@ -66,8 +65,9 @@ serve(async (req) => {
       }
     }: ExecuteCrossExchangeRequest = await req.json();
 
-    console.log(`🚀 ARBITRAGEM CROSS-EXCHANGE [PADRÃO USDT]: ${buyExchange} -> ${sellExchange} | ${symbol}, Valor: $${config.investmentAmount} USDT, Modo: ${mode}`);
+    console.log(`🚀 ARBITRAGEM CROSS-EXCHANGE [AUTO-SALDO]: ${buyExchange} -> ${sellExchange} | ${symbol}, Modo: ${mode}`);
     console.log(`💰 Taxas: Trading=${(config.customFeeRate)}%, Transfer=$0.10 (Arbitrum), Slippage=${config.maxSlippage}%`);
+    console.log(`📊 Sistema usará saldos disponíveis automaticamente (sem limites mínimos fixos)`);
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -79,29 +79,57 @@ serve(async (req) => {
       console.log('ℹ️ Rebalanceamento automático desabilitado. Usando saldos disponíveis em cada exchange.');
     }
 
-    // ⭐ NOVA LÓGICA USDT: Usar valor em USDT diretamente
-    const usdtInvestment = config.investmentAmount;
+    // ⭐ BUSCAR SALDO DISPONÍVEL AUTOMATICAMENTE
+    let usdtInvestment = 0;
     
-    // 🔥 VALIDAR VALOR MÍNIMO NOTIONAL (previne erro -1013)
-    // Binance exige $10 USDT mínimo POR ORDEM, como dividimos por 2, precisamos de $25 total
-    const minNotional = 25; // $25 USDT total = $12.5 por ordem (acima do mínimo de $10)
-    if (usdtInvestment < minNotional) {
-      const errorMsg = `⚠️ Valor muito baixo: $${usdtInvestment} < $${minNotional} USDT (mínimo: $10/ordem × 2 ordens)`;
-      console.error(errorMsg);
-      
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: 'MINIMUM_NOTIONAL',
-          message: errorMsg,
-          required_minimum: minNotional,
-          your_amount: usdtInvestment
-        }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 400
+    if (mode === 'real') {
+      console.log(`🔍 Buscando saldo disponível de ${symbol} e USDT na ${buyExchange}...`);
+      try {
+        // Verificar saldo de crypto primeiro
+        const cryptoBalance = await getExchangeBalance(buyExchange, symbol.replace('USDT', ''), { 
+          binanceApiKey, 
+          binanceSecretKey, 
+          okxApiKey, 
+          okxSecretKey, 
+          okxPassphrase 
+        });
+        
+        console.log(`💰 Saldo de ${symbol}: ${cryptoBalance}`);
+        
+        // Se houver saldo de crypto, usar ele
+        if (cryptoBalance > 0) {
+          usdtInvestment = cryptoBalance * buyPrice;
+          console.log(`✅ Usando saldo existente: ${cryptoBalance} ${symbol} = $${usdtInvestment.toFixed(2)} USDT`);
+        } else {
+          // Senão, verificar saldo de USDT
+          const usdtBalance = await getExchangeBalance(buyExchange, 'USDT', { 
+            binanceApiKey, 
+            binanceSecretKey, 
+            okxApiKey, 
+            okxSecretKey, 
+            okxPassphrase 
+          });
+          
+          console.log(`💰 Saldo de USDT: $${usdtBalance.toFixed(2)}`);
+          
+          if (usdtBalance <= 0) {
+            const errorMsg = `❌ Sem saldo disponível na ${buyExchange}. Deposite USDT ou ${symbol} para continuar.`;
+            console.error(errorMsg);
+            throw new Error(errorMsg);
+          }
+          
+          // Usar 95% do saldo USDT disponível
+          usdtInvestment = usdtBalance * 0.95;
+          console.log(`✅ Usando 95% do saldo USDT: $${usdtInvestment.toFixed(2)}`);
         }
-      );
+      } catch (balanceError) {
+        console.error('❌ Erro ao buscar saldos:', balanceError);
+        throw balanceError;
+      }
+    } else {
+      // Modo simulação - usar valor padrão
+      usdtInvestment = 50;
+      console.log(`🎮 Modo simulação: usando $${usdtInvestment} USDT`);
     }
     // Calcular spread real entre as exchanges
     const spread_percentage = Math.abs((sellPrice - buyPrice) / buyPrice * 100);
@@ -157,123 +185,44 @@ serve(async (req) => {
           throw new Error('❌ Credenciais da OKX não fornecidas');
         }
         
-        // 🔥 VERIFICAR SALDO REAL DE USDT NA EXCHANGE DE ORIGEM E CALCULAR VALOR MÍNIMO
-        let actualUsdtInvestment = usdtInvestment;
-        
-        // Primeiro calcular o mínimo necessário para o token
-        const minWithdrawalAmounts: Record<string, number> = {
-          'DOT': 10,      // 10 DOT mínimo
-          'ATOM': 0.2,    // 0.2 ATOM mínimo
-          'ETH': 0.01,    // 0.01 ETH mínimo
-          'BTC': 0.001,   // 0.001 BTC mínimo
-          'SOL': 0.1,     // 0.1 SOL mínimo
-          'AVAX': 0.1,    // 0.1 AVAX mínimo
-          'LINK': 0.2,    // 0.2 LINK mínimo
-          'UNI': 1,       // 1 UNI mínimo
-          'default': 0.5  // Default para outros ativos
-        };
-        
-        const minWithdrawalAmount = minWithdrawalAmounts[symbol.replace('USDT', '')] || minWithdrawalAmounts['default'];
-        const requiredUsdtPerOperation = minWithdrawalAmount * buyPrice * 1.15; // +15% margem de segurança
-        const minimumTotalUsdt = requiredUsdtPerOperation * 2;
-        
-        console.log(`📊 CÁLCULO DE INVESTIMENTO NECESSÁRIO:`);
-        console.log(`   Token: ${symbol}`);
-        console.log(`   Mínimo withdrawal: ${minWithdrawalAmount} ${symbol.replace('USDT', '')}`);
-        console.log(`   Preço compra: $${buyPrice.toFixed(4)}`);
-        console.log(`   USDT mínimo necessário: $${minimumTotalUsdt.toFixed(2)}`);
-        
-        try {
-          console.log(`🔍 Verificando saldo de USDT na ${buyExchange}...`);
-          const usdtBalance = await getExchangeBalance(buyExchange, 'USDT', { binanceApiKey, binanceSecretKey, okxApiKey, okxSecretKey, okxPassphrase });
-          console.log(`💰 Saldo USDT disponível na ${buyExchange}: $${usdtBalance.toFixed(2)}`);
-          console.log(`📊 Comparação: Saldo ($${usdtBalance.toFixed(2)}) vs Mínimo necessário ($${minimumTotalUsdt.toFixed(2)})`);
-          
-          if (usdtBalance < minimumTotalUsdt) {
-            const errorMsg = `❌ SALDO INSUFICIENTE PARA ${symbol}\n\n` +
-              `💰 Saldo disponível: $${usdtBalance.toFixed(2)} USDT\n` +
-              `📊 Mínimo necessário: $${minimumTotalUsdt.toFixed(2)} USDT\n` +
-              `❌ Faltam: $${(minimumTotalUsdt - usdtBalance).toFixed(2)} USDT\n\n` +
-              `Por que precisa de tanto USDT?\n` +
-              `• OKX exige mínimo de ${minWithdrawalAmount} ${symbol.replace('USDT', '')} para transferência\n` +
-              `• Preço atual: $${buyPrice.toFixed(4)} por ${symbol.replace('USDT', '')}\n` +
-              `• Cálculo: ${minWithdrawalAmount} × $${buyPrice.toFixed(4)} × 1.15 (margem) = $${minimumTotalUsdt.toFixed(2)}\n\n` +
-              `💡 Solução: Deposite mais $${(minimumTotalUsdt - usdtBalance).toFixed(2)} USDT na ${buyExchange}`;
-            
-            console.error(errorMsg);
-            throw new Error(errorMsg);
-          }
-          
-          // Usar o valor configurado pelo usuário, mas garantir que seja pelo menos o mínimo necessário
-          const maxUsableUsdt = usdtBalance * 0.95;
-          
-          // Se o usuário configurou um valor menor que o mínimo, usar o mínimo
-          if (usdtInvestment < minimumTotalUsdt) {
-            console.warn(`⚠️ Valor configurado ($${usdtInvestment.toFixed(2)}) é menor que o mínimo necessário ($${minimumTotalUsdt.toFixed(2)})`);
-            actualUsdtInvestment = Math.min(minimumTotalUsdt, maxUsableUsdt);
-          } else {
-            // Usar o valor configurado pelo usuário, limitado ao saldo disponível
-            actualUsdtInvestment = Math.min(usdtInvestment, maxUsableUsdt);
-          }
-          
-          console.log(`✅ VALOR FINAL CALCULADO:`);
-          console.log(`   Configurado pelo usuário: $${usdtInvestment.toFixed(2)} USDT`);
-          console.log(`   Mínimo necessário: $${minimumTotalUsdt.toFixed(2)} USDT`);
-          console.log(`   Saldo disponível: $${usdtBalance.toFixed(2)} USDT`);
-          console.log(`   Valor final usado: $${actualUsdtInvestment.toFixed(2)} USDT`);
-          
-        } catch (balanceError) {
-          console.error('❌ ERRO CRÍTICO:', balanceError);
-          throw balanceError;
-        }
-        
-        // Usar o valor TOTAL para compra (sem dividir)
+        // Usar o saldo já calculado anteriormente
+        const actualUsdtInvestment = usdtInvestment;
         const finalUsdtInvestment = actualUsdtInvestment;
-        console.log(`💵 Valor total para compra: $${finalUsdtInvestment.toFixed(2)} USDT`);
+        
+        console.log(`📊 VALOR DE OPERAÇÃO:`);
+        console.log(`   Token: ${symbol}`);
+        console.log(`   Valor a usar: $${actualUsdtInvestment.toFixed(2)} USDT`);
+        console.log(`   Quantidade a operar: ${(actualUsdtInvestment / buyPrice).toFixed(6)} ${symbol.replace('USDT', '')}`);
         
         // Calcular quantidade de crypto que será comprada
         const targetCryptoAmount = finalUsdtInvestment / buyPrice;
-        console.log(`🎯 Quantidade a comprar: ${targetCryptoAmount} ${symbol}`);
-        
-        console.log(`✅ VALORES FINAIS:`);
-        console.log(`   Total USDT para compra: $${finalUsdtInvestment.toFixed(2)}`);
-        console.log(`   Quantidade ${symbol}: ${targetCryptoAmount.toFixed(4)} (Mínimo: ${minWithdrawalAmount})`);
-        
-        if (targetCryptoAmount < minWithdrawalAmount) {
-          throw new Error(
-            `❌ ERRO DE CÁLCULO: Quantidade final ${targetCryptoAmount.toFixed(4)} ${symbol} ` +
-            `ainda é menor que o mínimo ${minWithdrawalAmount}. Este é um erro de sistema.`
-          );
-        }
         
         // Step 1: Verificar saldo disponível de crypto na exchange de origem
         let cryptoAmount = 0;
         let usedExistingBalance = false;
         
         try {
-          console.log(`🔍 Verificando saldo de ${symbol} na ${buyExchange}...`);
-          const availableBalance = await getExchangeBalance(buyExchange, symbol.replace('USDT', ''), { binanceApiKey, binanceSecretKey, okxApiKey, okxSecretKey, okxPassphrase });
-          console.log(`💰 Saldo disponível: ${availableBalance} ${symbol}`);
+          console.log(`🔍 Verificando saldo de ${symbol.replace('USDT', '')} na ${buyExchange}...`);
+          const availableBalance = await getExchangeBalance(buyExchange, symbol.replace('USDT', ''), { 
+            binanceApiKey, 
+            binanceSecretKey, 
+            okxApiKey, 
+            okxSecretKey, 
+            okxPassphrase 
+          });
+          console.log(`💰 Saldo disponível: ${availableBalance} ${symbol.replace('USDT', '')}`);
           
-          // REGRA CRÍTICA: Primeiro verificar se saldo é MAIOR que mínimo de withdrawal
-          if (availableBalance > 0 && availableBalance < minWithdrawalAmount) {
-            // Saldo microscópico - IGNORAR COMPLETAMENTE e fazer compra nova com USDT
-            console.log(`🚫 Saldo de ${availableBalance} ${symbol} é MENOR que o mínimo de withdrawal (${minWithdrawalAmount}).`);
-            console.log(`💰 Ignorando saldo e fazendo COMPRA NOVA com USDT na ${buyExchange}...`);
-            // usedExistingBalance permanece false para forçar compra
-          } else if (availableBalance >= targetCryptoAmount && availableBalance >= minWithdrawalAmount) {
-            // Saldo completo e acima do mínimo - USAR
-            console.log(`✅ Saldo suficiente encontrado! Usando ${targetCryptoAmount} ${symbol} do saldo existente.`);
+          // Se houver saldo de crypto, usar ele
+          if (availableBalance >= targetCryptoAmount) {
+            console.log(`✅ Saldo suficiente! Usando ${targetCryptoAmount.toFixed(6)} ${symbol.replace('USDT', '')} do saldo existente.`);
             cryptoAmount = targetCryptoAmount;
             usedExistingBalance = true;
-          } else if (availableBalance >= minWithdrawalAmount && availableBalance < targetCryptoAmount) {
-            // Saldo parcial mas acima do mínimo - USAR PARCIAL
-            console.log(`⚠️ Saldo parcial: ${availableBalance} ${symbol} (necessário: ${targetCryptoAmount}). Usando saldo disponível.`);
+          } else if (availableBalance > 0) {
+            console.log(`⚠️ Saldo parcial: ${availableBalance} ${symbol.replace('USDT', '')}. Usando saldo disponível.`);
             cryptoAmount = availableBalance;
             usedExistingBalance = true;
           } else {
-            // Sem saldo - precisa comprar
-            console.log(`📉 Sem saldo disponível de ${symbol}. Executando compra com USDT...`);
+            console.log(`📉 Sem saldo de ${symbol.replace('USDT', '')}. Executando compra com USDT...`);
           }
         } catch (balanceError) {
           console.error('⚠️ Erro ao verificar saldo:', balanceError);
@@ -284,72 +233,25 @@ serve(async (req) => {
         let buyResult: any = null;
         if (!usedExistingBalance) {
           console.log(`🔄 PASSO 1 - COMPRA: $${finalUsdtInvestment.toFixed(2)} USDT → ${symbol} na ${buyExchange}...`);
-          buyResult = await executeBuyOrderUSDT(buyExchange, symbol, finalUsdtInvestment, buyPrice, { binanceApiKey, binanceSecretKey, okxApiKey, okxSecretKey, okxPassphrase });
+          buyResult = await executeBuyOrderUSDT(buyExchange, symbol, finalUsdtInvestment, buyPrice, { 
+            binanceApiKey, 
+            binanceSecretKey, 
+            okxApiKey, 
+            okxSecretKey, 
+            okxPassphrase 
+          });
           console.log('✅ Compra executada:', JSON.stringify(buyResult));
           
           // Extrair quantidade de crypto comprada
           cryptoAmount = buyResult.executedQty || (finalUsdtInvestment / buyPrice);
-          console.log(`💎 Quantidade comprada: ${cryptoAmount} ${symbol}`);
+          console.log(`💎 Quantidade comprada: ${cryptoAmount} ${symbol.replace('USDT', '')}`);
           
-          // 🔥 CRÍTICO: Verificar se ordem foi totalmente executada antes de prosseguir
-          if (buyExchange === 'OKX') {
-            console.log('⏳ [OKX] Verificando execução completa da ordem...');
-            
-            // Tentar até 10 vezes (200 segundos total)
-            let actualBalance = 0;
-            let attempts = 0;
-            const maxAttempts = 10;
-            
-            while (attempts < maxAttempts) {
-              await new Promise(resolve => setTimeout(resolve, 20000)); // 20s entre tentativas
-              attempts++;
-              
-              try {
-                actualBalance = await getExchangeBalance('OKX', symbol.replace('USDT', ''), { binanceApiKey, binanceSecretKey, okxApiKey, okxSecretKey, okxPassphrase });
-                console.log(`   Tentativa ${attempts}/${maxAttempts}: Saldo atual ${actualBalance} ${symbol}, Esperado: ${cryptoAmount}`);
-                
-                // Aceitar 95% da quantidade como sucesso (para lidar com pequenas diferenças de arredondamento)
-                if (actualBalance >= cryptoAmount * 0.95) {
-                  console.log(`✅ Ordem totalmente executada! Saldo disponível: ${actualBalance} ${symbol}`);
-                  cryptoAmount = actualBalance; // Usar o saldo real
-                  break;
-                }
-                
-                // Se tiver pelo menos o mínimo de withdrawal, aceitar (ordem parcial)
-                if (actualBalance >= minWithdrawalAmount && attempts >= 5) {
-                  console.log(`⚠️ ORDEM PARCIALMENTE EXECUTADA após ${attempts} tentativas`);
-                  console.log(`   Saldo: ${actualBalance} ${symbol} (${((actualBalance/cryptoAmount)*100).toFixed(1)}% da ordem)`);
-                  console.log(`   Continuando com quantidade parcial...`);
-                  cryptoAmount = actualBalance;
-                  break;
-                }
-              } catch (error) {
-                const errorMsg = error instanceof Error ? error.message : String(error);
-                console.error(`   Erro ao verificar saldo (tentativa ${attempts}): ${errorMsg}`);
-              }
-            }
-            
-            // Se após todas tentativas não tiver o mínimo, falhar
-            if (actualBalance < minWithdrawalAmount) {
-              throw new Error(
-                `❌ ORDEM NÃO EXECUTADA COMPLETAMENTE\n` +
-                `Saldo final: ${actualBalance} ${symbol}\n` +
-                `Mínimo necessário: ${minWithdrawalAmount} ${symbol}\n` +
-                `Tentativas: ${attempts}\n` +
-                `Possíveis causas:\n` +
-                `• Liquidez insuficiente no mercado\n` +
-                `• Preço se moveu muito rápido\n` +
-                `• Problema temporário na OKX\n\n` +
-                `💡 Solução: Tente com valor menor ou aguarde maior liquidez`
-              );
-            }
-          } else {
-            console.log('⏳ Aguardando processamento da ordem de compra (3s)...');
-            await new Promise(resolve => setTimeout(resolve, 3000));
-          }
+          // Aguardar processamento
+          console.log('⏳ Aguardando processamento da ordem (3s)...');
+          await new Promise(resolve => setTimeout(resolve, 3000));
         } else {
-          console.log(`⚡ PULANDO COMPRA - Usando ${cryptoAmount} ${symbol} do saldo existente`);
-          // Criar um buyResult simulado para manter compatibilidade
+          console.log(`⚡ PULANDO COMPRA - Usando ${cryptoAmount.toFixed(6)} ${symbol.replace('USDT', '')} do saldo existente`);
+          // Criar um buyResult simulado
           buyResult = {
             success: true,
             orderId: 'EXISTING_BALANCE',
@@ -361,39 +263,6 @@ serve(async (req) => {
             timestamp: Date.now(),
             operationMode: 'EXISTING_BALANCE'
           };
-        }
-        
-        // VALIDAÇÃO CRÍTICA: Se cryptoAmount for menor que o mínimo de withdrawal, FORÇAR COMPRA
-        if (cryptoAmount < minWithdrawalAmount) {
-          console.log(`🚨 ERRO: Quantidade ${cryptoAmount} ${symbol} é MENOR que o mínimo de withdrawal ${minWithdrawalAmount}`);
-          console.log(`💰 FORÇANDO COMPRA NOVA para garantir quantidade mínima...`);
-          
-          // Forçar compra mesmo com saldo existente
-          const forcedBuyResult = await executeBuyOrderUSDT(buyExchange, symbol, finalUsdtInvestment, buyPrice, { binanceApiKey, binanceSecretKey, okxApiKey, okxSecretKey, okxPassphrase });
-          console.log('✅ Compra forçada executada:', JSON.stringify(forcedBuyResult));
-          
-          cryptoAmount = forcedBuyResult.executedQty || (finalUsdtInvestment / buyPrice);
-          console.log(`💎 Nova quantidade: ${cryptoAmount} ${symbol}`);
-          buyResult = forcedBuyResult;
-          
-          // 🔥 CRÍTICO: Verificar execução da ordem forçada
-          if (buyExchange === 'OKX') {
-            console.log('⏳ [OKX] Verificando execução da ordem forçada...');
-            await new Promise(resolve => setTimeout(resolve, 15000));
-            
-            try {
-              const verifiedBalance = await getExchangeBalance('OKX', symbol.replace('USDT', ''), { binanceApiKey, binanceSecretKey, okxApiKey, okxSecretKey, okxPassphrase });
-              if (verifiedBalance >= minWithdrawalAmount) {
-                cryptoAmount = verifiedBalance;
-                console.log(`✅ Saldo verificado: ${cryptoAmount} ${symbol}`);
-              }
-            } catch (error) {
-              console.error('⚠️ Erro ao verificar saldo pós-ordem:', error);
-            }
-          } else {
-            console.log('⏳ Aguardando processamento da ordem de compra (3s)...');
-            await new Promise(resolve => setTimeout(resolve, 3000));
-          }
         }
         
         // Step 2: TRANSFERIR crypto da exchange de compra para exchange de venda
@@ -461,8 +330,8 @@ serve(async (req) => {
         // Identificar tipo de erro
         if (errorMessage.includes('IP') && errorMessage.includes('whitelist')) {
           error_message = `Erro OKX: ${errorMessage}. Configure seu IP na whitelist: https://www.okx.com/account/my-api`;
-        } else if (errorMessage.includes('NOTIONAL')) {
-          error_message = `Erro Binance: Valor mínimo não atingido. Use mínimo $25 USDT.`;
+        } else if (errorMessage.includes('Sem saldo disponível')) {
+          error_message = `Saldo insuficiente: ${errorMessage}`;
         } else {
           error_message = `Falha na execução real: ${errorMessage}`;
         }
