@@ -97,14 +97,33 @@ export const TokenSwapDialog = ({
 
     setSwapping(true);
     try {
-      const credsKey = `${exchange}_credentials`;
-      const credsData = localStorage.getItem(credsKey);
-      
-      if (!credsData) {
-        throw new Error(`Credenciais da ${exchangeNames[exchange]} não encontradas`);
+      // Buscar credenciais do banco de dados Supabase
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('Usuário não autenticado');
       }
 
-      const credentials = JSON.parse(credsData);
+      const { data: configData, error: configError } = await supabase
+        .from('exchange_api_configs')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('exchange', exchange)
+        .single();
+
+      if (configError || !configData) {
+        throw new Error(`Credenciais da ${exchangeNames[exchange]} não configuradas no banco de dados. Configure em Controle de Arbitragem.`);
+      }
+
+      const credentials = exchange === 'binance' 
+        ? {
+            apiKey: configData.api_key,
+            secretKey: configData.secret_key
+          }
+        : {
+            apiKey: configData.api_key,
+            secretKey: configData.secret_key,
+            passphrase: configData.passphrase
+          };
 
       toast({
         title: "🔄 Processando conversão",
@@ -130,8 +149,23 @@ export const TokenSwapDialog = ({
         ? 'binance-swap-token' 
         : 'okx-swap-token';
 
+      console.log(`🔄 Chamando ${functionName} com:`, {
+        exchange,
+        symbol,
+        direction,
+        amount: parseFloat(amount),
+        hasApiKey: !!credentials.apiKey,
+        hasSecretKey: !!credentials.secretKey,
+        hasPassphrase: exchange === 'okx' ? !!(credentials as any).passphrase : 'N/A'
+      });
+
       const { data, error } = await supabase.functions.invoke(functionName, {
-        body: { ...credentials, symbol, direction, amount: parseFloat(amount) }
+        body: { 
+          ...credentials, 
+          symbol, 
+          direction, 
+          customAmount: parseFloat(amount) 
+        }
       });
 
       if (error) throw error;
