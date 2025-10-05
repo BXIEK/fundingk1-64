@@ -11,10 +11,8 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Wallet, Activity, RefreshCw, Settings, Shield, AlertTriangle, Plus, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Wallet, RefreshCw, Settings, Shield, AlertTriangle, Plus, AlertCircle } from 'lucide-react';
 import APIConfiguration from '@/components/APIConfiguration';
-import RealtimeTradingValidator from '@/components/RealtimeTradingValidator';
-import { ExchangeStatusBanner } from '@/components/ExchangeStatusBanner';
 import { BinanceAutoConverter } from '@/components/BinanceAutoConverter';
 import { useTradingMode } from '@/contexts/TradingModeContext';
 import { getUserId } from '@/lib/userUtils';
@@ -461,24 +459,9 @@ export default function Portfolio() {
         </CardContent>
       </Card>
 
-      {/* Status das Exchanges - Mostrar apenas em modo real */}
-      {isRealMode && (
-        <>
-          <ExchangeStatusBanner
-            binanceOk={exchangeStatuses.binance}
-            okxOk={exchangeStatuses.okx}
-            bybitOk={exchangeStatuses.bybit}
-            mexcOk={exchangeStatuses.mexc}
-            hyperliquidOk={exchangeStatuses.hyperliquid}
-            pionexOk={exchangeStatuses.pionex}
-            onConfigClick={() => navigate('/arbitrage-control')}
-          />
-          
-          {/* Conversor automático para USDT */}
-          {exchangeStatuses.binance && (
-            <BinanceAutoConverter />
-          )}
-        </>
+      {/* Conversor automático para USDT */}
+      {isRealMode && exchangeStatuses.binance && (
+        <BinanceAutoConverter />
       )}
 
       {/* Mostrar estado vazio se não há dados reais em modo real */}
@@ -565,148 +548,77 @@ export default function Portfolio() {
             </div>
           )}
 
-          {/* Tabs: Portfolio e Histórico - mostrar apenas se há dados reais ou modo simulação */}
+          {/* Histórico de Trades - mostrar apenas se há dados reais ou modo simulação */}
           {(hasRealData || !isRealMode) && (
-            <Tabs defaultValue="portfolio" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="portfolio">Meus Saldos</TabsTrigger>
-                <TabsTrigger value="history">Histórico de Trades</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="portfolio" className="space-y-4">
-                {/* Validador de Trading em Tempo Real */}
-                {isRealMode && hasRealData && (
-                  <RealtimeTradingValidator />
-                )}
-                
-                {/* Mostrar saldos apenas se há dados reais */}
-                {portfolio && portfolio.length > 0 && (
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Saldos por Exchange */}
-                    {['Binance', 'OKX', 'Hyperliquid'].map(exchangeName => {
-                      const exchangeAssets = portfolio.filter(asset => asset.exchange === exchangeName);
-                      
-                      if (exchangeAssets.length === 0) {
-                        return null; // Não mostrar exchanges sem saldos
-                      }
-                      
-                      return (
-                        <Card key={exchangeName}>
-                          <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                              <Activity className="h-5 w-5 text-yellow-500" />
-                              {exchangeName}
-                            </CardTitle>
-                            <CardDescription>Seus saldos na {exchangeName}</CardDescription>
-                          </CardHeader>
-                          <CardContent className="p-0">
-                            <Table>
-                              <TableHeader>
-                                <TableRow>
-                                  <TableHead>Asset</TableHead>
-                                  <TableHead className="text-right">Saldo</TableHead>
-                                  <TableHead className="text-right">Valor USD</TableHead>
-                                </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {exchangeAssets.map((asset) => (
-                                  <TableRow key={`${exchangeName}-${asset.symbol}`}>
-                                    <TableCell className="font-medium">
-                                      <div className="flex items-center gap-2">
-                                        <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                                        <span className="text-sm font-mono">{asset.symbol}</span>
-                                      </div>
-                                    </TableCell>
-                                    <TableCell className="text-right font-mono text-xs">
-                                      {asset.balance.toFixed(asset.balance < 1 ? 6 : 2)}
-                                    </TableCell>
-                                    <TableCell className="text-right font-mono text-xs">
-                                      {asset.value_usd ? formatCurrency(asset.value_usd) : '-'}
-                                    </TableCell>
-                                  </TableRow>
-                                ))}
-                              </TableBody>
-                            </Table>
-                          </CardContent>
-                        </Card>
-                      );
-                    })}
-                  </div>
-                )}
-              </TabsContent>
-
-              <TabsContent value="history" className="space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Histórico de Trades</CardTitle>
-                    <CardDescription>Suas operações de arbitragem mais recentes</CardDescription>
-                  </CardHeader>
-                  <CardContent className="p-0">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Símbolo</TableHead>
-                          <TableHead>Compra</TableHead>
-                          <TableHead>Venda</TableHead>
-                          <TableHead className="text-right">Investimento</TableHead>
-                          <TableHead className="text-right">Lucro Líquido</TableHead>
-                          <TableHead className="text-right">ROI</TableHead>
-                          <TableHead className="text-center">Status</TableHead>
-                          <TableHead className="text-center">Data</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {trades.map((trade) => (
-                          <TableRow key={trade.id}>
-                            <TableCell className="font-medium">{trade.symbol}</TableCell>
-                            <TableCell className="text-sm">{trade.buy_exchange}</TableCell>
-                            <TableCell className="text-sm">{trade.sell_exchange}</TableCell>
-                            <TableCell className="text-right font-mono text-xs">
-                              {formatCurrency(trade.investment_amount)}
-                            </TableCell>
-                            <TableCell className={`text-right font-mono text-xs ${
-                              trade.net_profit > 0 ? 'text-success' : 'text-destructive'
-                            }`}>
-                              {formatCurrency(trade.net_profit)}
-                            </TableCell>
-                            <TableCell className={`text-right font-mono text-xs ${
-                              trade.roi_percentage > 0 ? 'text-success' : 'text-destructive'
-                            }`}>
-                              {formatPercentage(trade.roi_percentage)}
-                            </TableCell>
-                            <TableCell className="text-center">
-                              <div className="space-y-1">
-                                <Badge variant={trade.status === 'completed' ? 'default' : 'secondary'}>
-                                  {trade.status === 'completed' ? 'Concluído' : 
-                                   trade.status === 'failed' ? 'Falhado' : 'Pendente'}
+            <Card>
+              <CardHeader>
+                <CardTitle>Histórico de Trades</CardTitle>
+                <CardDescription>Suas operações de arbitragem mais recentes</CardDescription>
+              </CardHeader>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Símbolo</TableHead>
+                      <TableHead>Compra</TableHead>
+                      <TableHead>Venda</TableHead>
+                      <TableHead className="text-right">Investimento</TableHead>
+                      <TableHead className="text-right">Lucro Líquido</TableHead>
+                      <TableHead className="text-right">ROI</TableHead>
+                      <TableHead className="text-center">Status</TableHead>
+                      <TableHead className="text-center">Data</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {trades.map((trade) => (
+                      <TableRow key={trade.id}>
+                        <TableCell className="font-medium">{trade.symbol}</TableCell>
+                        <TableCell className="text-sm">{trade.buy_exchange}</TableCell>
+                        <TableCell className="text-sm">{trade.sell_exchange}</TableCell>
+                        <TableCell className="text-right font-mono text-xs">
+                          {formatCurrency(trade.investment_amount)}
+                        </TableCell>
+                        <TableCell className={`text-right font-mono text-xs ${
+                          trade.net_profit > 0 ? 'text-success' : 'text-destructive'
+                        }`}>
+                          {formatCurrency(trade.net_profit)}
+                        </TableCell>
+                        <TableCell className={`text-right font-mono text-xs ${
+                          trade.roi_percentage > 0 ? 'text-success' : 'text-destructive'
+                        }`}>
+                          {formatPercentage(trade.roi_percentage)}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <div className="space-y-1">
+                            <Badge variant={trade.status === 'completed' ? 'default' : 'secondary'}>
+                              {trade.status === 'completed' ? 'Concluído' : 
+                               trade.status === 'failed' ? 'Falhado' : 'Pendente'}
+                            </Badge>
+                            {trade.trading_mode && (
+                              <div className="flex flex-col items-center gap-1">
+                                <Badge 
+                                  variant="outline" 
+                                  className={`text-xs ${
+                                    trade.trading_mode === 'real' 
+                                      ? 'bg-red-100 border-red-300 text-red-800' 
+                                      : 'bg-blue-50 border-blue-300 text-blue-800'
+                                  }`}
+                                >
+                                  {trade.trading_mode === 'real' ? 'REAL' : 'TESTE'}
                                 </Badge>
-                                {trade.trading_mode && (
-                                  <div className="flex flex-col items-center gap-1">
-                                    <Badge 
-                                      variant="outline" 
-                                      className={`text-xs ${
-                                        trade.trading_mode === 'real' 
-                                          ? 'bg-red-100 border-red-300 text-red-800' 
-                                          : 'bg-blue-50 border-blue-300 text-blue-800'
-                                      }`}
-                                    >
-                                      {trade.trading_mode === 'real' ? 'REAL' : 'TESTE'}
-                                    </Badge>
-                                  </div>
-                                )}
                               </div>
-                            </TableCell>
-                            <TableCell className="text-center text-sm text-muted-foreground">
-                              {new Date(trade.created_at).toLocaleString('pt-BR')}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            </Tabs>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-center text-sm text-muted-foreground">
+                          {new Date(trade.created_at).toLocaleString('pt-BR')}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
           )}
         </>
       )}
