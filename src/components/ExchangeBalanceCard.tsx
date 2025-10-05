@@ -126,14 +126,19 @@ export const ExchangeBalanceCard = ({
   };
 
   const handleConvertToUSDT = async () => {
+    console.log('🔄 Iniciando conversão para USDT...');
     setConverting(true);
+    
     try {
       // Buscar credenciais do banco de dados
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
+        console.error('❌ Usuário não autenticado');
         throw new Error('Usuário não autenticado');
       }
 
+      console.log(`🔍 Buscando credenciais para ${exchangeNames[exchange]}...`);
+      
       const { data: configData, error: configError } = await supabase
         .from('exchange_api_configs')
         .select('*')
@@ -142,8 +147,16 @@ export const ExchangeBalanceCard = ({
         .eq('is_active', true)
         .maybeSingle();
 
-      if (configError || !configData) {
-        throw new Error(`Credenciais da ${exchangeNames[exchange]} não configuradas no banco de dados`);
+      console.log('📋 Resultado da busca:', { configData, configError });
+
+      if (configError) {
+        console.error('❌ Erro ao buscar credenciais:', configError);
+        throw new Error(`Erro ao buscar credenciais: ${configError.message}`);
+      }
+
+      if (!configData) {
+        console.error('❌ Credenciais não encontradas');
+        throw new Error(`Credenciais da ${exchangeNames[exchange]} não configuradas no banco de dados. Configure em Controle de Arbitragem.`);
       }
 
       const credentials = {
@@ -151,6 +164,8 @@ export const ExchangeBalanceCard = ({
         secretKey: configData.secret_key,
         passphrase: configData.passphrase
       };
+
+      console.log('✅ Credenciais encontradas, iniciando conversão...');
 
       toast({
         title: "🔄 Convertendo para USDT",
@@ -161,13 +176,21 @@ export const ExchangeBalanceCard = ({
         ? 'binance-convert-to-usdt' 
         : 'okx-convert-to-usdt';
 
+      console.log(`📡 Chamando edge function: ${functionName}`);
+
       const { data, error } = await supabase.functions.invoke(functionName, {
         body: { ...credentials, minUsdValue: 5 }
       });
 
-      if (error) throw error;
+      console.log('📬 Resposta da edge function:', { data, error });
+
+      if (error) {
+        console.error('❌ Erro na edge function:', error);
+        throw error;
+      }
 
       if (data.success) {
+        console.log('✅ Conversão bem-sucedida!');
         toast({
           title: "✅ Conversão concluída!",
           description: `Total: ${data.totalUsdtReceived?.toFixed(2)} USDT recebido. Atualizando saldos...`,
@@ -184,17 +207,19 @@ export const ExchangeBalanceCard = ({
           description: "Os saldos foram sincronizados com a exchange",
         });
       } else {
+        console.error('❌ Erro retornado pela função:', data.error);
         throw new Error(data.error || 'Erro na conversão');
       }
 
     } catch (error: any) {
-      console.error('Erro na conversão:', error);
+      console.error('❌ Erro na conversão:', error);
       toast({
         title: "❌ Erro na conversão",
-        description: error.message,
+        description: error.message || 'Erro desconhecido ao converter tokens',
         variant: "destructive"
       });
     } finally {
+      console.log('🏁 Finalizando conversão...');
       setConverting(false);
     }
   };
