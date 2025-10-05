@@ -37,6 +37,7 @@ export const ExchangeBalanceCard = ({
   const [balances, setBalances] = useState<Balance[]>([]);
   const [loading, setLoading] = useState(false);
   const [converting, setConverting] = useState(false);
+  const [swapping, setSwapping] = useState(false);
   const [totalValue, setTotalValue] = useState(0);
   const [selectedToken, setSelectedToken] = useState<string>('BTC');
   const [showTokenFilter, setShowTokenFilter] = useState(false);
@@ -173,6 +174,74 @@ export const ExchangeBalanceCard = ({
     return () => clearInterval(interval);
   }, [exchange]);
 
+  const handleSwapToken = async () => {
+    setSwapping(true);
+    try {
+      const credsKey = `${exchange}_credentials`;
+      const credsData = localStorage.getItem(credsKey);
+      
+      if (!credsData) {
+        throw new Error(`Credenciais da ${exchangeNames[exchange]} não encontradas`);
+      }
+
+      const credentials = JSON.parse(credsData);
+
+      // Verificar se tem saldo do token ou de USDT
+      const tokenBalance = balances.find(b => b.symbol === selectedToken);
+      const usdtBalance = balances.find(b => b.symbol === 'USDT');
+
+      let direction = 'toToken'; // Padrão: USDT → Token
+      
+      // Se tem saldo do token, converter para USDT
+      if (tokenBalance && tokenBalance.balance > 0) {
+        direction = 'toUsdt';
+      } else if (!usdtBalance || usdtBalance.balance <= 0) {
+        throw new Error('Saldo insuficiente para conversão');
+      }
+
+      const directionLabel = direction === 'toUsdt' 
+        ? `${selectedToken} → USDT` 
+        : `USDT → ${selectedToken}`;
+
+      toast({
+        title: "🔄 Convertendo",
+        description: `${directionLabel}...`,
+      });
+
+      const functionName = exchange === 'binance' 
+        ? 'binance-swap-token' 
+        : 'okx-swap-token';
+
+      const { data, error } = await supabase.functions.invoke(functionName, {
+        body: { ...credentials, symbol: selectedToken, direction }
+      });
+
+      if (error) throw error;
+
+      if (data.success) {
+        toast({
+          title: "✅ Conversão concluída!",
+          description: data.message,
+        });
+        
+        // Recarregar saldos
+        await fetchBalances();
+      } else {
+        throw new Error(data.error || 'Erro na conversão');
+      }
+
+    } catch (error: any) {
+      console.error('Erro na conversão:', error);
+      toast({
+        title: "❌ Erro na conversão",
+        description: error.message,
+        variant: "destructive"
+      });
+    } finally {
+      setSwapping(false);
+    }
+  };
+
   const profitLoss = totalValue - baseline;
   const profitLossPercent = baseline > 0 ? (profitLoss / baseline) * 100 : 0;
   const isProfit = profitLoss > 0;
@@ -250,7 +319,7 @@ export const ExchangeBalanceCard = ({
 
         {/* Token Selecionado (se filtro ativo) */}
         {showTokenFilter && selectedTokenBalance && (
-          <div className="p-4 border-2 border-primary rounded-lg bg-primary/5">
+          <div className="p-4 border-2 border-primary rounded-lg bg-primary/5 space-y-3">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <p className="text-lg font-bold">{selectedTokenBalance.symbol}</p>
@@ -278,6 +347,20 @@ export const ExchangeBalanceCard = ({
                 <p className="font-semibold text-green-500">+2.5%</p>
               </div>
             </div>
+            
+            {/* Botão de Swap */}
+            <Button
+              onClick={handleSwapToken}
+              disabled={swapping || loading}
+              className="w-full"
+              size="sm"
+            >
+              <ArrowRightLeft className={`h-4 w-4 mr-2 ${swapping ? 'animate-spin' : ''}`} />
+              {selectedTokenBalance.balance > 0 
+                ? `${selectedToken} → USDT` 
+                : `USDT → ${selectedToken}`
+              }
+            </Button>
           </div>
         )}
 
