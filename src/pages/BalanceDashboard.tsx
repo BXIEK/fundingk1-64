@@ -96,6 +96,40 @@ export default function BalanceDashboard() {
             totalBaseline={200}
           />
         </div>
+        
+        {/* Indicador de Spread entre Exchanges */}
+        {bestExchange && binancePrice && okxPrice && (
+          <div className="mt-4 p-4 border rounded-lg bg-gradient-to-r from-primary/5 to-primary/10">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-medium text-muted-foreground mb-1">📊 Spread Cross-Exchange</h3>
+                <p className="text-xs text-muted-foreground">
+                  Diferença de preço entre Binance e OKX
+                </p>
+              </div>
+              <div className="text-right">
+                <div className="flex items-center gap-3">
+                  <div>
+                    <p className="text-2xl font-bold text-primary">
+                      ${bestExchange.spread.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 6 })}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {bestExchange.spreadPercent}% de diferença
+                    </p>
+                  </div>
+                  <div className="text-left border-l pl-3">
+                    <p className="text-xs text-green-500 font-semibold">
+                      Comprar: {bestExchange.buy === 'binance' ? 'Binance' : 'OKX'}
+                    </p>
+                    <p className="text-xs text-red-500 font-semibold">
+                      Vender: {bestExchange.sell === 'binance' ? 'Binance' : 'OKX'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </section>
 
       {/* Hub de Transferências Cross-Platform */}
