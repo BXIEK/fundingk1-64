@@ -467,6 +467,110 @@ export const TotalBalanceCard = ({
         });
 
         setLastExecution(new Date().toLocaleTimeString('pt-BR'));
+        
+        // FASE 3: Aguardar e monitorar para vender na exchange mais cara
+        console.log(`🔍 FASE 3: Iniciando monitoramento para venda na exchange mais cara...`);
+        
+        // Aguardar 5 segundos para garantir que a ordem anterior foi executada
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        
+        // Buscar saldos atualizados novamente
+        const { data: finalPortfolio } = await supabase.functions.invoke('get-portfolio', {
+          body: { user_id: user.id, real_mode: true, force_refresh: true }
+        });
+
+        if (finalPortfolio?.success) {
+          const finalBinanceToken = finalPortfolio.data.portfolio.find(
+            (i: any) => i.exchange === 'Binance' && i.symbol === token
+          );
+          const finalOkxToken = finalPortfolio.data.portfolio.find(
+            (i: any) => i.exchange === 'OKX' && i.symbol === token
+          );
+
+          const finalBinanceBalance = finalBinanceToken ? parseFloat(finalBinanceToken.balance) : 0;
+          const finalOkxBalance = finalOkxToken ? parseFloat(finalOkxToken.balance) : 0;
+
+          console.log(`💰 Saldos finais - Binance: ${finalBinanceBalance} ${token}, OKX: ${finalOkxBalance} ${token}`);
+
+          // Identificar onde o token está (exchange mais barata da compra)
+          const tokenIsOnBinance = finalBinanceBalance >= minTokenBinance;
+          const tokenIsOnOkx = finalOkxBalance >= minTokenOkx;
+
+          // Buscar preços atualizados
+          const { data: latestBinanceData } = await supabase.functions.invoke('binance-market-data', {
+            body: { action: 'tickers', symbols: [`${token}USDT`] }
+          });
+
+          const { data: latestOkxData } = await supabase.functions.invoke('okx-api', {
+            body: { action: 'get_prices' }
+          });
+
+          if (latestBinanceData?.success && latestOkxData?.success) {
+            const latestBinancePrice = latestBinanceData.data?.[`${token}USDT`]?.lastPrice || 
+                                      latestBinanceData.data?.[`${token}USDT`]?.price || binancePrice;
+            const latestOkxPrice = latestOkxData.data?.[token] || okxPrice;
+            const currentSpread = ((latestOkxPrice - latestBinancePrice) / latestBinancePrice) * 100;
+
+            console.log(`📊 Preços atualizados - Binance: $${latestBinancePrice}, OKX: $${latestOkxPrice}, Spread: ${currentSpread.toFixed(3)}%`);
+
+            // Se o spread ainda for favorável (>0.3%), vender na exchange mais cara
+            if (Math.abs(currentSpread) > 0.3) {
+              if (currentSpread > 0 && tokenIsOnBinance) {
+                // OKX mais caro, mas token está na Binance - aguardar próximo ciclo
+                console.log(`⏸️ Token está na Binance (mais barata), aguardando transferência ou próximo ciclo`);
+              } else if (currentSpread < 0 && tokenIsOnOkx) {
+                // Binance mais caro, mas token está na OKX - aguardar próximo ciclo
+                console.log(`⏸️ Token está na OKX (mais barata), aguardando transferência ou próximo ciclo`);
+              } else if (currentSpread > 0 && tokenIsOnOkx && finalOkxBalance >= minTokenOkx) {
+                // OKX mais caro e token está na OKX - VENDER
+                console.log(`🎯 FASE 3: Vendendo ${token} → USDT na OKX (mais cara: $${latestOkxPrice}) [LIMIT ORDER]`);
+                const sellResponse = await supabase.functions.invoke('okx-swap-token', {
+                  body: {
+                    apiKey: okxCreds.api_key,
+                    secretKey: okxCreds.secret_key,
+                    passphrase: okxCreds.passphrase,
+                    symbol: token,
+                    direction: 'toUsdt',
+                    orderType: 'limit'
+                  }
+                });
+
+                if (sellResponse.data?.success) {
+                  const sellProfit = sellResponse.data.executedQty * (latestOkxPrice - latestBinancePrice);
+                  toast.success(`✅ Venda na exchange mais cara!`, {
+                    description: `${token} → USDT na OKX | Lucro adicional: $${sellProfit.toFixed(2)}`,
+                    duration: 7000
+                  });
+                  console.log(`✅ Venda executada na OKX, lucro adicional: $${sellProfit.toFixed(2)}`);
+                }
+              } else if (currentSpread < 0 && tokenIsOnBinance && finalBinanceBalance >= minTokenBinance) {
+                // Binance mais caro e token está na Binance - VENDER
+                console.log(`🎯 FASE 3: Vendendo ${token} → USDT na Binance (mais cara: $${latestBinancePrice}) [LIMIT ORDER]`);
+                const sellResponse = await supabase.functions.invoke('binance-swap-token', {
+                  body: {
+                    apiKey: binanceCreds.api_key,
+                    secretKey: binanceCreds.secret_key,
+                    symbol: token,
+                    direction: 'toUsdt',
+                    orderType: 'limit'
+                  }
+                });
+
+                if (sellResponse.data?.success) {
+                  const sellProfit = sellResponse.data.executedQty * (latestBinancePrice - latestOkxPrice);
+                  toast.success(`✅ Venda na exchange mais cara!`, {
+                    description: `${token} → USDT na Binance | Lucro adicional: $${sellProfit.toFixed(2)}`,
+                    duration: 7000
+                  });
+                  console.log(`✅ Venda executada na Binance, lucro adicional: $${sellProfit.toFixed(2)}`);
+                }
+              }
+            } else {
+              console.log(`⏸️ Spread insuficiente (${currentSpread.toFixed(3)}%) para venda - aguardando melhor momento`);
+            }
+          }
+        }
+
         return;
       }
 
