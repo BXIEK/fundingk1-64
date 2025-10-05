@@ -167,48 +167,108 @@ export const ExchangeBalanceCard = ({
 
       console.log('✅ Credenciais encontradas, iniciando conversão...');
 
-      toast({
-        title: "🔄 Convertendo para USDT",
-        description: `Convertendo tokens na ${exchangeNames[exchange]}...`,
-      });
+      // Se tiver token selecionado no filtro, converter apenas ele
+      if (showTokenFilter && selectedToken && selectedToken !== 'USDT') {
+        const tokenBalance = balances.find(b => b.symbol === selectedToken);
+        
+        if (!tokenBalance || tokenBalance.balance <= 0) {
+          throw new Error(`Saldo insuficiente de ${selectedToken}`);
+        }
 
-      const functionName = exchange === 'binance' 
-        ? 'binance-convert-to-usdt' 
-        : 'okx-convert-to-usdt';
+        console.log(`🎯 Convertendo apenas ${selectedToken} para USDT...`);
 
-      console.log(`📡 Chamando edge function: ${functionName}`);
-
-      const { data, error } = await supabase.functions.invoke(functionName, {
-        body: { ...credentials, minUsdValue: 5 }
-      });
-
-      console.log('📬 Resposta da edge function:', { data, error });
-
-      if (error) {
-        console.error('❌ Erro na edge function:', error);
-        throw error;
-      }
-
-      if (data.success) {
-        console.log('✅ Conversão bem-sucedida!');
         toast({
-          title: "✅ Conversão concluída!",
-          description: `Total: ${data.totalUsdtReceived?.toFixed(2)} USDT recebido. Atualizando saldos...`,
+          title: "🔄 Convertendo para USDT",
+          description: `Convertendo ${selectedToken} para USDT na ${exchangeNames[exchange]}...`,
         });
-        
-        // Aguardar 2 segundos para a exchange processar
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        // Forçar atualização dos saldos com refresh
-        await fetchBalances(true);
-        
-        toast({
-          title: "🔄 Saldos atualizados",
-          description: "Os saldos foram sincronizados com a exchange",
+
+        const functionName = exchange === 'binance' 
+          ? 'binance-swap-token' 
+          : 'okx-swap-token';
+
+        console.log(`📡 Chamando edge function: ${functionName} com token: ${selectedToken}`);
+
+        const { data, error } = await supabase.functions.invoke(functionName, {
+          body: { 
+            ...credentials, 
+            symbol: selectedToken, 
+            direction: 'toUsdt'
+          }
         });
+
+        console.log('📬 Resposta da edge function:', { data, error });
+
+        if (error) {
+          console.error('❌ Erro na edge function:', error);
+          throw error;
+        }
+
+        if (data.success) {
+          console.log('✅ Conversão bem-sucedida!');
+          toast({
+            title: "✅ Conversão concluída!",
+            description: `${selectedToken} convertido para USDT com sucesso! Atualizando saldos...`,
+          });
+          
+          // Aguardar 2 segundos para a exchange processar
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          
+          // Forçar atualização dos saldos com refresh
+          await fetchBalances(true);
+          
+          toast({
+            title: "🔄 Saldos atualizados",
+            description: "Os saldos foram sincronizados com a exchange",
+          });
+        } else {
+          console.error('❌ Erro retornado pela função:', data.error);
+          throw new Error(data.error || 'Erro na conversão');
+        }
       } else {
-        console.error('❌ Erro retornado pela função:', data.error);
-        throw new Error(data.error || 'Erro na conversão');
+        // Converter todos os tokens para USDT (comportamento original)
+        toast({
+          title: "🔄 Convertendo para USDT",
+          description: `Convertendo todos os tokens na ${exchangeNames[exchange]}...`,
+        });
+
+        const functionName = exchange === 'binance' 
+          ? 'binance-convert-to-usdt' 
+          : 'okx-convert-to-usdt';
+
+        console.log(`📡 Chamando edge function: ${functionName}`);
+
+        const { data, error } = await supabase.functions.invoke(functionName, {
+          body: { ...credentials, minUsdValue: 5 }
+        });
+
+        console.log('📬 Resposta da edge function:', { data, error });
+
+        if (error) {
+          console.error('❌ Erro na edge function:', error);
+          throw error;
+        }
+
+        if (data.success) {
+          console.log('✅ Conversão bem-sucedida!');
+          toast({
+            title: "✅ Conversão concluída!",
+            description: `Total: ${data.totalUsdtReceived?.toFixed(2)} USDT recebido. Atualizando saldos...`,
+          });
+          
+          // Aguardar 2 segundos para a exchange processar
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          
+          // Forçar atualização dos saldos com refresh
+          await fetchBalances(true);
+          
+          toast({
+            title: "🔄 Saldos atualizados",
+            description: "Os saldos foram sincronizados com a exchange",
+          });
+        } else {
+          console.error('❌ Erro retornado pela função:', data.error);
+          throw new Error(data.error || 'Erro na conversão');
+        }
       }
 
     } catch (error: any) {
