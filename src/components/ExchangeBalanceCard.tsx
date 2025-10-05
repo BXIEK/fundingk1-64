@@ -129,7 +129,11 @@ export const ExchangeBalanceCard = ({
         description: `Convertendo tokens na ${exchangeNames[exchange]}...`,
       });
 
-      const { data, error } = await supabase.functions.invoke('binance-convert-to-usdt', {
+      const functionName = exchange === 'binance' 
+        ? 'binance-convert-to-usdt' 
+        : 'okx-convert-to-usdt';
+
+      const { data, error } = await supabase.functions.invoke(functionName, {
         body: { ...credentials, minUsdValue: 5 }
       });
 
@@ -138,7 +142,7 @@ export const ExchangeBalanceCard = ({
       if (data.success) {
         toast({
           title: "✅ Conversão concluída!",
-          description: `Total: ${data.totalUsdtReceived?.toFixed(2)} USDT`,
+          description: `Total: ${data.totalUsdtReceived?.toFixed(2)} USDT recebido`,
         });
         
         // Recarregar saldos
@@ -255,18 +259,16 @@ export const ExchangeBalanceCard = ({
             Atualizar
           </Button>
           
-          {exchange === 'binance' && (
-            <Button
-              variant="default"
-              size="sm"
-              onClick={handleConvertToUSDT}
-              disabled={converting || loading}
-              className="flex-1"
-            >
-              <ArrowRightLeft className={`h-4 w-4 mr-2 ${converting ? 'animate-spin' : ''}`} />
-              → USDT
-            </Button>
-          )}
+          <Button
+            variant="default"
+            size="sm"
+            onClick={handleConvertToUSDT}
+            disabled={converting || loading}
+            className="flex-1"
+          >
+            <ArrowRightLeft className={`h-4 w-4 mr-2 ${converting ? 'animate-spin' : ''}`} />
+            → USDT
+          </Button>
         </div>
       </CardContent>
     </Card>
