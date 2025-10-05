@@ -54,34 +54,75 @@ serve(async (req) => {
 
     console.log('📡 Fazendo requisição de saque para www.okx.com...');
 
-    const response = await fetch(`https://www.okx.com${endpoint}`, {
-      method,
-      headers: {
-        'OK-ACCESS-KEY': apiKey,
-        'OK-ACCESS-SIGN': signatureBase64,
-        'OK-ACCESS-TIMESTAMP': timestamp,
-        'OK-ACCESS-PASSPHRASE': passphrase,
-        'Content-Type': 'application/json',
-      },
-      body: bodyStr,
-    })
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 45000); // 45s timeout
 
-    const data = await response.json()
+    try {
+      const response = await fetch(`https://www.okx.com${endpoint}`, {
+        method,
+        headers: {
+          'OK-ACCESS-KEY': apiKey,
+          'OK-ACCESS-SIGN': signatureBase64,
+          'OK-ACCESS-TIMESTAMP': timestamp,
+          'OK-ACCESS-PASSPHRASE': passphrase,
+          'Content-Type': 'application/json',
+        },
+        body: bodyStr,
+        signal: controller.signal
+      })
 
-    if (!response.ok || data.code !== '0') {
-      console.error('❌ Erro da OKX:', data);
-      throw new Error(data.msg || `OKX Error Code: ${data.code}`)
+      clearTimeout(timeoutId);
+
+      const data = await response.json()
+
+      if (!response.ok || data.code !== '0') {
+        console.error('❌ Erro da OKX:', data);
+        
+        // Tratamento específico de erros
+        if (response.status === 401 || response.status === 403) {
+          throw new Error(
+            `❌ ERRO DE AUTENTICAÇÃO (${response.status})\n` +
+            `${data.msg || 'Credenciais inválidas'}\n` +
+            `Verifique API Key, Secret e Passphrase`
+          )
+        }
+        
+        if (response.status === 504) {
+          throw new Error(
+            `⏱️ TIMEOUT (504)\n` +
+            `O servidor da OKX não respondeu a tempo.\n` +
+            `Tente novamente em alguns segundos.`
+          )
+        }
+        
+        throw new Error(data.msg || `OKX Error Code: ${data.code}`)
+      }
+
+      console.log('✅ Saque OKX realizado com sucesso!');
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          data: data.data
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      )
+    } catch (fetchError: any) {
+      clearTimeout(timeoutId);
+      
+      if (fetchError.name === 'AbortError') {
+        console.error('❌ Timeout após 45 segundos');
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: '⏱️ Timeout: A OKX não respondeu em 45 segundos. Tente novamente.'
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 504 }
+        )
+      }
+      
+      throw fetchError;
     }
-
-    console.log('✅ Saque OKX realizado com sucesso!');
-
-    return new Response(
-      JSON.stringify({
-        success: true,
-        data: data.data
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-    )
 
   } catch (error) {
     console.error('Erro no saque da OKX:', error)

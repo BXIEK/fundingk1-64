@@ -291,11 +291,58 @@ serve(async (req) => {
           cryptoAmount = buyResult.executedQty || (finalUsdtInvestment / buyPrice);
           console.log(`💎 Quantidade comprada: ${cryptoAmount} ${symbol}`);
           
-          // 🔥 CRÍTICO: OKX precisa de mais tempo para processar ordens antes de transferência interna
+          // 🔥 CRÍTICO: Verificar se ordem foi totalmente executada antes de prosseguir
           if (buyExchange === 'OKX') {
-            console.log('⏳ [OKX] Aguardando processamento da ordem na Trading Account (12 segundos)...');
-            await new Promise(resolve => setTimeout(resolve, 12000));
-            console.log('✅ Ordem processada, saldo agora disponível para transferência interna');
+            console.log('⏳ [OKX] Verificando execução completa da ordem...');
+            
+            // Tentar até 10 vezes (200 segundos total)
+            let actualBalance = 0;
+            let attempts = 0;
+            const maxAttempts = 10;
+            
+            while (attempts < maxAttempts) {
+              await new Promise(resolve => setTimeout(resolve, 20000)); // 20s entre tentativas
+              attempts++;
+              
+              try {
+                actualBalance = await getExchangeBalance('OKX', symbol.replace('USDT', ''), { binanceApiKey, binanceSecretKey, okxApiKey, okxSecretKey, okxPassphrase });
+                console.log(`   Tentativa ${attempts}/${maxAttempts}: Saldo atual ${actualBalance} ${symbol}, Esperado: ${cryptoAmount}`);
+                
+                // Aceitar 95% da quantidade como sucesso (para lidar com pequenas diferenças de arredondamento)
+                if (actualBalance >= cryptoAmount * 0.95) {
+                  console.log(`✅ Ordem totalmente executada! Saldo disponível: ${actualBalance} ${symbol}`);
+                  cryptoAmount = actualBalance; // Usar o saldo real
+                  break;
+                }
+                
+                // Se tiver pelo menos o mínimo de withdrawal, aceitar (ordem parcial)
+                if (actualBalance >= minWithdrawalAmount && attempts >= 5) {
+                  console.log(`⚠️ ORDEM PARCIALMENTE EXECUTADA após ${attempts} tentativas`);
+                  console.log(`   Saldo: ${actualBalance} ${symbol} (${((actualBalance/cryptoAmount)*100).toFixed(1)}% da ordem)`);
+                  console.log(`   Continuando com quantidade parcial...`);
+                  cryptoAmount = actualBalance;
+                  break;
+                }
+              } catch (error) {
+                const errorMsg = error instanceof Error ? error.message : String(error);
+                console.error(`   Erro ao verificar saldo (tentativa ${attempts}): ${errorMsg}`);
+              }
+            }
+            
+            // Se após todas tentativas não tiver o mínimo, falhar
+            if (actualBalance < minWithdrawalAmount) {
+              throw new Error(
+                `❌ ORDEM NÃO EXECUTADA COMPLETAMENTE\n` +
+                `Saldo final: ${actualBalance} ${symbol}\n` +
+                `Mínimo necessário: ${minWithdrawalAmount} ${symbol}\n` +
+                `Tentativas: ${attempts}\n` +
+                `Possíveis causas:\n` +
+                `• Liquidez insuficiente no mercado\n` +
+                `• Preço se moveu muito rápido\n` +
+                `• Problema temporário na OKX\n\n` +
+                `💡 Solução: Tente com valor menor ou aguarde maior liquidez`
+              );
+            }
           } else {
             console.log('⏳ Aguardando processamento da ordem de compra (3s)...');
             await new Promise(resolve => setTimeout(resolve, 3000));
@@ -329,10 +376,20 @@ serve(async (req) => {
           console.log(`💎 Nova quantidade: ${cryptoAmount} ${symbol}`);
           buyResult = forcedBuyResult;
           
-          // 🔥 CRÍTICO: OKX precisa de mais tempo
+          // 🔥 CRÍTICO: Verificar execução da ordem forçada
           if (buyExchange === 'OKX') {
-            console.log('⏳ [OKX] Aguardando processamento da ordem forçada (12 segundos)...');
-            await new Promise(resolve => setTimeout(resolve, 12000));
+            console.log('⏳ [OKX] Verificando execução da ordem forçada...');
+            await new Promise(resolve => setTimeout(resolve, 15000));
+            
+            try {
+              const verifiedBalance = await getExchangeBalance('OKX', symbol.replace('USDT', ''), { binanceApiKey, binanceSecretKey, okxApiKey, okxSecretKey, okxPassphrase });
+              if (verifiedBalance >= minWithdrawalAmount) {
+                cryptoAmount = verifiedBalance;
+                console.log(`✅ Saldo verificado: ${cryptoAmount} ${symbol}`);
+              }
+            } catch (error) {
+              console.error('⚠️ Erro ao verificar saldo pós-ordem:', error);
+            }
           } else {
             console.log('⏳ Aguardando processamento da ordem de compra (3s)...');
             await new Promise(resolve => setTimeout(resolve, 3000));

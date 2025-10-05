@@ -56,7 +56,8 @@ async function makeOKXRequest(
   endpoint: string, 
   method: 'GET' | 'POST' = 'GET', 
   body?: any,
-  creds?: { apiKey?: string; secretKey?: string; passphrase?: string }
+  creds?: { apiKey?: string; secretKey?: string; passphrase?: string },
+  retries = 3
 ): Promise<any> {
   console.log('🔗 CONEXÃO DIRETA OKX - SEM PROXIES/BYPASS');
 
@@ -69,36 +70,89 @@ async function makeOKXRequest(
   }
 
   const baseUrl = 'https://www.okx.com';
-  const timestamp = new Date().toISOString();
-  const requestPath = endpoint;
-  const bodyStr = body ? JSON.stringify(body) : '';
   
-  const signature = await createOKXSignature(timestamp, method, requestPath, bodyStr, secretKey);
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const timestamp = new Date().toISOString();
+      const requestPath = endpoint;
+      const bodyStr = body ? JSON.stringify(body) : '';
+      
+      const signature = await createOKXSignature(timestamp, method, requestPath, bodyStr, secretKey);
 
-  const headers: Record<string, string> = {
-    'OK-ACCESS-KEY': apiKey,
-    'OK-ACCESS-SIGN': signature,
-    'OK-ACCESS-TIMESTAMP': timestamp,
-    'OK-ACCESS-PASSPHRASE': passphrase,
-    'Content-Type': 'application/json'
-  };
+      const headers: Record<string, string> = {
+        'OK-ACCESS-KEY': apiKey,
+        'OK-ACCESS-SIGN': signature,
+        'OK-ACCESS-TIMESTAMP': timestamp,
+        'OK-ACCESS-PASSPHRASE': passphrase,
+        'Content-Type': 'application/json'
+      };
 
-  console.log(`🌐 OKX Direct Request: ${method} ${baseUrl}${requestPath}`);
+      console.log(`🌐 OKX Request (tentativa ${attempt}/${retries}): ${method} ${baseUrl}${requestPath}`);
 
-  const response = await fetch(`${baseUrl}${requestPath}`, {
-    method,
-    headers,
-    body: bodyStr || undefined,
-  });
+      const response = await fetch(`${baseUrl}${requestPath}`, {
+        method,
+        headers,
+        body: bodyStr || undefined,
+        signal: AbortSignal.timeout(30000) // 30s timeout
+      });
 
-  const data = await response.json();
-  
-  if (!response.ok) {
-    console.error('❌ Erro na requisição OKX:', data);
-    throw new Error(`OKX API Error: ${data.msg || data.error_message || response.statusText}`);
+      const data = await response.json();
+      
+      // Erros que devem ter retry
+      if (!response.ok) {
+        if (response.status === 429) {
+          console.error('⚠️ Rate limit atingido, aguardando...');
+          if (attempt < retries) {
+            await new Promise(resolve => setTimeout(resolve, 5000 * attempt));
+            continue;
+          }
+        }
+        
+        if (response.status === 500 || response.status === 502 || response.status === 503 || response.status === 504) {
+          console.error(`⚠️ Erro ${response.status} (servidor OKX temporariamente indisponível)`);
+          if (attempt < retries) {
+            await new Promise(resolve => setTimeout(resolve, 3000 * attempt));
+            continue;
+          }
+        }
+        
+        if (response.status === 401 || response.status === 403) {
+          throw new Error(
+            `❌ ERRO DE AUTENTICAÇÃO OKX (${response.status})\n` +
+            `${data.msg || data.error_message || 'Credenciais inválidas'}\n\n` +
+            `Possíveis causas:\n` +
+            `• API Key incorreta ou expirada\n` +
+            `• Secret Key incorreto\n` +
+            `• Passphrase incorreta\n` +
+            `• IP não está na whitelist\n` +
+            `• Permissões insuficientes na API Key\n\n` +
+            `💡 Verifique suas credenciais na OKX`
+          );
+        }
+        
+        console.error('❌ Erro na requisição OKX:', data);
+        throw new Error(`OKX API Error (${response.status}): ${data.msg || data.error_message || response.statusText}`);
+      }
+      
+      return data;
+      
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error(`❌ Erro na tentativa ${attempt}/${retries}:`, errorMsg);
+      
+      if (attempt === retries) {
+        throw error;
+      }
+      
+      // Se for timeout, aguardar antes de tentar novamente
+      if (errorMsg.includes('timeout') || errorMsg.includes('504')) {
+        console.log(`⏳ Aguardando ${3 * attempt}s antes de tentar novamente...`);
+        await new Promise(resolve => setTimeout(resolve, 3000 * attempt));
+      }
+    }
   }
-
-  return data;
+  
+  throw new Error('Todas as tentativas falharam');
 }
 
 async function getOKXPrices(creds?: { apiKey?: string; secretKey?: string; passphrase?: string }): Promise<any> {

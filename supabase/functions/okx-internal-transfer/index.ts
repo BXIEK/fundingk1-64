@@ -52,34 +52,62 @@ serve(async (req) => {
 
     console.log('📡 Fazendo requisição de transferência interna para www.okx.com...');
 
-    const response = await fetch(`https://www.okx.com${endpoint}`, {
-      method,
-      headers: {
-        'OK-ACCESS-KEY': apiKey,
-        'OK-ACCESS-SIGN': signatureBase64,
-        'OK-ACCESS-TIMESTAMP': timestamp,
-        'OK-ACCESS-PASSPHRASE': passphrase,
-        'Content-Type': 'application/json',
-      },
-      body: bodyStr,
-    })
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
 
-    const data = await response.json()
+    try {
+      const response = await fetch(`https://www.okx.com${endpoint}`, {
+        method,
+        headers: {
+          'OK-ACCESS-KEY': apiKey,
+          'OK-ACCESS-SIGN': signatureBase64,
+          'OK-ACCESS-TIMESTAMP': timestamp,
+          'OK-ACCESS-PASSPHRASE': passphrase,
+          'Content-Type': 'application/json',
+        },
+        body: bodyStr,
+        signal: controller.signal
+      })
 
-    if (!response.ok || data.code !== '0') {
-      console.error('❌ Erro da OKX:', data);
-      throw new Error(data.msg || `OKX Error Code: ${data.code}`)
+      clearTimeout(timeoutId);
+
+      const data = await response.json()
+
+      if (!response.ok || data.code !== '0') {
+        console.error('❌ Erro da OKX:', data);
+        
+        if (response.status === 401 || response.status === 403) {
+          throw new Error(`❌ Erro de autenticação (${response.status}): ${data.msg || 'Verifique suas credenciais'}`)
+        }
+        
+        throw new Error(data.msg || `OKX Error Code: ${data.code}`)
+      }
+
+      console.log('✅ Transferência interna OKX realizada com sucesso!');
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          data: data.data
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      )
+    } catch (fetchError: any) {
+      clearTimeout(timeoutId);
+      
+      if (fetchError.name === 'AbortError') {
+        console.error('❌ Timeout após 30 segundos');
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: '⏱️ Timeout: Transferência interna não completou em 30s'
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 504 }
+        )
+      }
+      
+      throw fetchError;
     }
-
-    console.log('✅ Transferência interna OKX realizada com sucesso!');
-
-    return new Response(
-      JSON.stringify({
-        success: true,
-        data: data.data
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-    )
 
   } catch (error) {
     console.error('Erro na transferência interna da OKX:', error)
