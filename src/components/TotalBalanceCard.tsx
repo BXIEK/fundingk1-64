@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -45,12 +46,16 @@ export const TotalBalanceCard = ({
 }: TotalBalanceCardProps) => {
   const [autoConvertEnabled, setAutoConvertEnabled] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [btcPrices, setBtcPrices] = useState<PriceData>({ binance: 0, okx: 0, spread: 0 });
+  const [selectedToken, setSelectedToken] = useState<string>('BTC');
+  const [tokenPrices, setTokenPrices] = useState<PriceData>({ binance: 0, okx: 0, spread: 0 });
   const [lastExecution, setLastExecution] = useState<string>('');
   const [binanceTokens, setBinanceTokens] = useState<TokenBalance[]>([]);
   const [okxTokens, setOkxTokens] = useState<TokenBalance[]>([]);
   const [loadingTokens, setLoadingTokens] = useState(false);
   const [activeTab, setActiveTab] = useState<'binance' | 'okx'>('binance');
+
+  // Lista de tokens disponíveis para conversão automática
+  const availableTokens = ['BTC', 'ETH', 'BNB', 'SOL', 'ADA', 'XRP', 'DOT', 'LINK', 'UNI', 'AVAX'];
 
   const totalValue = binanceBalance + okxBalance;
   const profitLoss = totalValue - totalBaseline;
@@ -116,15 +121,17 @@ export const TotalBalanceCard = ({
     return () => clearInterval(interval);
   }, []);
 
-  // Buscar preços BTC a cada 15 segundos
+  // Buscar preços do token selecionado a cada 15 segundos
   useEffect(() => {
-    if (!autoConvertEnabled) return;
+    if (!autoConvertEnabled || !selectedToken) return;
 
     const fetchPrices = async () => {
       try {
-        // Buscar preço Binance usando endpoint correto
+        const symbol = `${selectedToken}USDT`;
+        
+        // Buscar preço Binance
         const { data: binanceData } = await supabase.functions.invoke('binance-market-data', {
-          body: { action: 'tickers', symbols: ['BTCUSDT'] }
+          body: { action: 'tickers', symbols: [symbol] }
         });
 
         // Buscar preço OKX
@@ -133,15 +140,17 @@ export const TotalBalanceCard = ({
         });
 
         if (binanceData?.success && okxData?.success) {
-          const binancePrice = binanceData.data?.BTCUSDT?.lastPrice || binanceData.data?.BTCUSDT?.price || 0;
-          const okxPrice = okxData.data?.BTC || okxData.data?.BTCUSDT || 0;
-          const spread = ((okxPrice - binancePrice) / binancePrice) * 100;
+          const binancePrice = binanceData.data?.[symbol]?.lastPrice || binanceData.data?.[symbol]?.price || 0;
+          const okxPrice = okxData.data?.[selectedToken] || 0;
+          
+          if (binancePrice > 0 && okxPrice > 0) {
+            const spread = ((okxPrice - binancePrice) / binancePrice) * 100;
+            setTokenPrices({ binance: binancePrice, okx: okxPrice, spread });
 
-          setBtcPrices({ binance: binancePrice, okx: okxPrice, spread });
-
-          // Se spread > 0.1%, executar conversão
-          if (spread > 0.1 && !isProcessing) {
-            await executeAutoConversion(binancePrice, okxPrice);
+            // Se spread absoluto > 0.3%, executar conversão
+            if (Math.abs(spread) > 0.3 && !isProcessing) {
+              await executeAutoConversion(binancePrice, okxPrice);
+            }
           }
         }
       } catch (error) {
@@ -149,11 +158,11 @@ export const TotalBalanceCard = ({
       }
     };
 
-    fetchPrices(); // Primeira execução
-    const interval = setInterval(fetchPrices, 15000); // A cada 15s
+    fetchPrices();
+    const interval = setInterval(fetchPrices, 15000);
 
     return () => clearInterval(interval);
-  }, [autoConvertEnabled, isProcessing]);
+  }, [autoConvertEnabled, isProcessing, selectedToken]);
 
   const executeAutoConversion = async (binancePrice: number, okxPrice: number) => {
     setIsProcessing(true);
@@ -163,8 +172,7 @@ export const TotalBalanceCard = ({
       if (!user) throw new Error('Usuário não autenticado');
 
       // Buscar credenciais
-      console.log('🔍 Buscando credenciais da Binance...');
-      const { data: binanceCreds, error: binanceError } = await supabase
+      const { data: binanceCreds } = await supabase
         .from('exchange_api_configs')
         .select('*')
         .eq('user_id', user.id)
@@ -172,8 +180,7 @@ export const TotalBalanceCard = ({
         .eq('is_active', true)
         .maybeSingle();
 
-      console.log('🔍 Buscando credenciais da OKX...');
-      const { data: okxCreds, error: okxError } = await supabase
+      const { data: okxCreds } = await supabase
         .from('exchange_api_configs')
         .select('*')
         .eq('user_id', user.id)
@@ -181,143 +188,114 @@ export const TotalBalanceCard = ({
         .eq('is_active', true)
         .maybeSingle();
 
-      console.log('Binance creds:', binanceCreds ? 'OK' : 'NÃO ENCONTRADO');
-      console.log('OKX creds:', okxCreds ? 'OK' : 'NÃO ENCONTRADO');
-
       if (!binanceCreds || !okxCreds) {
-        console.error('❌ Credenciais não configuradas no banco de dados');
         toast.error('⚠️ Credenciais não encontradas', {
-          description: 'Configure suas credenciais da Binance e OKX na aba "Configuração API" antes de usar a conversão automática.',
-          duration: 7000
+          description: 'Configure suas credenciais da Binance e OKX.',
+          duration: 5000
         });
         setAutoConvertEnabled(false);
         return;
       }
 
-      console.log(`🤖 Auto-Conversão: BTC Binance ($${binancePrice}) vs OKX ($${okxPrice})`);
-      console.log(`📊 Spread: ${btcPrices.spread.toFixed(3)}%`);
-
-      // Buscar saldos de BTC em ambas as exchanges
-      console.log('💰 Verificando saldos de BTC...');
+      // Buscar saldos do token e USDT
       const { data: portfolioData } = await supabase.functions.invoke('get-portfolio', {
-        body: { 
-          user_id: user.id,
-          real_mode: true,
-          force_refresh: false
-        }
+        body: { user_id: user.id, real_mode: true, force_refresh: false }
       });
 
-      if (!portfolioData?.success || !portfolioData?.data?.portfolio) {
-        throw new Error('Não foi possível verificar o saldo de BTC');
-      }
+      if (!portfolioData?.success) throw new Error('Erro ao buscar saldos');
 
-      // Filtrar saldos de BTC
-      const binanceBTC = portfolioData.data.portfolio.find(
-        (item: any) => item.exchange === 'Binance' && item.symbol === 'BTC'
-      );
-      const okxBTC = portfolioData.data.portfolio.find(
-        (item: any) => item.exchange === 'OKX' && item.symbol === 'BTC'
-      );
-
-      const binanceBTCBalance = binanceBTC ? parseFloat(binanceBTC.balance) : 0;
-      const okxBTCBalance = okxBTC ? parseFloat(okxBTC.balance) : 0;
-
-      console.log(`💰 Saldo BTC Binance: ${binanceBTCBalance}`);
-      console.log(`💰 Saldo BTC OKX: ${okxBTCBalance}`);
-
-      // Determinar qual exchange tem BTC mais caro e verificar saldo
-      const btcMoreExpensiveOnOkx = okxPrice > binancePrice;
-      const expensiveExchange = btcMoreExpensiveOnOkx ? 'OKX' : 'Binance';
-      const expensivePrice = btcMoreExpensiveOnOkx ? okxPrice : binancePrice;
-      const btcBalance = btcMoreExpensiveOnOkx ? okxBTCBalance : binanceBTCBalance;
+      const portfolio = portfolioData.data.portfolio;
       
-      // Calcular valor mínimo necessário (5 USDT)
+      // Filtrar saldos por exchange
+      const binanceToken = portfolio.find((i: any) => i.exchange === 'Binance' && i.symbol === selectedToken);
+      const okxToken = portfolio.find((i: any) => i.exchange === 'OKX' && i.symbol === selectedToken);
+      const binanceUSDT = portfolio.find((i: any) => i.exchange === 'Binance' && i.symbol === 'USDT');
+      const okxUSDT = portfolio.find((i: any) => i.exchange === 'OKX' && i.symbol === 'USDT');
+
+      const binanceTokenBalance = binanceToken ? parseFloat(binanceToken.balance) : 0;
+      const okxTokenBalance = okxToken ? parseFloat(okxToken.balance) : 0;
+      const binanceUSDTBalance = binanceUSDT ? parseFloat(binanceUSDT.balance) : 0;
+      const okxUSDTBalance = okxUSDT ? parseFloat(okxUSDT.balance) : 0;
+
+      console.log(`💰 Saldos - Binance: ${binanceTokenBalance} ${selectedToken}, ${binanceUSDTBalance} USDT`);
+      console.log(`💰 Saldos - OKX: ${okxTokenBalance} ${selectedToken}, ${okxUSDTBalance} USDT`);
+      console.log(`📊 Preços - Binance: $${binancePrice}, OKX: $${okxPrice}, Spread: ${tokenPrices.spread.toFixed(3)}%`);
+
       const minNotionalUSD = 5;
-      const minBTCNeeded = minNotionalUSD / expensivePrice;
+      let result, error, executedAction;
 
-      console.log(`🎯 ESTRATÉGIA: Converter BTC → USDT na ${expensiveExchange} (preço: $${expensivePrice})`);
-      console.log(`📊 Saldo disponível: ${btcBalance} BTC`);
-      console.log(`📏 Mínimo necessário: ${minBTCNeeded.toFixed(8)} BTC (${minNotionalUSD} USDT)`);
+      // Decidir estratégia baseado no spread
+      if (okxPrice > binancePrice && tokenPrices.spread > 0.3) {
+        // OKX mais caro: Vender token na OKX por USDT
+        const minTokenNeeded = minNotionalUSD / okxPrice;
+        
+        if (okxTokenBalance < minTokenNeeded) {
+          toast.warning(`⚠️ Saldo ${selectedToken} insuficiente na OKX`, {
+            description: `Necessário: ${minTokenNeeded.toFixed(6)} ${selectedToken}`,
+            duration: 5000
+          });
+          return;
+        }
 
-      // Verificar se há saldo suficiente
-      if (btcBalance < minBTCNeeded) {
-        console.log(`⚠️ Saldo insuficiente. Necessário: ${minBTCNeeded.toFixed(8)} BTC, disponível: ${btcBalance} BTC`);
-        toast.warning('⚠️ Saldo BTC insuficiente', {
-          description: `Saldo de BTC na ${expensiveExchange} é muito baixo para conversão (mínimo: ${minNotionalUSD} USDT)`,
-          duration: 5000
-        });
-        return;
-      }
-
-      // Verificar se vale a pena converter (saldo deve valer pelo menos $10 para compensar)
-      const btcValueUSD = btcBalance * expensivePrice;
-      if (btcValueUSD < 10) {
-        console.log(`⚠️ Valor muito baixo para conversão: $${btcValueUSD.toFixed(2)}`);
-        toast.info('💡 Saldo BTC muito baixo', {
-          description: `Valor em BTC ($${btcValueUSD.toFixed(2)}) é muito baixo. Aguardando acúmulo maior.`,
-          duration: 5000
-        });
-        return;
-      }
-
-      let result, error;
-
-      if (btcMoreExpensiveOnOkx) {
-        // Vender BTC na OKX (mais caro)
-        console.log('💰 Invocando okx-swap-token (SELL) com saldo disponível...');
+        console.log(`🎯 Vender ${selectedToken} → USDT na OKX ($${okxPrice})`);
         const response = await supabase.functions.invoke('okx-swap-token', {
           body: {
             apiKey: okxCreds.api_key,
             secretKey: okxCreds.secret_key,
             passphrase: okxCreds.passphrase,
-            symbol: 'BTC',
+            symbol: selectedToken,
             direction: 'toUsdt'
           }
         });
         result = response.data;
         error = response.error;
-        console.log('📦 Resultado OKX:', result);
-      } else {
-        // Vender BTC na Binance (mais caro)
-        console.log('💰 Invocando binance-swap-token (SELL) com saldo disponível...');
+        executedAction = `${selectedToken} → USDT (OKX)`;
+
+      } else if (binancePrice > okxPrice && Math.abs(tokenPrices.spread) > 0.3) {
+        // Binance mais caro: Vender token na Binance por USDT
+        const minTokenNeeded = minNotionalUSD / binancePrice;
+        
+        if (binanceTokenBalance < minTokenNeeded) {
+          toast.warning(`⚠️ Saldo ${selectedToken} insuficiente na Binance`, {
+            description: `Necessário: ${minTokenNeeded.toFixed(6)} ${selectedToken}`,
+            duration: 5000
+          });
+          return;
+        }
+
+        console.log(`🎯 Vender ${selectedToken} → USDT na Binance ($${binancePrice})`);
         const response = await supabase.functions.invoke('binance-swap-token', {
           body: {
             apiKey: binanceCreds.api_key,
             secretKey: binanceCreds.secret_key,
-            symbol: 'BTC',
+            symbol: selectedToken,
             direction: 'toUsdt'
           }
         });
         result = response.data;
         error = response.error;
-        console.log('📦 Resultado Binance:', result);
+        executedAction = `${selectedToken} → USDT (Binance)`;
+      } else {
+        console.log('⏸️ Spread insuficiente para conversão');
+        return;
       }
 
-      if (error) {
-        console.error('❌ Erro na requisição:', error);
-        throw new Error(`Erro na venda BTC ${expensiveExchange}: ${error.message}`);
+      if (error || !result?.success) {
+        throw new Error(result?.error || error?.message || 'Erro na conversão');
       }
-
-      if (!result?.success) {
-        const errorMsg = result?.error || 'Erro desconhecido';
-        console.error('❌ Venda falhou:', errorMsg);
-        throw new Error(`Erro na venda BTC ${expensiveExchange}: ${errorMsg}`);
-      }
-
-      console.log(`✅ Venda BTC realizada na ${expensiveExchange}`);
 
       const profit = result.executedQty * Math.abs(okxPrice - binancePrice);
       
-      toast.success(`✅ Conversão automática executada!`, {
-        description: `${result.executedQty.toFixed(6)} BTC → USDT | Lucro: $${profit.toFixed(2)}`,
+      toast.success(`✅ Rebalanceamento automático!`, {
+        description: `${executedAction} | Lucro: $${profit.toFixed(2)}`,
         duration: 7000
       });
 
       setLastExecution(new Date().toLocaleTimeString('pt-BR'));
 
     } catch (error: any) {
-      console.error('Erro na conversão automática:', error);
-      toast.error('Erro na conversão automática', {
+      console.error('Erro no rebalanceamento:', error);
+      toast.error('Erro no rebalanceamento', {
         description: error.message
       });
     } finally {
@@ -334,8 +312,21 @@ export const TotalBalanceCard = ({
             Saldo Total (Todas as Exchanges)
           </CardTitle>
           
-          {/* Switch de Conversão Automatizada */}
+          {/* Controles de Conversão Automatizada */}
           <div className="flex items-center gap-2">
+            <Select value={selectedToken} onValueChange={setSelectedToken} disabled={autoConvertEnabled}>
+              <SelectTrigger className="w-[100px] h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {availableTokens.map((token) => (
+                  <SelectItem key={token} value={token} className="text-xs">
+                    {token}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            
             <Label htmlFor="auto-convert" className="text-sm font-normal cursor-pointer flex items-center gap-1">
               <Zap className={`h-4 w-4 ${autoConvertEnabled ? 'text-green-500' : 'text-muted-foreground'}`} />
               Auto
@@ -366,20 +357,20 @@ export const TotalBalanceCard = ({
               )}
             </div>
             
-            {btcPrices.binance > 0 && (
+            {tokenPrices.binance > 0 && (
               <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
                 <div>
                   <p className="text-muted-foreground">Binance</p>
-                  <p className="font-mono font-semibold">${btcPrices.binance.toFixed(2)}</p>
+                  <p className="font-mono font-semibold">${tokenPrices.binance.toFixed(tokenPrices.binance < 1 ? 6 : 2)}</p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">OKX</p>
-                  <p className="font-mono font-semibold">${btcPrices.okx.toFixed(2)}</p>
+                  <p className="font-mono font-semibold">${tokenPrices.okx.toFixed(tokenPrices.okx < 1 ? 6 : 2)}</p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Spread</p>
-                  <p className={`font-mono font-semibold ${btcPrices.spread > 0.1 ? 'text-green-500' : ''}`}>
-                    {btcPrices.spread.toFixed(3)}%
+                  <p className={`font-mono font-semibold ${Math.abs(tokenPrices.spread) > 0.3 ? 'text-green-500' : ''}`}>
+                    {tokenPrices.spread > 0 ? '+' : ''}{tokenPrices.spread.toFixed(3)}%
                   </p>
                 </div>
               </div>
