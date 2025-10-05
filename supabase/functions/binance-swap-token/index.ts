@@ -47,6 +47,8 @@ serve(async (req) => {
     let tradePair = '';
     let orderSide = '';
     let orderQuantity = 0;
+    let usdtAmountForBuy = 0; // For BUY orders using quoteOrderQty
+    let currentPrice = 0; // Latest market price used for NOTIONAL checks
 
     if (direction === 'toUsdt') {
       // Converter token para USDT (SELL)
@@ -66,6 +68,12 @@ serve(async (req) => {
       if (orderQuantity > sourceBalance) {
         throw new Error(`Quantidade solicitada (${orderQuantity}) maior que saldo disponível (${sourceBalance})`);
       }
+
+      // Buscar preço atual para validação de NOTIONAL
+      const tickerUrl = `${baseUrl}/api/v3/ticker/price?symbol=${tradePair}`;
+      const tickerResponse = await fetch(tickerUrl);
+      const tickerData = await tickerResponse.json();
+      currentPrice = parseFloat(tickerData.price);
     } else {
       // Converter USDT para token (BUY)
       const usdtBalance = balances.find((b: any) => b.asset === 'USDT');
@@ -83,18 +91,19 @@ serve(async (req) => {
       const tickerUrl = `${baseUrl}/api/v3/ticker/price?symbol=${tradePair}`;
       const tickerResponse = await fetch(tickerUrl);
       const tickerData = await tickerResponse.json();
-      const currentPrice = parseFloat(tickerData.price);
+      currentPrice = parseFloat(tickerData.price);
 
       if (customAmount) {
         // Se valor personalizado de USDT foi especificado
-        const usdtToSpend = customAmount;
-        if (usdtToSpend > sourceBalance) {
+        usdtAmountForBuy = customAmount;
+        if (usdtAmountForBuy > sourceBalance) {
           throw new Error(`Saldo insuficiente. Disponível: ${sourceBalance} USDT`);
         }
-        orderQuantity = usdtToSpend / currentPrice;
+        orderQuantity = usdtAmountForBuy / currentPrice;
       } else {
         // Usar 95% do saldo USDT para evitar erros de saldo insuficiente
-        orderQuantity = (sourceBalance * 0.95) / currentPrice;
+        usdtAmountForBuy = sourceBalance * 0.95;
+        orderQuantity = usdtAmountForBuy / currentPrice;
       }
 
       console.log(`📊 Preço atual de ${symbol}: $${currentPrice}`);
@@ -111,14 +120,55 @@ serve(async (req) => {
 
     const exchangeInfo = await exchangeInfoResponse.json();
     const symbolInfo = exchangeInfo.symbols[0];
-    const lotSizeFilter = symbolInfo.filters.find((f: any) => f.filterType === 'LOT_SIZE');
+    const lotSizeFilter = symbolInfo.filters.find((f: any) => f.filterType === 'LOT_SIZE' || f.filterType === 'MARKET_LOT_SIZE');
     const stepSize = parseFloat(lotSizeFilter.stepSize);
     const minQty = parseFloat(lotSizeFilter.minQty);
+    const notionalFilter = symbolInfo.filters.find((f: any) => f.filterType === 'MIN_NOTIONAL' || f.filterType === 'NOTIONAL');
+    const minNotional = notionalFilter ? parseFloat(notionalFilter.minNotional) : 0;
 
     // Ajustar quantidade ao step size
     const precision = stepSize.toString().split('.')[1]?.length || 0;
     orderQuantity = Math.floor(orderQuantity / stepSize) * stepSize;
     orderQuantity = parseFloat(orderQuantity.toFixed(precision));
+
+    // Validar NOTIONAL mínimo da Binance
+    if (minNotional > 0) {
+      if (direction === 'toUsdt') {
+        const notional = orderQuantity * currentPrice;
+        if (notional < minNotional) {
+          const requiredQtyRaw = minNotional / currentPrice;
+          const requiredQty = Math.ceil(requiredQtyRaw / stepSize) * stepSize;
+          const requiredQtyFixed = parseFloat(requiredQty.toFixed(precision));
+
+          if (customAmount) {
+            throw new Error(`Valor da ordem abaixo do NOTIONAL mínimo da Binance (${minNotional} USDT). Sua ordem: ${notional.toFixed(2)} USDT.`);
+          }
+          if (requiredQtyFixed <= sourceBalance) {
+            console.log(`ℹ️ Ajustando quantidade para atender NOTIONAL mínimo: ${requiredQtyFixed} ${symbol}`);
+            orderQuantity = requiredQtyFixed;
+          } else {
+            throw new Error(`Saldo insuficiente para atender NOTIONAL mínimo de ${minNotional} USDT. Necessário ~ ${requiredQtyFixed} ${symbol}, disponível ${sourceBalance}.`);
+          }
+        }
+      } else {
+        if (usdtAmountForBuy < minNotional) {
+          if (customAmount) {
+            throw new Error(`Valor em USDT abaixo do NOTIONAL mínimo (${minNotional} USDT). Informado: ${usdtAmountForBuy} USDT.`);
+          }
+          if (sourceBalance >= minNotional) {
+            console.log(`ℹ️ Ajustando quoteOrderQty para NOTIONAL mínimo: ${minNotional} USDT`);
+            usdtAmountForBuy = minNotional;
+            orderQuantity = usdtAmountForBuy / currentPrice;
+          } else {
+            throw new Error(`Saldo de USDT insuficiente para o NOTIONAL mínimo da Binance: ${minNotional} USDT. Disponível: ${sourceBalance} USDT.`);
+          }
+        }
+      }
+
+      // Reaplicar arredondamento após ajustes
+      orderQuantity = Math.floor(orderQuantity / stepSize) * stepSize;
+      orderQuantity = parseFloat(orderQuantity.toFixed(precision));
+    }
 
     console.log(`📏 Quantidade ajustada: ${orderQuantity} ${symbol}`);
 
@@ -133,9 +183,8 @@ serve(async (req) => {
     if (direction === 'toUsdt') {
       orderQuery += `&quantity=${orderQuantity}`;
     } else {
-      // Para BUY, usar quoteOrderQty (valor em USDT)
-      const usdtAmount = customAmount || (sourceBalance * 0.95);
-      orderQuery += `&quoteOrderQty=${usdtAmount}`;
+      // Para BUY, usar quoteOrderQty (valor em USDT) já validado contra NOTIONAL
+      orderQuery += `&quoteOrderQty=${usdtAmountForBuy}`;
     }
 
     const orderSignature = await createSignature(orderQuery, secretKey);
