@@ -29,7 +29,7 @@ interface ConversionConfig {
 export const AutoTokenConverter = () => {
   const [configs, setConfigs] = useState<ConversionConfig[]>([]);
   const [currentPrices, setCurrentPrices] = useState<Map<string, TokenPrice>>(new Map());
-  const [loading, setLoading] = useState(false);
+  const [showAddForm, setShowAddForm] = useState(false);
   
   // Novo config
   const [newConfig, setNewConfig] = useState<ConversionConfig>({
@@ -197,6 +197,7 @@ export const AutoTokenConverter = () => {
 
     setConfigs([...configs, { ...newConfig }]);
     toast.success('✅ Configuração adicionada');
+    setShowAddForm(false);
     
     // Reset form
     setNewConfig({
@@ -227,38 +228,45 @@ export const AutoTokenConverter = () => {
 
   return (
     <Card className="border-primary/20">
-      <CardHeader>
+      <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <Target className="h-5 w-5 text-primary" />
-              Conversão Automatizada de Tokens
-            </CardTitle>
-            <CardDescription>
-              Compre baixo, venda alto automaticamente em cada exchange
-            </CardDescription>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Target className="h-5 w-5 text-primary" />
+            Conversão Automatizada
+          </CardTitle>
+          <div className="flex items-center gap-2">
+            {configs.filter(c => c.enabled).length > 0 && (
+              <Badge variant="default" className="text-xs">
+                <Zap className="h-3 w-3 mr-1" />
+                {configs.filter(c => c.enabled).length} Ativo{configs.filter(c => c.enabled).length > 1 ? 's' : ''}
+              </Badge>
+            )}
+            <Button 
+              size="sm" 
+              variant="outline"
+              onClick={() => setShowAddForm(!showAddForm)}
+            >
+              {showAddForm ? 'Cancelar' : '+ Nova'}
+            </Button>
           </div>
-          <Badge variant={configs.some(c => c.enabled) ? "default" : "outline"}>
-            {configs.filter(c => c.enabled).length} Ativos
-          </Badge>
         </div>
+        <CardDescription className="text-xs">
+          Compre baixo, venda alto automaticamente
+        </CardDescription>
       </CardHeader>
 
-      <CardContent className="space-y-6">
-        {/* Nova Configuração */}
-        <div className="p-4 border rounded-lg bg-muted/30 space-y-4">
-          <h3 className="font-semibold text-sm">Nova Estratégia</h3>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Exchange</Label>
+      <CardContent className="space-y-3">
+        {/* Formulário Compacto */}
+        {showAddForm && (
+          <div className="p-3 border rounded-lg bg-muted/20 space-y-3">
+            <div className="grid grid-cols-2 gap-2">
               <Select
                 value={newConfig.exchange}
                 onValueChange={(value: 'binance' | 'okx') => 
                   setNewConfig({ ...newConfig, exchange: value })
                 }
               >
-                <SelectTrigger>
+                <SelectTrigger className="h-8 text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -266,15 +274,12 @@ export const AutoTokenConverter = () => {
                   <SelectItem value="okx">OKX</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
 
-            <div className="space-y-2">
-              <Label>Token</Label>
               <Select
                 value={newConfig.symbol}
                 onValueChange={(value) => setNewConfig({ ...newConfig, symbol: value })}
               >
-                <SelectTrigger>
+                <SelectTrigger className="h-8 text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -287,10 +292,8 @@ export const AutoTokenConverter = () => {
               </Select>
             </div>
 
-            <div className="space-y-2">
-              <Label>Preço de Compra (USD)</Label>
-              <div className="flex gap-2 items-center">
-                <TrendingDown className="h-4 w-4 text-green-500" />
+            <div className="grid grid-cols-3 gap-2">
+              <div>
                 <Input
                   type="number"
                   step="0.01"
@@ -299,15 +302,11 @@ export const AutoTokenConverter = () => {
                     ...newConfig, 
                     buyTargetPrice: parseFloat(e.target.value) || 0 
                   })}
-                  placeholder="Ex: 95000"
+                  placeholder="Compra $"
+                  className="h-8 text-xs"
                 />
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Preço de Venda (USD)</Label>
-              <div className="flex gap-2 items-center">
-                <TrendingUp className="h-4 w-4 text-red-500" />
+              <div>
                 <Input
                   type="number"
                   step="0.01"
@@ -316,15 +315,11 @@ export const AutoTokenConverter = () => {
                     ...newConfig, 
                     sellTargetPrice: parseFloat(e.target.value) || 0 
                   })}
-                  placeholder="Ex: 105000"
+                  placeholder="Venda $"
+                  className="h-8 text-xs"
                 />
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Valor por Operação (USDT)</Label>
-              <div className="flex gap-2 items-center">
-                <DollarSign className="h-4 w-4 text-primary" />
+              <div>
                 <Input
                   type="number"
                   step="10"
@@ -333,116 +328,95 @@ export const AutoTokenConverter = () => {
                     ...newConfig, 
                     amountUsdt: parseFloat(e.target.value) || 0 
                   })}
-                  placeholder="Ex: 100"
+                  placeholder="USDT"
+                  className="h-8 text-xs"
                 />
               </div>
             </div>
 
-            <div className="flex items-end">
-              <Button onClick={addConfig} className="w-full">
-                <Zap className="h-4 w-4 mr-2" />
-                Adicionar Estratégia
-              </Button>
-            </div>
+            <Button onClick={addConfig} size="sm" className="w-full h-8 text-xs">
+              <Zap className="h-3 w-3 mr-1" />
+              Adicionar
+            </Button>
           </div>
-        </div>
+        )}
 
-        {/* Estratégias Ativas */}
-        <div className="space-y-3">
-          <h3 className="font-semibold text-sm flex items-center gap-2">
-            Estratégias Configuradas
-            <RefreshCw className="h-4 w-4 animate-spin text-primary" />
-          </h3>
+        {/* Lista Compacta */}
+        {configs.length === 0 ? (
+          <div className="text-center py-6 text-muted-foreground text-xs">
+            Nenhuma estratégia ativa
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {configs.map((config, index) => {
+              const currentPrice = getCurrentPrice(config.exchange, config.symbol);
+              const shouldBuy = currentPrice > 0 && currentPrice <= config.buyTargetPrice;
+              const shouldSell = currentPrice > 0 && currentPrice >= config.sellTargetPrice;
 
-          {configs.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              Nenhuma estratégia configurada
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {configs.map((config, index) => {
-                const currentPrice = getCurrentPrice(config.exchange, config.symbol);
-                const shouldBuy = currentPrice > 0 && currentPrice <= config.buyTargetPrice;
-                const shouldSell = currentPrice > 0 && currentPrice >= config.sellTargetPrice;
-
-                return (
-                  <Card key={index} className="border-muted">
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-2 flex-1">
-                          <div className="flex items-center gap-2">
-                            <h4 className="font-semibold">{config.symbol}</h4>
-                            <Badge variant="outline" className="text-xs">
-                              {config.exchange.toUpperCase()}
-                            </Badge>
-                            {shouldBuy && config.enabled && (
-                              <Badge className="bg-green-500 text-xs">
-                                🔵 COMPRAR AGORA
-                              </Badge>
-                            )}
-                            {shouldSell && config.enabled && (
-                              <Badge className="bg-red-500 text-xs">
-                                🟢 VENDER AGORA
-                              </Badge>
-                            )}
-                          </div>
-
-                          <div className="grid grid-cols-3 gap-4 text-sm">
-                            <div>
-                              <span className="text-muted-foreground">Compra:</span>
-                              <p className="font-mono text-green-600">
-                                ${config.buyTargetPrice.toFixed(2)}
-                              </p>
-                            </div>
-                            <div>
-                              <span className="text-muted-foreground">Atual:</span>
-                              <p className="font-mono font-semibold">
-                                ${currentPrice.toFixed(2)}
-                              </p>
-                            </div>
-                            <div>
-                              <span className="text-muted-foreground">Venda:</span>
-                              <p className="font-mono text-red-600">
-                                ${config.sellTargetPrice.toFixed(2)}
-                              </p>
-                            </div>
-                          </div>
-
-                          <div className="text-sm text-muted-foreground">
-                            <DollarSign className="h-3 w-3 inline mr-1" />
-                            Valor: {config.amountUsdt} USDT
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <Switch
-                            checked={config.enabled}
-                            onCheckedChange={() => toggleConfig(index)}
-                          />
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeConfig(index)}
-                          >
-                            🗑️
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          )}
-        </div>
+              return (
+                <div key={index} className="p-2 border rounded-lg bg-card text-xs">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-semibold">{config.symbol}</span>
+                      <Badge variant="outline" className="text-[10px] h-4 px-1">
+                        {config.exchange.toUpperCase()}
+                      </Badge>
+                      {shouldBuy && config.enabled && (
+                        <Badge className="bg-green-500 text-[10px] h-4 px-1">
+                          COMPRAR
+                        </Badge>
+                      )}
+                      {shouldSell && config.enabled && (
+                        <Badge className="bg-red-500 text-[10px] h-4 px-1">
+                          VENDER
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Switch
+                        checked={config.enabled}
+                        onCheckedChange={() => toggleConfig(index)}
+                        className="scale-75"
+                      />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeConfig(index)}
+                        className="h-6 w-6 p-0"
+                      >
+                        🗑️
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                    <span className="text-green-600">
+                      <TrendingDown className="h-2.5 w-2.5 inline mr-0.5" />
+                      ${config.buyTargetPrice.toFixed(0)}
+                    </span>
+                    <span className="font-mono font-semibold text-foreground">
+                      ${currentPrice.toFixed(0)}
+                    </span>
+                    <span className="text-red-600">
+                      <TrendingUp className="h-2.5 w-2.5 inline mr-0.5" />
+                      ${config.sellTargetPrice.toFixed(0)}
+                    </span>
+                    <span>
+                      <DollarSign className="h-2.5 w-2.5 inline" />
+                      {config.amountUsdt}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         {configs.some(c => c.enabled) && (
-          <Alert className="bg-primary/5 border-primary/20">
-            <Zap className="h-4 w-4 text-primary" />
-            <AlertDescription>
-              ⚡ Sistema monitorando preços e executando conversões automaticamente
-            </AlertDescription>
-          </Alert>
+          <div className="flex items-center gap-1.5 text-[10px] text-primary bg-primary/5 p-2 rounded">
+            <RefreshCw className="h-3 w-3 animate-spin" />
+            <span>Monitorando e executando automaticamente</span>
+          </div>
         )}
       </CardContent>
     </Card>
