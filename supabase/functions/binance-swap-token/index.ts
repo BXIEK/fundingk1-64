@@ -190,12 +190,14 @@ serve(async (req) => {
 
   } catch (error: any) {
     console.error('❌ Erro na conversão:', error);
+    
+    // Retornar status 200 com success: false para que o frontend possa processar o erro
     return new Response(
       JSON.stringify({
         success: false,
-        error: error.message
+        error: error.message || 'Erro desconhecido na conversão'
       }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );
   }
 });
