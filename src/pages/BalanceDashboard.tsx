@@ -92,11 +92,19 @@ export default function BalanceDashboard() {
           />
           
           {/* Saldo Total */}
-          <TotalBalanceCard 
-            binanceBalance={binanceBalance}
-            okxBalance={okxBalance}
-            totalBaseline={200}
-          />
+      <TotalBalanceCard 
+        binanceBalance={binanceBalance} 
+        okxBalance={okxBalance}
+        totalBaseline={200}
+        spreadData={bestExchange && binancePrice && okxPrice ? {
+          symbol: 'BTC',
+          spreadPercent: parseFloat(bestExchange.spreadPercent),
+          buyExchange: bestExchange.buy === 'binance' ? 'Binance' : 'OKX',
+          sellExchange: bestExchange.sell === 'binance' ? 'Binance' : 'OKX',
+          buyPrice: bestExchange.buy === 'binance' ? binancePrice : okxPrice,
+          sellPrice: bestExchange.sell === 'binance' ? binancePrice : okxPrice,
+        } : null}
+      />
         </div>
         
         {/* Indicador de Spread entre Exchanges */}

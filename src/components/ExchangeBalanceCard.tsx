@@ -56,8 +56,6 @@ export const ExchangeBalanceCard = ({
   const [showSwapDialog, setShowSwapDialog] = useState(false);
   const [realtimePrice, setRealtimePrice] = useState<number | null>(null);
   const [priceChange24h, setPriceChange24h] = useState<number | null>(null);
-  const [autoConvertMode, setAutoConvertMode] = useState(false);
-  const [autoConvertThreshold, setAutoConvertThreshold] = useState(10); // Valor mínimo em USD para conversão automática
 
   const exchangeNames = {
     binance: 'Binance',
@@ -354,33 +352,6 @@ export const ExchangeBalanceCard = ({
     }
   }, [selectedToken, exchange]);
 
-  // Conversão automática - verifica saldos e converte se necessário
-  useEffect(() => {
-    if (!autoConvertMode) return;
-
-    const checkAndAutoConvert = () => {
-      // Encontrar tokens com valor acima do threshold (exceto USDT)
-      const tokensToConvert = balances.filter(
-        b => b.symbol !== 'USDT' && b.valueUsd >= autoConvertThreshold
-      );
-
-      if (tokensToConvert.length > 0) {
-        console.log(`🤖 Modo Automático: ${tokensToConvert.length} tokens elegíveis para conversão automática`);
-        
-        // Notificar usuário sobre conversão automática pendente
-        toast({
-          title: "🤖 Conversão Automática Ativa",
-          description: `${tokensToConvert.length} token(s) com valor acima de $${autoConvertThreshold} detectado(s). Clique em "→ USDT" para converter.`,
-        });
-      }
-    };
-
-    // Verificar a cada 30 segundos
-    const interval = setInterval(checkAndAutoConvert, 30000);
-    checkAndAutoConvert(); // Executar imediatamente
-
-    return () => clearInterval(interval);
-  }, [autoConvertMode, balances, autoConvertThreshold]);
 
   const profitLoss = totalValue - baseline;
   const profitLossPercent = baseline > 0 ? (profitLoss / baseline) * 100 : 0;
@@ -420,40 +391,6 @@ export const ExchangeBalanceCard = ({
               Conectado
             </Badge>
           </div>
-        </div>
-        
-        {/* Modo de Conversão */}
-        <div className="mt-3 flex items-center justify-between p-3 border rounded-lg bg-muted/30">
-          <div className="flex items-center gap-2">
-            {autoConvertMode ? (
-              <Zap className="h-4 w-4 text-primary animate-pulse" />
-            ) : (
-              <Settings className="h-4 w-4 text-muted-foreground" />
-            )}
-            <div>
-              <Label htmlFor={`auto-convert-${exchange}`} className="text-sm font-semibold cursor-pointer">
-                {autoConvertMode ? "🤖 Conversão Automática" : "✋ Conversão Manual"}
-              </Label>
-              <p className="text-xs text-muted-foreground">
-                {autoConvertMode 
-                  ? `Alertar quando tokens > $${autoConvertThreshold}` 
-                  : "Você controla quando converter"}
-              </p>
-            </div>
-          </div>
-          <Switch
-            id={`auto-convert-${exchange}`}
-            checked={autoConvertMode}
-            onCheckedChange={(checked) => {
-              setAutoConvertMode(checked);
-              toast({
-                title: checked ? "🤖 Modo Automático Ativado" : "✋ Modo Manual Ativado",
-                description: checked 
-                  ? `Você será alertado quando houver tokens acima de $${autoConvertThreshold}` 
-                  : "Você terá controle total sobre as conversões",
-              });
-            }}
-          />
         </div>
         
         {showTokenFilter && (
