@@ -7,6 +7,7 @@ import { TradingModeValidator } from "@/components/TradingModeValidator";
 import { SmartProxyDashboard } from "@/components/SmartProxyDashboard";
 import SyntheticPairsArbitrage from "@/components/SyntheticPairsArbitrage";
 import MobileAPIManager from "@/components/MobileAPIManger";
+import { Header } from "@/components/Header";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -122,11 +123,15 @@ const Index = () => {
   }
   
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 p-2 sm:p-4">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
+      {/* Header com Logout */}
+      <Header />
+      
+      <div className="p-2 sm:p-4">
       {/* Supabase Link - Top Right */}
-      <div className="absolute top-4 right-4 z-50">
+      <div className="absolute top-16 right-4 z-50">
         <Button 
-          variant="outline" 
+          variant="outline"
           size="sm"
           onClick={() => window.open('https://supabase.com/dashboard/project/uxhcsjlfwkhwkvhfacho', '_blank')}
           className="flex items-center gap-2 bg-background/95 backdrop-blur-sm border-border hover:bg-accent hover:text-accent-foreground shadow-lg"
@@ -297,6 +302,7 @@ const Index = () => {
             <ChatInterface />
           </TabsContent>
         </Tabs>
+      </div>
       </div>
     </div>
   );

@@ -4,7 +4,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { TradingModeProvider } from "@/contexts/TradingModeContext";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
+import Auth from "./pages/Auth";
 import ArbitrageCalculator from "./pages/ArbitrageCalculator";  
 import Portfolio from "./pages/Portfolio";
 import ArbitrageControl from "./pages/ArbitrageControl";
@@ -24,14 +26,19 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/arbitrage-calculator" element={<ArbitrageCalculator />} />
-            <Route path="/portfolio" element={<Portfolio />} />
-            <Route path="/arbitrage-control" element={<ArbitrageControl />} />
-            <Route path="/balance-dashboard" element={<BalanceDashboard />} />
-            <Route path="/auto-bot" element={<AutoBot />} />
-            <Route path="/hft-trading" element={<HFTTrading />} />
-            <Route path="/triangular-arbitrage" element={<TriangularArbitrage />} />
+            {/* Rota pública de autenticação */}
+            <Route path="/auth" element={<Auth />} />
+            
+            {/* Rotas protegidas */}
+            <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+            <Route path="/arbitrage-calculator" element={<ProtectedRoute><ArbitrageCalculator /></ProtectedRoute>} />
+            <Route path="/portfolio" element={<ProtectedRoute><Portfolio /></ProtectedRoute>} />
+            <Route path="/arbitrage-control" element={<ProtectedRoute><ArbitrageControl /></ProtectedRoute>} />
+            <Route path="/balance-dashboard" element={<ProtectedRoute><BalanceDashboard /></ProtectedRoute>} />
+            <Route path="/auto-bot" element={<ProtectedRoute><AutoBot /></ProtectedRoute>} />
+            <Route path="/hft-trading" element={<ProtectedRoute><HFTTrading /></ProtectedRoute>} />
+            <Route path="/triangular-arbitrage" element={<ProtectedRoute><TriangularArbitrage /></ProtectedRoute>} />
+            
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
