@@ -47,7 +47,7 @@ export const ExchangeBalanceCard = ({
     okx: 'OKX'
   };
 
-  const fetchBalances = async () => {
+  const fetchBalances = async (forceRefresh = false) => {
     setLoading(true);
     try {
       // Buscar ID do usuário baseado na API key da Binance (como é feito no sistema)
@@ -72,7 +72,8 @@ export const ExchangeBalanceCard = ({
       const { data: portfolioData, error } = await supabase.functions.invoke('get-portfolio', {
         body: { 
           user_id: userId,
-          real_mode: true 
+          real_mode: true,
+          force_refresh: forceRefresh // Adicionar parâmetro para forçar refresh
         }
       });
 
@@ -104,6 +105,8 @@ export const ExchangeBalanceCard = ({
       if (onBalanceChange) {
         onBalanceChange(total);
       }
+
+      console.log(`✅ Saldos atualizados da ${exchangeNames[exchange]}: $${total.toFixed(2)}`);
 
     } catch (error: any) {
       console.error(`Erro ao buscar saldos da ${exchangeNames[exchange]}:`, error);
@@ -147,11 +150,19 @@ export const ExchangeBalanceCard = ({
       if (data.success) {
         toast({
           title: "✅ Conversão concluída!",
-          description: `Total: ${data.totalUsdtReceived?.toFixed(2)} USDT recebido`,
+          description: `Total: ${data.totalUsdtReceived?.toFixed(2)} USDT recebido. Atualizando saldos...`,
         });
         
-        // Recarregar saldos
-        await fetchBalances();
+        // Aguardar 2 segundos para a exchange processar
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // Forçar atualização dos saldos com refresh
+        await fetchBalances(true);
+        
+        toast({
+          title: "🔄 Saldos atualizados",
+          description: "Os saldos foram sincronizados com a exchange",
+        });
       } else {
         throw new Error(data.error || 'Erro na conversão');
       }
@@ -221,11 +232,19 @@ export const ExchangeBalanceCard = ({
       if (data.success) {
         toast({
           title: "✅ Conversão concluída!",
-          description: data.message,
+          description: `${data.message}. Atualizando saldos...`,
         });
         
-        // Recarregar saldos
-        await fetchBalances();
+        // Aguardar 2 segundos para a exchange processar
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // Forçar atualização dos saldos com refresh
+        await fetchBalances(true);
+        
+        toast({
+          title: "🔄 Saldos atualizados",
+          description: "Os saldos foram sincronizados com a exchange",
+        });
       } else {
         throw new Error(data.error || 'Erro na conversão');
       }
@@ -396,7 +415,7 @@ export const ExchangeBalanceCard = ({
           <Button
             variant="outline"
             size="sm"
-            onClick={fetchBalances}
+            onClick={() => fetchBalances(false)}
             disabled={loading}
             className="flex-1"
           >
