@@ -252,6 +252,10 @@ export const TotalBalanceCard = ({
       console.log(`   Binance: ${binanceToClean.map((t: any) => `${t.symbol} (${t.balance})`).join(', ') || 'nenhum'}`);
       console.log(`   OKX: ${okxToClean.map((t: any) => `${t.symbol} (${t.balance})`).join(', ') || 'nenhum'}`);
 
+      // Contadores para feedback correto ao usuário
+      let successCount = 0;
+      const failedTokens: { exchange: 'Binance' | 'OKX'; symbol: string; error?: string }[] = [];
+
       // Converter tokens da Binance para USDT
       for (const token of binanceToClean) {
         try {
@@ -269,6 +273,7 @@ export const TotalBalanceCard = ({
           });
           
           if (result?.success) {
+            successCount++;
             await saveConversionRecord({
               fromToken: token.symbol,
               toToken: 'USDT',
@@ -276,16 +281,32 @@ export const TotalBalanceCard = ({
               toAmount: result.usdtReceived || 0,
               exchange: 'Binance',
               conversionType: 'market',
-              price: result.price || 0,
+              price: result.price || result.avgPrice || 0,
               status: 'success'
             });
             console.log(`✅ ${token.symbol} convertido: ${result.usdtReceived} USDT`);
             toast.success(`✅ ${token.symbol} convertido na Binance`);
+          } else {
+            failedTokens.push({ exchange: 'Binance', symbol: token.symbol, error: result?.error });
+            await saveConversionRecord({
+              fromToken: token.symbol,
+              toToken: 'USDT',
+              fromAmount: token.balance,
+              toAmount: 0,
+              exchange: 'Binance',
+              conversionType: 'market',
+              price: 0,
+              status: 'failed',
+              errorMessage: result?.error || 'Falha desconhecida'
+            });
+            console.warn(`⚠️ Falha ao converter ${token.symbol} na Binance: ${result?.error || 'desconhecida'}`);
+            toast.warning(`Falha na conversão ${token.symbol} (Binance)`, { description: result?.error || 'Verifique tamanho mínimo/notional.' });
           }
           
           await new Promise(resolve => setTimeout(resolve, 1000));
         } catch (err) {
           console.error(`❌ Erro ao converter ${token.symbol} na Binance:`, err);
+          failedTokens.push({ exchange: 'Binance', symbol: token.symbol, error: err instanceof Error ? err.message : 'Erro desconhecido' });
           await saveConversionRecord({
             fromToken: token.symbol,
             toToken: 'USDT',
@@ -318,6 +339,7 @@ export const TotalBalanceCard = ({
           });
           
           if (result?.success) {
+            successCount++;
             await saveConversionRecord({
               fromToken: token.symbol,
               toToken: 'USDT',
@@ -330,11 +352,27 @@ export const TotalBalanceCard = ({
             });
             console.log(`✅ ${token.symbol} convertido: ${result.usdtReceived} USDT`);
             toast.success(`✅ ${token.symbol} convertido na OKX`);
+          } else {
+            failedTokens.push({ exchange: 'OKX', symbol: token.symbol, error: result?.error });
+            await saveConversionRecord({
+              fromToken: token.symbol,
+              toToken: 'USDT',
+              fromAmount: token.balance,
+              toAmount: 0,
+              exchange: 'OKX',
+              conversionType: 'market',
+              price: 0,
+              status: 'failed',
+              errorMessage: result?.error || 'Falha desconhecida'
+            });
+            console.warn(`⚠️ Falha ao converter ${token.symbol} na OKX: ${result?.error || 'desconhecida'}`);
+            toast.warning(`Falha na conversão ${token.symbol} (OKX)`, { description: result?.error || 'Possível tamanho mínimo não atingido.' });
           }
           
           await new Promise(resolve => setTimeout(resolve, 1000));
         } catch (err) {
           console.error(`❌ Erro ao converter ${token.symbol} na OKX:`, err);
+          failedTokens.push({ exchange: 'OKX', symbol: token.symbol, error: err instanceof Error ? err.message : 'Erro desconhecido' });
           await saveConversionRecord({
             fromToken: token.symbol,
             toToken: 'USDT',
@@ -349,7 +387,15 @@ export const TotalBalanceCard = ({
         }
       }
 
-      toast.success(`✅ Limpeza concluída! ${totalToClean} tokens convertidos para USDT`);
+      const totalFailed = failedTokens.length;
+      const totalConverted = successCount;
+      if (totalConverted > 0) {
+        toast.success(`✅ Limpeza concluída`, { description: `${totalConverted} conversões realizadas${totalFailed ? `, ${totalFailed} falhas` : ''}` });
+      }
+      if (totalFailed > 0) {
+        const list = failedTokens.map(f => `${f.symbol} (${f.exchange})`).join(', ');
+        toast.warning('Alguns tokens não foram convertidos', { description: `${list}. Verifique tamanho mínimo/notional ou saldo disponível.` });
+      }
       
       // Aguardar execução das ordens
       await new Promise(resolve => setTimeout(resolve, 3000));
