@@ -125,7 +125,8 @@ export const TotalBalanceCard = ({
       console.log(`📊 Spread: ${btcPrices.spread.toFixed(3)}%`);
 
       // 1. Comprar BTC na Binance (preço mais baixo)
-      const { data: buyResult } = await supabase.functions.invoke('binance-swap-token', {
+      console.log('💰 Iniciando compra de BTC na Binance com $50 USDT...');
+      const { data: buyResult, error: buyError } = await supabase.functions.invoke('binance-swap-token', {
         body: {
           apiKey: binanceCreds.api_key,
           secretKey: binanceCreds.secret_key,
@@ -135,10 +136,24 @@ export const TotalBalanceCard = ({
         }
       });
 
-      if (!buyResult?.success) throw new Error('Erro na compra BTC Binance');
+      console.log('📦 Resultado compra Binance:', buyResult);
+      
+      if (buyError) {
+        console.error('❌ Erro na requisição:', buyError);
+        throw new Error(`Erro na compra BTC Binance: ${buyError.message}`);
+      }
+
+      if (!buyResult?.success) {
+        const errorMsg = buyResult?.error || 'Erro desconhecido';
+        console.error('❌ Compra falhou:', errorMsg);
+        throw new Error(`Erro na compra BTC Binance: ${errorMsg}`);
+      }
+
+      console.log('✅ Compra BTC realizada:', buyResult.executedQty, 'BTC');
 
       // 2. Vender BTC na OKX (preço mais alto)
-      const { data: sellResult } = await supabase.functions.invoke('okx-swap-token', {
+      console.log('💰 Iniciando venda de BTC na OKX...');
+      const { data: sellResult, error: sellError } = await supabase.functions.invoke('okx-swap-token', {
         body: {
           apiKey: okxCreds.api_key,
           secretKey: okxCreds.secret_key,
@@ -149,7 +164,20 @@ export const TotalBalanceCard = ({
         }
       });
 
-      if (!sellResult?.success) throw new Error('Erro na venda BTC OKX');
+      console.log('📦 Resultado venda OKX:', sellResult);
+
+      if (sellError) {
+        console.error('❌ Erro na requisição:', sellError);
+        throw new Error(`Erro na venda BTC OKX: ${sellError.message}`);
+      }
+
+      if (!sellResult?.success) {
+        const errorMsg = sellResult?.error || 'Erro desconhecido';
+        console.error('❌ Venda falhou:', errorMsg);
+        throw new Error(`Erro na venda BTC OKX: ${errorMsg}`);
+      }
+
+      console.log('✅ Venda BTC realizada na OKX');
 
       const profit = (okxPrice - binancePrice) * buyResult.executedQty;
       
