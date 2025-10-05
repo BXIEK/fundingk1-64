@@ -94,7 +94,7 @@ export const TotalBalanceCard = ({
             sell_exchange: spreadData.sellExchange,
             buy_price: spreadData.buyPrice,
             sell_price: spreadData.sellPrice,
-            investment_amount: 25, // Valor fixo de investimento por operação
+            investment_amount: 10, // Ajustado para $10 (mais acessível)
             trading_mode: 'real'
           }
         });
@@ -113,16 +113,28 @@ export const TotalBalanceCard = ({
         } else {
           toast({
             title: "⚠️ Arbitragem Não Executada",
-            description: data.message || "Verifique os logs para mais detalhes",
+            description: data.message || data.error || "Verifique os logs para mais detalhes",
             variant: "destructive"
           });
         }
 
       } catch (error: any) {
         console.error('Erro na arbitragem automática:', error);
+        
+        let errorMessage = "Falha ao executar arbitragem automática";
+        
+        // Tratar erros específicos
+        if (error.message?.includes('Usuário não autenticado')) {
+          errorMessage = "Você precisa fazer login para usar a arbitragem automática";
+        } else if (error.message?.includes('Valor muito baixo')) {
+          errorMessage = "Saldo insuficiente. Mínimo $10 USDT necessário.";
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+        
         toast({
           title: "❌ Erro na Arbitragem",
-          description: error.message || "Falha ao executar arbitragem automática",
+          description: errorMessage,
           variant: "destructive"
         });
       } finally {
