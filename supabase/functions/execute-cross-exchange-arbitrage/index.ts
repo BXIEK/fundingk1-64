@@ -73,6 +73,19 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // ⭐ BUSCAR CREDENCIAIS DOS SUPABASE SECRETS (fallback se não forem enviadas)
+    const finalBinanceApiKey = binanceApiKey || Deno.env.get('BINANCE_API_KEY');
+    const finalBinanceSecretKey = binanceSecretKey || Deno.env.get('BINANCE_SECRET_KEY');
+    const finalOkxApiKey = okxApiKey || Deno.env.get('OKX_API_KEY');
+    const finalOkxSecretKey = okxSecretKey || Deno.env.get('OKX_SECRET_KEY');
+    const finalOkxPassphrase = okxPassphrase || Deno.env.get('OKX_PASSPHRASE');
+
+    console.log('🔐 Credenciais carregadas:', {
+      binance: !!finalBinanceApiKey,
+      okx: !!finalOkxApiKey,
+      source: binanceApiKey ? 'body' : 'secrets'
+    });
+
     // ⭐ REBALANCEAMENTO AUTOMÁTICO DESABILITADO
     // O sistema agora usa apenas os saldos já disponíveis em cada exchange
     if (mode === 'real') {
@@ -87,11 +100,11 @@ serve(async (req) => {
       try {
         // Verificar saldo de crypto primeiro
         const cryptoBalance = await getExchangeBalance(buyExchange, symbol.replace('USDT', ''), { 
-          binanceApiKey, 
-          binanceSecretKey, 
-          okxApiKey, 
-          okxSecretKey, 
-          okxPassphrase 
+          binanceApiKey: finalBinanceApiKey, 
+          binanceSecretKey: finalBinanceSecretKey, 
+          okxApiKey: finalOkxApiKey, 
+          okxSecretKey: finalOkxSecretKey, 
+          okxPassphrase: finalOkxPassphrase 
         });
         
         console.log(`💰 Saldo de ${symbol}: ${cryptoBalance}`);
@@ -103,11 +116,11 @@ serve(async (req) => {
         } else {
           // Senão, verificar saldo de USDT
           const usdtBalance = await getExchangeBalance(buyExchange, 'USDT', { 
-            binanceApiKey, 
-            binanceSecretKey, 
-            okxApiKey, 
-            okxSecretKey, 
-            okxPassphrase 
+            binanceApiKey: finalBinanceApiKey, 
+            binanceSecretKey: finalBinanceSecretKey, 
+            okxApiKey: finalOkxApiKey, 
+            okxSecretKey: finalOkxSecretKey, 
+            okxPassphrase: finalOkxPassphrase 
           });
           
           console.log(`💰 Saldo de USDT: $${usdtBalance.toFixed(2)}`);
@@ -178,11 +191,11 @@ serve(async (req) => {
         const needsBinance = buyExchange === 'Binance' || sellExchange === 'Binance';
         const needsOKX = buyExchange === 'OKX' || sellExchange === 'OKX';
         
-        if (needsBinance && (!binanceApiKey || !binanceSecretKey)) {
-          throw new Error('❌ Credenciais da Binance não fornecidas');
+        if (needsBinance && (!finalBinanceApiKey || !finalBinanceSecretKey)) {
+          throw new Error('❌ Credenciais da Binance não configuradas. Configure em Supabase Secrets.');
         }
-        if (needsOKX && (!okxApiKey || !okxSecretKey || !okxPassphrase)) {
-          throw new Error('❌ Credenciais da OKX não fornecidas');
+        if (needsOKX && (!finalOkxApiKey || !finalOkxSecretKey || !finalOkxPassphrase)) {
+          throw new Error('❌ Credenciais da OKX não configuradas. Configure em Supabase Secrets.');
         }
         
         // Usar o saldo já calculado anteriormente
@@ -204,11 +217,11 @@ serve(async (req) => {
         try {
           console.log(`🔍 Verificando saldo de ${symbol.replace('USDT', '')} na ${buyExchange}...`);
           const availableBalance = await getExchangeBalance(buyExchange, symbol.replace('USDT', ''), { 
-            binanceApiKey, 
-            binanceSecretKey, 
-            okxApiKey, 
-            okxSecretKey, 
-            okxPassphrase 
+            binanceApiKey: finalBinanceApiKey, 
+            binanceSecretKey: finalBinanceSecretKey, 
+            okxApiKey: finalOkxApiKey, 
+            okxSecretKey: finalOkxSecretKey, 
+            okxPassphrase: finalOkxPassphrase 
           });
           console.log(`💰 Saldo disponível: ${availableBalance} ${symbol.replace('USDT', '')}`);
           
@@ -234,11 +247,11 @@ serve(async (req) => {
         if (!usedExistingBalance) {
           console.log(`🔄 PASSO 1 - COMPRA: $${finalUsdtInvestment.toFixed(2)} USDT → ${symbol} na ${buyExchange}...`);
           buyResult = await executeBuyOrderUSDT(buyExchange, symbol, finalUsdtInvestment, buyPrice, { 
-            binanceApiKey, 
-            binanceSecretKey, 
-            okxApiKey, 
-            okxSecretKey, 
-            okxPassphrase 
+            binanceApiKey: finalBinanceApiKey, 
+            binanceSecretKey: finalBinanceSecretKey, 
+            okxApiKey: finalOkxApiKey, 
+            okxSecretKey: finalOkxSecretKey, 
+            okxPassphrase: finalOkxPassphrase 
           });
           console.log('✅ Compra executada:', JSON.stringify(buyResult));
           
@@ -280,11 +293,11 @@ serve(async (req) => {
             asset: symbol.replace('USDT', ''), // Remove USDT do símbolo (ex: DOTUSDT → DOT)
             amount: cryptoAmount,
             networkOverride: config.selectedNetwork, // Rede selecionada pelo usuário
-            binanceApiKey,
-            binanceSecretKey,
-            okxApiKey,
-            okxSecretKey,
-            okxPassphrase
+            binanceApiKey: finalBinanceApiKey,
+            binanceSecretKey: finalBinanceSecretKey,
+            okxApiKey: finalOkxApiKey,
+            okxSecretKey: finalOkxSecretKey,
+            okxPassphrase: finalOkxPassphrase
           })
         });
         
@@ -306,7 +319,13 @@ serve(async (req) => {
         
         // Step 3: Executar venda na exchange de venda (Crypto → USDT)
         console.log(`🔄 PASSO 3 - VENDA: ${cryptoAmount} ${symbol} → USDT na ${sellExchange}...`);
-        const sellResult = await executeSellOrderUSDT(sellExchange, symbol, finalUsdtInvestment, sellPrice, { binanceApiKey, binanceSecretKey, okxApiKey, okxSecretKey, okxPassphrase });
+        const sellResult = await executeSellOrderUSDT(sellExchange, symbol, finalUsdtInvestment, sellPrice, { 
+          binanceApiKey: finalBinanceApiKey, 
+          binanceSecretKey: finalBinanceSecretKey, 
+          okxApiKey: finalOkxApiKey, 
+          okxSecretKey: finalOkxSecretKey, 
+          okxPassphrase: finalOkxPassphrase 
+        });
         console.log('✅ Venda executada:', JSON.stringify(sellResult));
         
         realOperationResults = {
