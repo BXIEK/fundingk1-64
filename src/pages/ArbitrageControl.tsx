@@ -47,6 +47,7 @@ import { IPWhitelistGuide } from '@/components/IPWhitelistGuide';
 import { DirectIPConnectionTest } from '@/components/DirectIPConnectionTest';
 import { ExchangeBalanceCard } from '@/components/ExchangeBalanceCard';
 import { TotalBalanceCard } from '@/components/TotalBalanceCard';
+import { ConversionHistory } from '@/components/ConversionHistory';
 
 import { type ArbitrageOpportunity } from '@/types/arbitrage';
 
@@ -675,7 +676,7 @@ export default function ArbitrageControl() {
 
 
       <Tabs defaultValue="status" className="w-full">
-        <TabsList className="grid w-full grid-cols-10">
+        <TabsList className="grid w-full grid-cols-11">
           <TabsTrigger value="status">
             <CheckCircle className="h-4 w-4 mr-2" />
             Status APIs
@@ -703,6 +704,10 @@ export default function ArbitrageControl() {
           </TabsTrigger>
           <TabsTrigger value="whitelist">IP Whitelist</TabsTrigger>
           <TabsTrigger value="transfers">Transferências</TabsTrigger>
+          <TabsTrigger value="conversions">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Conversões
+          </TabsTrigger>
           <TabsTrigger value="history">Histórico</TabsTrigger>
         </TabsList>
         
@@ -932,6 +937,10 @@ export default function ArbitrageControl() {
 
         <TabsContent value="transfers" className="space-y-4">
           <SmartTransferDashboard />
+        </TabsContent>
+
+        <TabsContent value="conversions" className="space-y-4">
+          <ConversionHistory />
         </TabsContent>
 
         <TabsContent value="history" className="space-y-4">

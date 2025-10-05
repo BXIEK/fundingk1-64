@@ -1121,6 +1121,51 @@ export type Database = {
         }
         Relationships: []
       }
+      conversion_history: {
+        Row: {
+          conversion_type: string
+          created_at: string
+          error_message: string | null
+          exchange: string
+          from_amount: number
+          from_token: string
+          id: string
+          price: number
+          status: string
+          to_amount: number
+          to_token: string
+          user_id: string
+        }
+        Insert: {
+          conversion_type?: string
+          created_at?: string
+          error_message?: string | null
+          exchange: string
+          from_amount: number
+          from_token: string
+          id?: string
+          price: number
+          status?: string
+          to_amount: number
+          to_token: string
+          user_id: string
+        }
+        Update: {
+          conversion_type?: string
+          created_at?: string
+          error_message?: string | null
+          exchange?: string
+          from_amount?: number
+          from_token?: string
+          id?: string
+          price?: number
+          status?: string
+          to_amount?: number
+          to_token?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       cross_exchange_configs: {
         Row: {
           created_at: string

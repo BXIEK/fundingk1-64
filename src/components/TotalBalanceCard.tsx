@@ -79,6 +79,39 @@ export const TotalBalanceCard = ({
   // Lista de tokens disponíveis para conversão automática
   const availableTokens = ['BTC', 'ETH', 'BNB', 'SOL', 'ADA', 'XRP', 'DOT', 'LINK', 'UNI', 'AVAX'];
 
+  // Helper para salvar conversões no histórico
+  const saveConversionRecord = async (params: {
+    fromToken: string;
+    toToken: string;
+    fromAmount: number;
+    toAmount: number;
+    exchange: string;
+    conversionType: 'market' | 'limit';
+    price: number;
+    status: 'success' | 'failed';
+    errorMessage?: string;
+  }) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      await supabase.from('conversion_history').insert({
+        user_id: user.id,
+        from_token: params.fromToken,
+        to_token: params.toToken,
+        from_amount: params.fromAmount,
+        to_amount: params.toAmount,
+        exchange: params.exchange,
+        conversion_type: params.conversionType,
+        price: params.price,
+        status: params.status,
+        error_message: params.errorMessage
+      });
+    } catch (error) {
+      console.error('Erro ao salvar registro de conversão:', error);
+    }
+  };
+
   const totalValue = binanceBalance + okxBalance;
   const profitLoss = totalValue - totalBaseline;
   const profitLossPercent = totalBaseline > 0 ? (profitLoss / totalBaseline) * 100 : 0;
@@ -219,7 +252,7 @@ export const TotalBalanceCard = ({
             for (const token of binanceOldTokens) {
               try {
                 console.log(`🔄 Convertendo ${token.symbol} → USDT na Binance...`);
-                await supabase.functions.invoke('binance-swap-token', {
+                const { data: result } = await supabase.functions.invoke('binance-swap-token', {
                   body: {
                     apiKey: binanceCreds.api_key,
                     secretKey: binanceCreds.secret_key,
@@ -228,8 +261,32 @@ export const TotalBalanceCard = ({
                     orderType: 'market'
                   }
                 });
-                console.log(`✅ ${token.symbol} convertido na Binance`);
+                
+                if (result?.success) {
+                  await saveConversionRecord({
+                    fromToken: token.symbol,
+                    toToken: 'USDT',
+                    fromAmount: token.balance,
+                    toAmount: result.usdtReceived || 0,
+                    exchange: 'Binance',
+                    conversionType: 'market',
+                    price: result.price || 0,
+                    status: 'success'
+                  });
+                  console.log(`✅ ${token.symbol} convertido na Binance`);
+                }
               } catch (err) {
+                await saveConversionRecord({
+                  fromToken: token.symbol,
+                  toToken: 'USDT',
+                  fromAmount: token.balance,
+                  toAmount: 0,
+                  exchange: 'Binance',
+                  conversionType: 'market',
+                  price: 0,
+                  status: 'failed',
+                  errorMessage: err instanceof Error ? err.message : 'Erro desconhecido'
+                });
                 console.error(`❌ Erro ao converter ${token.symbol}:`, err);
               }
             }
@@ -238,7 +295,7 @@ export const TotalBalanceCard = ({
             for (const token of okxOldTokens) {
               try {
                 console.log(`🔄 Convertendo ${token.symbol} → USDT na OKX...`);
-                await supabase.functions.invoke('okx-swap-token', {
+                const { data: result } = await supabase.functions.invoke('okx-swap-token', {
                   body: {
                     apiKey: okxCreds.api_key,
                     secretKey: okxCreds.secret_key,
@@ -248,8 +305,32 @@ export const TotalBalanceCard = ({
                     orderType: 'market'
                   }
                 });
-                console.log(`✅ ${token.symbol} convertido na OKX`);
+                
+                if (result?.success) {
+                  await saveConversionRecord({
+                    fromToken: token.symbol,
+                    toToken: 'USDT',
+                    fromAmount: token.balance,
+                    toAmount: result.usdtReceived || 0,
+                    exchange: 'OKX',
+                    conversionType: 'market',
+                    price: result.price || 0,
+                    status: 'success'
+                  });
+                  console.log(`✅ ${token.symbol} convertido na OKX`);
+                }
               } catch (err) {
+                await saveConversionRecord({
+                  fromToken: token.symbol,
+                  toToken: 'USDT',
+                  fromAmount: token.balance,
+                  toAmount: 0,
+                  exchange: 'OKX',
+                  conversionType: 'market',
+                  price: 0,
+                  status: 'failed',
+                  errorMessage: err instanceof Error ? err.message : 'Erro desconhecido'
+                });
                 console.error(`❌ Erro ao converter ${token.symbol}:`, err);
               }
             }
