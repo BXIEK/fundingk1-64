@@ -52,6 +52,14 @@ export const ExchangeBalanceCard = ({
     okx: 'OKX'
   };
 
+  // Função para formatar números no padrão brasileiro
+  const formatBRL = (value: number, decimals: number = 2): string => {
+    return value.toLocaleString('pt-BR', {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals
+    });
+  };
+
   const fetchBalances = async (forceRefresh = false) => {
     setLoading(true);
     try {
@@ -383,7 +391,7 @@ export const ExchangeBalanceCard = ({
             <div className="text-right">
               {realtimePrice ? (
                 <p className="text-lg font-bold">
-                  ${realtimePrice.toFixed(selectedToken === 'BTC' || selectedToken === 'ETH' ? 2 : 6)}
+                  ${formatBRL(realtimePrice, selectedToken === 'BTC' || selectedToken === 'ETH' ? 2 : 6)}
                 </p>
               ) : (
                 <p className="text-sm text-muted-foreground">Carregando...</p>
@@ -396,7 +404,7 @@ export const ExchangeBalanceCard = ({
           <p className="text-sm text-muted-foreground mb-1">Saldo Total</p>
           <div className="flex items-center justify-center gap-2">
             <p className="text-3xl font-bold">
-              US$ {totalValue.toFixed(2)}
+              US$ {formatBRL(totalValue)}
             </p>
             {isProfit && (
               <TrendingUp className="h-6 w-6 text-green-500" />
@@ -415,10 +423,10 @@ export const ExchangeBalanceCard = ({
               variant={isProfit ? "default" : isLoss ? "destructive" : "secondary"}
               className={isProfit ? "bg-green-500" : isLoss ? "bg-red-500" : ""}
             >
-              {profitLoss >= 0 ? '+' : ''}{profitLoss.toFixed(2)} USD ({profitLossPercent.toFixed(2)}%)
+              {profitLoss >= 0 ? '+' : ''}{formatBRL(profitLoss)} USD ({profitLossPercent.toFixed(2)}%)
             </Badge>
             <p className="text-xs text-muted-foreground mt-1">
-              Base: ${baseline.toFixed(2)}
+              Base: ${formatBRL(baseline)}
             </p>
           </div>
         </div>
@@ -447,7 +455,7 @@ export const ExchangeBalanceCard = ({
                 {realtimePrice ? (
                   <>
                     <p className="text-2xl font-bold">
-                      ${realtimePrice.toFixed(selectedToken === 'BTC' || selectedToken === 'ETH' ? 2 : 6)}
+                      ${formatBRL(realtimePrice, selectedToken === 'BTC' || selectedToken === 'ETH' ? 2 : 6)}
                     </p>
                     <Badge variant={priceChange24h && priceChange24h >= 0 ? "default" : "destructive"} className="text-xs">
                       24h: {priceChange24h ? `${priceChange24h >= 0 ? '+' : ''}${priceChange24h.toFixed(2)}%` : '...'}
@@ -462,15 +470,15 @@ export const ExchangeBalanceCard = ({
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div>
                 <p className="text-muted-foreground">Saldo</p>
-                <p className="font-semibold">{selectedTokenBalance.balance.toFixed(6)}</p>
+                <p className="font-semibold">{formatBRL(selectedTokenBalance.balance, 6)}</p>
               </div>
               <div>
                 <p className="text-muted-foreground">Valor Total</p>
-                <p className="font-semibold text-green-500">${selectedTokenBalance.valueUsd.toFixed(2)}</p>
+                <p className="font-semibold text-green-500">${formatBRL(selectedTokenBalance.valueUsd)}</p>
               </div>
               <div>
                 <p className="text-muted-foreground">Preço Médio</p>
-                <p className="font-semibold">${selectedTokenBalance.priceUsd.toFixed(2)}</p>
+                <p className="font-semibold">${formatBRL(selectedTokenBalance.priceUsd)}</p>
               </div>
               <div>
                 <p className="text-muted-foreground">Exchange</p>
@@ -502,15 +510,15 @@ export const ExchangeBalanceCard = ({
                 <div>
                   <p className="font-semibold">{balance.symbol}</p>
                   <p className="text-xs text-muted-foreground">
-                    {balance.balance.toFixed(6)}
+                    {formatBRL(balance.balance, 6)}
                   </p>
                 </div>
                 <div className="text-right">
                   <p className="font-medium">
-                    ${balance.valueUsd.toFixed(2)}
+                    ${formatBRL(balance.valueUsd)}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    @${balance.priceUsd.toFixed(2)}
+                    @${formatBRL(balance.priceUsd)}
                   </p>
                 </div>
               </div>
