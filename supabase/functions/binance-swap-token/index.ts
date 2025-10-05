@@ -11,17 +11,18 @@ serve(async (req) => {
   }
 
   try {
-    const { apiKey, secretKey, symbol, direction, amount: customAmount } = await req.json();
+    const { apiKey, secretKey, symbol, direction, amount, customAmount } = await req.json();
     // direction: 'toUsdt' ou 'toToken'
-    // amount: quantidade específica a converter (opcional)
+    // amount/customAmount: quantidade específica a converter (opcional)
+    const requestedAmount = typeof customAmount !== 'undefined' ? customAmount : amount;
 
     if (!apiKey || !secretKey || !symbol || !direction) {
       throw new Error('Parâmetros incompletos');
     }
 
     console.log(`🔄 Binance Swap: ${direction === 'toUsdt' ? symbol + ' → USDT' : 'USDT → ' + symbol}`);
-    if (customAmount) {
-      console.log(`💰 Valor personalizado: ${customAmount}`);
+    if (requestedAmount) {
+      console.log(`💰 Valor personalizado: ${requestedAmount}`);
     }
 
     const timestamp = Date.now();
@@ -56,7 +57,7 @@ serve(async (req) => {
       sourceBalance = parseFloat(tokenBalance?.free || '0');
       tradePair = `${symbol}USDT`;
       orderSide = 'SELL';
-      orderQuantity = customAmount || sourceBalance; // Usar valor personalizado se fornecido
+      orderQuantity = (requestedAmount || sourceBalance); // Usar valor personalizado se fornecido
 
       console.log(`💰 Saldo de ${symbol}: ${sourceBalance}`);
       console.log(`🎯 Quantidade a converter: ${orderQuantity}`);
@@ -93,9 +94,9 @@ serve(async (req) => {
       const tickerData = await tickerResponse.json();
       currentPrice = parseFloat(tickerData.price);
 
-      if (customAmount) {
+      if (requestedAmount) {
         // Se valor personalizado de USDT foi especificado
-        usdtAmountForBuy = customAmount;
+        usdtAmountForBuy = requestedAmount;
         if (usdtAmountForBuy > sourceBalance) {
           throw new Error(`Saldo insuficiente. Disponível: ${sourceBalance} USDT`);
         }
@@ -140,7 +141,7 @@ serve(async (req) => {
           const requiredQty = Math.ceil(requiredQtyRaw / stepSize) * stepSize;
           const requiredQtyFixed = parseFloat(requiredQty.toFixed(precision));
 
-          if (customAmount) {
+          if (requestedAmount) {
             throw new Error(`Valor da ordem abaixo do NOTIONAL mínimo da Binance (${minNotional} USDT). Sua ordem: ${notional.toFixed(2)} USDT.`);
           }
           if (requiredQtyFixed <= sourceBalance) {
@@ -152,7 +153,7 @@ serve(async (req) => {
         }
       } else {
         if (usdtAmountForBuy < minNotional) {
-          if (customAmount) {
+          if (requestedAmount) {
             throw new Error(`Valor em USDT abaixo do NOTIONAL mínimo (${minNotional} USDT). Informado: ${usdtAmountForBuy} USDT.`);
           }
           if (sourceBalance >= minNotional) {
