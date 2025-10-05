@@ -45,76 +45,51 @@ export const ExchangeBalanceCard = ({
   const fetchBalances = async () => {
     setLoading(true);
     try {
-      const credsKey = `${exchange}_credentials`;
-      const credsData = localStorage.getItem(credsKey);
-      
-      if (!credsData) {
-        throw new Error(`Credenciais da ${exchangeNames[exchange]} não encontradas`);
+      // Buscar ID do usuário baseado na API key da Binance (como é feito no sistema)
+      const binanceCreds = localStorage.getItem('binance_credentials');
+      if (!binanceCreds) {
+        throw new Error('Credenciais da Binance não encontradas');
       }
 
-      const credentials = JSON.parse(credsData);
+      const { apiKey } = JSON.parse(binanceCreds);
       
-      let functionName = '';
-      if (exchange === 'binance') {
-        functionName = 'binance-all-balances';
-      } else if (exchange === 'okx') {
-        functionName = 'okx-api';
-      }
+      // Criar hash do API key para obter o user_id
+      const encoder = new TextEncoder();
+      const data = encoder.encode(apiKey);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      
+      // Criar UUID v3-like do hash
+      const userId = `${hashHex.substring(0, 8)}-${hashHex.substring(8, 12)}-3${hashHex.substring(13, 16)}-${hashHex.substring(16, 20)}-${hashHex.substring(20, 32)}`;
 
-      const { data, error } = await supabase.functions.invoke(functionName, {
-        body: exchange === 'okx' 
-          ? { action: 'get_balances', ...credentials }
-          : credentials
+      // Buscar portfolio do banco de dados
+      const { data: portfolioData, error } = await supabase.functions.invoke('get-portfolio', {
+        body: { 
+          user_id: userId,
+          real_mode: true 
+        }
       });
 
       if (error) throw error;
 
-      let processedBalances: Balance[] = [];
-      
-      if (exchange === 'binance' && data.balances) {
-        processedBalances = data.balances
-          .filter((b: any) => parseFloat(b.total) > 0)
-          .map((b: any) => ({
-            symbol: b.asset,
-            balance: parseFloat(b.total),
-            valueUsd: 0,
-            priceUsd: 0
-          }));
-      } else if (exchange === 'okx' && Array.isArray(data)) {
-        processedBalances = data
-          .filter((b: any) => parseFloat(b.availBal || 0) > 0)
-          .map((b: any) => ({
-            symbol: b.ccy,
-            balance: parseFloat(b.availBal),
-            valueUsd: parseFloat(b.availBal) * (b.last || 0),
-            priceUsd: b.last || 0
-          }));
+      if (!portfolioData?.success || !portfolioData?.data?.portfolio) {
+        throw new Error('Dados do portfolio não encontrados');
       }
 
-      // Buscar preços para calcular valor em USD
-      const pricesResponse = await fetch(
-        'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana,binancecoin,usd-coin,tether&vs_currencies=usd'
+      // Filtrar por exchange
+      const exchangeFilter = exchange === 'binance' ? 'Binance' : 'OKX';
+      const portfolioItems = portfolioData.data.portfolio.filter(
+        (item: any) => item.exchange === exchangeFilter && item.balance > 0
       );
-      const prices = await pricesResponse.json();
 
-      const symbolMap: Record<string, string> = {
-        'BTC': 'bitcoin',
-        'ETH': 'ethereum',
-        'SOL': 'solana',
-        'BNB': 'binancecoin',
-        'USDC': 'usd-coin',
-        'USDT': 'tether'
-      };
-
-      processedBalances = processedBalances.map(b => {
-        const coinId = symbolMap[b.symbol];
-        const price = coinId && prices[coinId] ? prices[coinId].usd : (b.symbol === 'USDT' || b.symbol === 'USDC' ? 1 : 0);
-        return {
-          ...b,
-          priceUsd: price,
-          valueUsd: b.balance * price
-        };
-      });
+      // Processar balances
+      const processedBalances: Balance[] = portfolioItems.map((item: any) => ({
+        symbol: item.symbol,
+        balance: parseFloat(item.balance),
+        valueUsd: parseFloat(item.value_usd_calculated || item.value_usd || 0),
+        priceUsd: parseFloat(item.price_usd || 0)
+      }));
 
       const total = processedBalances.reduce((sum, b) => sum + b.valueUsd, 0);
       
@@ -186,7 +161,7 @@ export const ExchangeBalanceCard = ({
 
   useEffect(() => {
     fetchBalances();
-    const interval = setInterval(fetchBalances, 30000); // Atualiza a cada 30s
+    const interval = setInterval(fetchBalances, 60000); // Atualiza a cada 60s
     return () => clearInterval(interval);
   }, [exchange]);
 
