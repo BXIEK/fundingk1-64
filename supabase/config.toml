@@ -31,3 +31,12 @@ verify_jwt = false
 
 [functions.triangular-arbitrage-ws]
 verify_jwt = false
+
+[functions.binance-withdrawal]
+verify_jwt = false
+
+[functions.okx-withdrawal]
+verify_jwt = false
+
+[functions.okx-internal-transfer]
+verify_jwt = false

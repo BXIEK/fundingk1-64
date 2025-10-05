@@ -1,7 +1,5 @@
 import { useState } from 'react';
-import CryptoJS from 'crypto-js';
 import { supabase } from '@/integrations/supabase/client';
-
 interface ExchangeCredentials {
   binance_api_key?: string;
   binance_secret_key?: string;
@@ -13,81 +11,6 @@ interface ExchangeCredentials {
 export const useDirectExchangeAPI = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // ==================== BINANCE ====================
-  const binanceRequest = async (
-    endpoint: string,
-    credentials: ExchangeCredentials,
-    params: Record<string, any> = {}
-  ) => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const timestamp = Date.now();
-      const queryString = new URLSearchParams({
-        ...params,
-        timestamp: timestamp.toString(),
-        recvWindow: '60000', // 60 segundos de janela
-      }).toString();
-
-      console.log('🔐 Binance - Gerando assinatura...');
-      console.log('📝 Query String:', queryString);
-
-      // Gerar assinatura HMAC SHA256
-      const signature = CryptoJS.HmacSHA256(
-        queryString,
-        credentials.binance_secret_key || ''
-      ).toString();
-
-      console.log('✅ Assinatura gerada:', signature.substring(0, 10) + '...');
-
-      const url = `https://api.binance.com${endpoint}?${queryString}&signature=${signature}`;
-
-      console.log('🌐 Direct Binance Request from CLIENT IP');
-      console.log('📡 Endpoint:', endpoint);
-      console.log('🔑 API Key:', credentials.binance_api_key?.substring(0, 10) + '...');
-
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'X-MBX-APIKEY': credentials.binance_api_key || '',
-        },
-      });
-
-      console.log('📊 Response Status:', response.status);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ Binance Error Response:', errorText);
-        
-        let errorData;
-        try {
-          errorData = JSON.parse(errorText);
-        } catch {
-          throw new Error(`Binance API Error: ${response.status} - ${errorText}`);
-        }
-        
-        throw new Error(errorData.msg || `Binance API Error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      console.log('✅ Binance Response OK');
-      setIsLoading(false);
-      return { success: true, data };
-    } catch (err: any) {
-      console.error('❌ Binance Direct Request Error:', err);
-      console.error('Error details:', {
-        message: err.message,
-        name: err.name,
-        stack: err.stack
-      });
-      
-      setError(err.message);
-      setIsLoading(false);
-      return { success: false, error: err.message };
-    }
-  };
 
   // Obter saldos da Binance via Edge Function (evita CORS/bloqueios)
   const getBinanceBalances = async (credentials: ExchangeCredentials) => {
@@ -106,7 +29,7 @@ export const useDirectExchangeAPI = () => {
       return { success: false, error: err.message || 'Erro ao consultar Binance' };
     }
   };
-  // Executar saque da Binance
+  // Executar saque da Binance via Edge Function
   const executeBinanceWithdrawal = async (
     credentials: ExchangeCredentials,
     coin: string,
@@ -116,146 +39,87 @@ export const useDirectExchangeAPI = () => {
   ) => {
     setIsLoading(true);
     setError(null);
-
     try {
-      const timestamp = Date.now();
-      const params: Record<string, any> = {
-        coin,
-        address,
-        amount,
-        timestamp,
-      };
-
-      if (network) {
-        params.network = network;
-      }
-
-      const queryString = new URLSearchParams(
-        Object.entries(params).map(([k, v]) => [k, String(v)])
-      ).toString();
-
-      const signature = CryptoJS.HmacSHA256(
-        queryString,
-        credentials.binance_secret_key || ''
-      ).toString();
-
-      const url = `https://api.binance.com/sapi/v1/capital/withdraw/apply?${queryString}&signature=${signature}`;
-
-      console.log('💸 Direct Binance Withdrawal from CLIENT IP');
-
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'X-MBX-APIKEY': credentials.binance_api_key || '',
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
+      const { data, error } = await supabase.functions.invoke('binance-withdrawal', {
+        body: { 
+          apiKey: credentials.binance_api_key, 
+          secretKey: credentials.binance_secret_key,
+          coin,
+          address,
+          amount,
+          network
+        }
       });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.msg || `Withdrawal failed: ${response.status}`);
-      }
-
-      const data = await response.json();
+      if (error) throw error;
       setIsLoading(false);
-      return { success: true, data };
+      return data;
     } catch (err: any) {
-      console.error('❌ Binance Withdrawal Error:', err);
-      setError(err.message);
       setIsLoading(false);
-      return { success: false, error: err.message };
+      setError(err.message || 'Erro ao realizar saque da Binance');
+      return { success: false, error: err.message || 'Erro ao realizar saque da Binance' };
     }
   };
 
-  // ==================== OKX ====================
-  const okxRequest = async (
-    method: string,
-    endpoint: string,
-    credentials: ExchangeCredentials,
-    body?: any
-  ) => {
+  // Obter saldos da OKX via Edge Function
+  const getOKXBalances = async (credentials: ExchangeCredentials) => {
     setIsLoading(true);
     setError(null);
-
     try {
-      const timestamp = new Date().toISOString();
-      const bodyStr = body ? JSON.stringify(body) : '';
-      const preHash = timestamp + method + endpoint + bodyStr;
-
-      // Gerar assinatura HMAC SHA256 para OKX
-      const signature = CryptoJS.HmacSHA256(
-        preHash,
-        credentials.okx_secret_key || ''
-      ).toString(CryptoJS.enc.Base64);
-
-      const url = `https://www.okx.com${endpoint}`;
-
-      console.log('🌐 Direct OKX Request from CLIENT IP:', url);
-
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'OK-ACCESS-KEY': credentials.okx_api_key || '',
-          'OK-ACCESS-SIGN': signature,
-          'OK-ACCESS-TIMESTAMP': timestamp,
-          'OK-ACCESS-PASSPHRASE': credentials.okx_passphrase || '',
-          'Content-Type': 'application/json',
-        },
-        body: bodyStr || undefined,
+      const { data, error } = await supabase.functions.invoke('okx-api', {
+        body: { 
+          action: 'get_balances',
+          api_key: credentials.okx_api_key, 
+          secret_key: credentials.okx_secret_key,
+          passphrase: credentials.okx_passphrase
+        }
       });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.msg || `OKX API Error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      
-      if (data.code !== '0') {
-        throw new Error(data.msg || `OKX Error Code: ${data.code}`);
-      }
-
+      if (error) throw error;
       setIsLoading(false);
-      return { success: true, data: data.data };
+      return data;
     } catch (err: any) {
-      console.error('❌ OKX Direct Request Error:', err);
-      setError(err.message);
       setIsLoading(false);
-      return { success: false, error: err.message };
+      setError(err.message || 'Erro ao consultar OKX');
+      return { success: false, error: err.message || 'Erro ao consultar OKX' };
     }
   };
 
-  // Obter saldos da OKX
-  const getOKXBalances = async (credentials: ExchangeCredentials) => {
-    return await okxRequest('GET', '/api/v5/account/balance', credentials);
-  };
-
-  // Executar saque da OKX
+  // Executar saque da OKX via Edge Function
   const executeOKXWithdrawal = async (
     credentials: ExchangeCredentials,
     ccy: string,
     amt: string,
-    dest: '3' | '4', // 3=internal, 4=on-chain
+    dest: '3' | '4',
     toAddr: string,
     fee: string,
     chain?: string
   ) => {
-    const body: any = {
-      ccy,
-      amt,
-      dest,
-      toAddr,
-      fee,
-    };
-
-    if (chain) {
-      body.chain = chain;
+    setIsLoading(true);
+    setError(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('okx-withdrawal', {
+        body: { 
+          apiKey: credentials.okx_api_key, 
+          secretKey: credentials.okx_secret_key,
+          passphrase: credentials.okx_passphrase,
+          ccy,
+          amt,
+          dest,
+          toAddr,
+          fee,
+          chain
+        }
+      });
+      if (error) throw error;
+      setIsLoading(false);
+      return data;
+    } catch (err: any) {
+      setIsLoading(false);
+      setError(err.message || 'Erro ao realizar saque da OKX');
+      return { success: false, error: err.message || 'Erro ao realizar saque da OKX' };
     }
-
-    return await okxRequest('POST', '/api/v5/asset/withdrawal', credentials, body);
   };
 
-  // Transferência interna OKX (Trading -> Funding)
+  // Transferência interna OKX via Edge Function
   const okxInternalTransfer = async (
     credentials: ExchangeCredentials,
     ccy: string,
@@ -263,15 +127,28 @@ export const useDirectExchangeAPI = () => {
     from: string,
     to: string
   ) => {
-    const body = {
-      ccy,
-      amt,
-      from,
-      to,
-      type: '0', // 0 = internal transfer
-    };
-
-    return await okxRequest('POST', '/api/v5/asset/transfer', credentials, body);
+    setIsLoading(true);
+    setError(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('okx-internal-transfer', {
+        body: { 
+          apiKey: credentials.okx_api_key, 
+          secretKey: credentials.okx_secret_key,
+          passphrase: credentials.okx_passphrase,
+          ccy,
+          amt,
+          from,
+          to
+        }
+      });
+      if (error) throw error;
+      setIsLoading(false);
+      return data;
+    } catch (err: any) {
+      setIsLoading(false);
+      setError(err.message || 'Erro ao realizar transferência interna OKX');
+      return { success: false, error: err.message || 'Erro ao realizar transferência interna OKX' };
+    }
   };
 
   return {
@@ -280,11 +157,9 @@ export const useDirectExchangeAPI = () => {
     // Binance
     getBinanceBalances,
     executeBinanceWithdrawal,
-    binanceRequest,
     // OKX
     getOKXBalances,
     executeOKXWithdrawal,
     okxInternalTransfer,
-    okxRequest,
   };
 };
