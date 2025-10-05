@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -48,7 +49,7 @@ export const TotalBalanceCard = ({
   const isProfit = profitLoss > 0;
   const isLoss = profitLoss < 0;
 
-  // Arbitragem automática - executa a cada 60 segundos se token estiver em tendência de alta
+  // Arbitragem automática REAL - executa a cada 60 segundos se token estiver em tendência de alta
   useEffect(() => {
     if (!autoArbitrageEnabled || !spreadData) {
       return;
@@ -76,7 +77,13 @@ export const TotalBalanceCard = ({
       setIsExecuting(true);
       
       try {
-        console.log(`🤖 Executando arbitragem automática (Token em alta +${spreadData.priceChange24h.toFixed(2)}%):
+        // Obter user_id do Supabase
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          throw new Error('Usuário não autenticado');
+        }
+
+        console.log(`🤖 Executando arbitragem REAL (Token em alta +${spreadData.priceChange24h.toFixed(2)}%):
           • Comprar ${spreadData.symbol} na ${spreadData.buyExchange} por $${spreadData.buyPrice.toFixed(4)}
           • Vender ${spreadData.symbol} na ${spreadData.sellExchange} por $${spreadData.sellPrice.toFixed(4)}
           • Spread: ${spreadData.spreadPercent.toFixed(4)}%`);
@@ -86,22 +93,44 @@ export const TotalBalanceCard = ({
           description: `${spreadData.symbol} em alta +${spreadData.priceChange24h.toFixed(2)}%! Comprando na ${spreadData.buyExchange} e vendendo na ${spreadData.sellExchange}.`,
         });
 
-        // Aqui você implementaria a lógica real de arbitragem
-        // Por enquanto, apenas simulando
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        // Executar arbitragem real via edge function
+        const { data, error } = await supabase.functions.invoke('execute-cross-exchange-arbitrage', {
+          body: {
+            user_id: user.id,
+            symbol: spreadData.symbol.replace('USDT', ''), // Remover USDT do símbolo
+            buy_exchange: spreadData.buyExchange,
+            sell_exchange: spreadData.sellExchange,
+            buy_price: spreadData.buyPrice,
+            sell_price: spreadData.sellPrice,
+            investment_amount: 25, // Valor fixo de investimento por operação
+            trading_mode: 'real'
+          }
+        });
+
+        if (error) {
+          throw error;
+        }
 
         setLastExecution(new Date());
         
-        toast({
-          title: "✅ Arbitragem Concluída",
-          description: `${spreadData.symbol} convertido com sucesso! Lucro do spread: ${spreadData.spreadPercent.toFixed(4)}%`,
-        });
+        if (data.success) {
+          toast({
+            title: "✅ Arbitragem Concluída",
+            description: `${spreadData.symbol} - Lucro: $${data.net_profit?.toFixed(2) || '0.00'} (${spreadData.spreadPercent.toFixed(4)}%)`,
+          });
+        } else {
+          toast({
+            title: "⚠️ Arbitragem Não Executada",
+            description: data.message || "Verifique os logs para mais detalhes",
+            variant: "destructive"
+          });
+        }
 
-      } catch (error) {
+      } catch (error: any) {
         console.error('Erro na arbitragem automática:', error);
         toast({
           title: "❌ Erro na Arbitragem",
-          description: "Falha ao executar arbitragem automática",
+          description: error.message || "Falha ao executar arbitragem automática",
           variant: "destructive"
         });
       } finally {
