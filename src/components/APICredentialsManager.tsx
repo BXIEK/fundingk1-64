@@ -390,19 +390,66 @@ const APICredentialsManager = () => {
     }
   };
 
-  const saveCredentials = (exchange: 'binance' | 'okx' | 'bybit' | 'hyperliquid') => {
+  const saveCredentials = async (exchange: 'binance' | 'okx' | 'bybit' | 'hyperliquid') => {
     try {
       const creds = credentials[exchange];
+      
+      // Salvar no localStorage
       localStorage.setItem(`${exchange}_credentials`, JSON.stringify(creds));
       
+      // Salvar também no banco de dados Supabase (apenas para binance e okx)
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user && (exchange === 'binance' || exchange === 'okx')) {
+        let exchangeConfig;
+        
+        if (exchange === 'binance') {
+          const binanceCreds = creds as { apiKey: string; secretKey: string };
+          exchangeConfig = {
+            user_id: user.id,
+            exchange: exchange,
+            api_key: binanceCreds.apiKey,
+            secret_key: binanceCreds.secretKey,
+            passphrase: null,
+            is_active: true
+          };
+        } else if (exchange === 'okx') {
+          const okxCreds = creds as { apiKey: string; secretKey: string; passphrase: string };
+          exchangeConfig = {
+            user_id: user.id,
+            exchange: exchange,
+            api_key: okxCreds.apiKey,
+            secret_key: okxCreds.secretKey,
+            passphrase: okxCreds.passphrase,
+            is_active: true
+          };
+        }
+
+        if (exchangeConfig) {
+          const { error: dbError } = await supabase
+            .from('exchange_api_configs')
+            .upsert(exchangeConfig, {
+              onConflict: 'user_id,exchange',
+              ignoreDuplicates: false
+            });
+
+          if (dbError) {
+            console.error('Erro ao salvar no banco:', dbError);
+            throw dbError;
+          }
+
+          console.log('✅ Credenciais salvas no banco de dados Supabase');
+        }
+      }
+      
       toast({
-        title: "Credenciais Salvas",
-        description: `Credenciais da ${exchange.toUpperCase()} salvas com segurança`
+        title: "✅ Credenciais Salvas",
+        description: `Credenciais da ${exchange.toUpperCase()} salvas com segurança no banco de dados`
       });
     } catch (error) {
+      console.error('Erro ao salvar credenciais:', error);
       toast({
         title: "Erro",
-        description: "Erro ao salvar credenciais",
+        description: "Erro ao salvar credenciais no banco de dados",
         variant: "destructive"
       });
     }
