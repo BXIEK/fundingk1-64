@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import CryptoJS from 'crypto-js';
+import { supabase } from '@/integrations/supabase/client';
 
 interface ExchangeCredentials {
   binance_api_key?: string;
@@ -88,11 +89,23 @@ export const useDirectExchangeAPI = () => {
     }
   };
 
-  // Obter saldos da Binance
+  // Obter saldos da Binance via Edge Function (evita CORS/bloqueios)
   const getBinanceBalances = async (credentials: ExchangeCredentials) => {
-    return await binanceRequest('/api/v3/account', credentials);
+    setIsLoading(true);
+    setError(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('test-binance-connection', {
+        body: { apiKey: credentials.binance_api_key, secretKey: credentials.binance_secret_key }
+      });
+      if (error) throw error;
+      setIsLoading(false);
+      return data;
+    } catch (err: any) {
+      setIsLoading(false);
+      setError(err.message || 'Erro ao consultar Binance');
+      return { success: false, error: err.message || 'Erro ao consultar Binance' };
+    }
   };
-
   // Executar saque da Binance
   const executeBinanceWithdrawal = async (
     credentials: ExchangeCredentials,
