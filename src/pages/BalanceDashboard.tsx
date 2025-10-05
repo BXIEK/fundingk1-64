@@ -1,13 +1,19 @@
+import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useIsMobile } from "@/hooks/use-mobile"
 import SmartBalanceDashboard from "@/components/SmartBalanceDashboard"
 import Web3WalletManager from "@/components/Web3WalletManager"
 import CrossPlatformTransferHub from "@/components/CrossPlatformTransferHub"
 import MobileAPIManager from "@/components/MobileAPIManger"
+import { ExchangeBalanceCard } from "@/components/ExchangeBalanceCard"
+import { TotalBalanceCard } from "@/components/TotalBalanceCard"
 
 export default function BalanceDashboard() {
   const navigate = useNavigate()
   const isMobile = useIsMobile()
+  
+  const [binanceBalance, setBinanceBalance] = useState(0)
+  const [okxBalance, setOkxBalance] = useState(0)
 
   if (isMobile) {
     return (
@@ -42,9 +48,35 @@ export default function BalanceDashboard() {
       <div>
         <h1 className="text-3xl font-bold">Dashboard de Saldos</h1>
         <p className="text-muted-foreground mt-2">
-          Monitore e gerencie seus saldos através de carteiras Web3 e alertas automatizados
+          Monitore e gerencie seus saldos com baseline de $100 USD por exchange
         </p>
       </div>
+
+      {/* Cards de Saldo por Exchange e Total */}
+      <section>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Saldo Binance */}
+          <ExchangeBalanceCard 
+            exchange="binance"
+            baseline={100}
+            onBalanceChange={setBinanceBalance}
+          />
+          
+          {/* Saldo OKX */}
+          <ExchangeBalanceCard 
+            exchange="okx"
+            baseline={100}
+            onBalanceChange={setOkxBalance}
+          />
+          
+          {/* Saldo Total */}
+          <TotalBalanceCard 
+            binanceBalance={binanceBalance}
+            okxBalance={okxBalance}
+            totalBaseline={200}
+          />
+        </div>
+      </section>
 
       {/* Hub de Transferências Cross-Platform */}
       <section>
