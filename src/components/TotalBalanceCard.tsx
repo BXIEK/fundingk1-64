@@ -85,26 +85,7 @@ export const TotalBalanceCard = ({
           description: `${spreadData.symbol}${trendInfo} - Spread ${spreadData.spreadPercent.toFixed(4)}%`,
         });
 
-        // Buscar credenciais das APIs configuradas pelo usuário
-        const { data: credentials, error: credError } = await supabase
-          .from('exchange_api_configs')
-          .select('*')
-          .eq('user_id', user.id)
-          .eq('is_active', true);
-
-        if (credError) {
-          console.error('Erro ao buscar credenciais:', credError);
-          throw new Error('Erro ao buscar credenciais das APIs');
-        }
-
-        if (!credentials || credentials.length === 0) {
-          throw new Error('Nenhuma credencial de API configurada. Configure em Configuração de APIs.');
-        }
-
-        const binanceCred = credentials.find(c => c.exchange === 'binance');
-        const okxCred = credentials.find(c => c.exchange === 'okx');
-
-        // Executar arbitragem real via edge function (usa saldos disponíveis automaticamente)
+        // Executar arbitragem real via edge function (credenciais serão buscadas automaticamente do banco)
         const { data, error } = await supabase.functions.invoke('execute-cross-exchange-arbitrage', {
           body: {
             opportunityId: 'auto-balance',
@@ -115,11 +96,6 @@ export const TotalBalanceCard = ({
             buyPrice: spreadData.buyPrice,
             sellPrice: spreadData.sellPrice,
             mode: 'real',
-            binanceApiKey: binanceCred?.api_key,
-            binanceSecretKey: binanceCred?.secret_key,
-            okxApiKey: okxCred?.api_key,
-            okxSecretKey: okxCred?.secret_key,
-            okxPassphrase: okxCred?.passphrase,
             config: {
               maxSlippage: 0.3,
               customFeeRate: 0.2,

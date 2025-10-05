@@ -16,14 +16,6 @@ interface ExecuteCrossExchangeRequest {
   buyPrice: number;
   sellPrice: number;
   mode: 'simulation' | 'real';
-  // Credenciais dos usuários para execução real
-  binanceApiKey?: string;
-  binanceSecretKey?: string;
-  okxApiKey?: string;
-  okxSecretKey?: string;
-  okxPassphrase?: string;
-  hyperliquidWalletAddress?: string;
-  hyperliquidPrivateKey?: string;
   config?: {
     investmentAmount?: number; // Opcional - usa saldo disponível se não fornecido
     maxSlippage: number;
@@ -49,14 +41,6 @@ serve(async (req) => {
       buyPrice,
       sellPrice,
       mode = 'simulation',
-      // Credenciais dos usuários
-      binanceApiKey,
-      binanceSecretKey,
-      okxApiKey,
-      okxSecretKey,
-      okxPassphrase,
-      hyperliquidWalletAddress,
-      hyperliquidPrivateKey,
       config = {
         maxSlippage: 0.3,
         customFeeRate: 0.2, // 0.2% para cross-exchange
@@ -73,17 +57,36 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // ⭐ BUSCAR CREDENCIAIS DOS SUPABASE SECRETS (fallback se não forem enviadas)
-    const finalBinanceApiKey = binanceApiKey || Deno.env.get('BINANCE_API_KEY');
-    const finalBinanceSecretKey = binanceSecretKey || Deno.env.get('BINANCE_SECRET_KEY');
-    const finalOkxApiKey = okxApiKey || Deno.env.get('OKX_API_KEY');
-    const finalOkxSecretKey = okxSecretKey || Deno.env.get('OKX_SECRET_KEY');
-    const finalOkxPassphrase = okxPassphrase || Deno.env.get('OKX_PASSPHRASE');
+    // ⭐ BUSCAR CREDENCIAIS DA TABELA exchange_api_configs
+    console.log(`🔍 Buscando credenciais do usuário ${userId} na tabela exchange_api_configs...`);
+    
+    const { data: credentials, error: credError } = await supabase
+      .from('exchange_api_configs')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('is_active', true);
 
-    console.log('🔐 Credenciais carregadas:', {
+    if (credError) {
+      console.error('❌ Erro ao buscar credenciais:', credError);
+      throw new Error('Erro ao buscar credenciais das APIs');
+    }
+
+    if (!credentials || credentials.length === 0) {
+      throw new Error('❌ Nenhuma credencial de API configurada. Configure em Controle de Arbitragem > Configuração de APIs.');
+    }
+
+    const binanceCred = credentials.find(c => c.exchange === 'binance');
+    const okxCred = credentials.find(c => c.exchange === 'okx');
+
+    const finalBinanceApiKey = binanceCred?.api_key;
+    const finalBinanceSecretKey = binanceCred?.secret_key;
+    const finalOkxApiKey = okxCred?.api_key;
+    const finalOkxSecretKey = okxCred?.secret_key;
+    const finalOkxPassphrase = okxCred?.passphrase;
+
+    console.log('🔐 Credenciais carregadas da tabela:', {
       binance: !!finalBinanceApiKey,
-      okx: !!finalOkxApiKey,
-      source: binanceApiKey ? 'body' : 'secrets'
+      okx: !!finalOkxApiKey
     });
 
     // ⭐ REBALANCEAMENTO AUTOMÁTICO DESABILITADO
@@ -185,7 +188,7 @@ serve(async (req) => {
     if (mode === 'real' && status === 'completed') {
       try {
         console.log('💰 EXECUTANDO OPERAÇÃO REAL COM PADRÃO USDT...');
-        console.log(`📊 Credenciais: Binance=${!!binanceApiKey}, OKX=${!!okxApiKey}`);
+        console.log(`📊 Credenciais: Binance=${!!finalBinanceApiKey}, OKX=${!!finalOkxApiKey}`);
         
         // Validar credenciais necessárias
         const needsBinance = buyExchange === 'Binance' || sellExchange === 'Binance';
