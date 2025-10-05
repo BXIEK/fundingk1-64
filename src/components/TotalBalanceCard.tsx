@@ -124,62 +124,60 @@ export const TotalBalanceCard = ({
       console.log(`🤖 Auto-Conversão: BTC Binance ($${binancePrice}) vs OKX ($${okxPrice})`);
       console.log(`📊 Spread: ${btcPrices.spread.toFixed(3)}%`);
 
-      // 1. Comprar BTC na Binance (preço mais baixo)
-      console.log('💰 Iniciando compra de BTC na Binance com $50 USDT...');
-      const { data: buyResult, error: buyError } = await supabase.functions.invoke('binance-swap-token', {
-        body: {
-          apiKey: binanceCreds.api_key,
-          secretKey: binanceCreds.secret_key,
-          symbol: 'BTC',
-          direction: 'toToken',
-          customAmount: 50 // Usar $50 USDT
-        }
-      });
-
-      console.log('📦 Resultado compra Binance:', buyResult);
+      // Determinar qual exchange tem BTC mais caro e converter apenas nela
+      const btcMoreExpensiveOnOkx = okxPrice > binancePrice;
+      const expensiveExchange = btcMoreExpensiveOnOkx ? 'OKX' : 'Binance';
+      const expensivePrice = btcMoreExpensiveOnOkx ? okxPrice : binancePrice;
       
-      if (buyError) {
-        console.error('❌ Erro na requisição:', buyError);
-        throw new Error(`Erro na compra BTC Binance: ${buyError.message}`);
+      console.log(`🎯 ESTRATÉGIA: Converter BTC → USDT na ${expensiveExchange} (preço: $${expensivePrice})`);
+
+      let result, error;
+
+      if (btcMoreExpensiveOnOkx) {
+        // Vender BTC na OKX (mais caro)
+        console.log('💰 Invocando okx-swap-token (SELL)...');
+        const response = await supabase.functions.invoke('okx-swap-token', {
+          body: {
+            apiKey: okxCreds.api_key,
+            secretKey: okxCreds.secret_key,
+            passphrase: okxCreds.passphrase,
+            symbol: 'BTC',
+            direction: 'toUsdt'
+          }
+        });
+        result = response.data;
+        error = response.error;
+        console.log('📦 Resultado OKX:', result);
+      } else {
+        // Vender BTC na Binance (mais caro)
+        console.log('💰 Invocando binance-swap-token (SELL)...');
+        const response = await supabase.functions.invoke('binance-swap-token', {
+          body: {
+            apiKey: binanceCreds.api_key,
+            secretKey: binanceCreds.secret_key,
+            symbol: 'BTC',
+            direction: 'toUsdt'
+          }
+        });
+        result = response.data;
+        error = response.error;
+        console.log('📦 Resultado Binance:', result);
       }
 
-      if (!buyResult?.success) {
-        const errorMsg = buyResult?.error || 'Erro desconhecido';
-        console.error('❌ Compra falhou:', errorMsg);
-        throw new Error(`Erro na compra BTC Binance: ${errorMsg}`);
+      if (error) {
+        console.error('❌ Erro na requisição:', error);
+        throw new Error(`Erro na venda BTC ${expensiveExchange}: ${error.message}`);
       }
 
-      console.log('✅ Compra BTC realizada:', buyResult.executedQty, 'BTC');
-
-      // 2. Vender BTC na OKX (preço mais alto)
-      console.log('💰 Iniciando venda de BTC na OKX...');
-      const { data: sellResult, error: sellError } = await supabase.functions.invoke('okx-swap-token', {
-        body: {
-          apiKey: okxCreds.api_key,
-          secretKey: okxCreds.secret_key,
-          passphrase: okxCreds.passphrase,
-          symbol: 'BTC',
-          direction: 'toUsdt',
-          customAmount: buyResult.executedQty // Vender a quantidade comprada
-        }
-      });
-
-      console.log('📦 Resultado venda OKX:', sellResult);
-
-      if (sellError) {
-        console.error('❌ Erro na requisição:', sellError);
-        throw new Error(`Erro na venda BTC OKX: ${sellError.message}`);
-      }
-
-      if (!sellResult?.success) {
-        const errorMsg = sellResult?.error || 'Erro desconhecido';
+      if (!result?.success) {
+        const errorMsg = result?.error || 'Erro desconhecido';
         console.error('❌ Venda falhou:', errorMsg);
-        throw new Error(`Erro na venda BTC OKX: ${errorMsg}`);
+        throw new Error(`Erro na venda BTC ${expensiveExchange}: ${errorMsg}`);
       }
 
-      console.log('✅ Venda BTC realizada na OKX');
+      console.log(`✅ Venda BTC realizada na ${expensiveExchange}`);
 
-      const profit = (okxPrice - binancePrice) * buyResult.executedQty;
+      const profit = result.executedQty * Math.abs(okxPrice - binancePrice);
       
       toast.success(`✅ Conversão automática executada!`, {
         description: `Lucro estimado: $${profit.toFixed(2)} | Spread: ${btcPrices.spread.toFixed(3)}%`
