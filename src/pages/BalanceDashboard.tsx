@@ -78,6 +78,7 @@ export default function BalanceDashboard() {
             onBalanceChange={setBinanceBalance}
             onPriceUpdate={(ex, price) => setBinancePrice(price)}
             bestAction={bestExchange?.buy === 'binance' ? 'buy' : bestExchange?.sell === 'binance' ? 'sell' : null}
+            spreadPercent={bestExchange?.spreadPercent || null}
           />
           
           {/* Saldo OKX */}
@@ -87,6 +88,7 @@ export default function BalanceDashboard() {
             onBalanceChange={setOkxBalance}
             onPriceUpdate={(ex, price) => setOkxPrice(price)}
             bestAction={bestExchange?.buy === 'okx' ? 'buy' : bestExchange?.sell === 'okx' ? 'sell' : null}
+            spreadPercent={bestExchange?.spreadPercent || null}
           />
           
           {/* Saldo Total */}

@@ -30,6 +30,7 @@ interface ExchangeBalanceCardProps {
   onBalanceChange?: (totalValue: number) => void;
   onPriceUpdate?: (exchange: 'binance' | 'okx', price: number | null) => void;
   bestAction?: 'buy' | 'sell' | null;
+  spreadPercent?: string | null;
 }
 
 export const ExchangeBalanceCard = ({ 
@@ -37,7 +38,8 @@ export const ExchangeBalanceCard = ({
   baseline = 100,
   onBalanceChange,
   onPriceUpdate,
-  bestAction = null
+  bestAction = null,
+  spreadPercent = null
 }: ExchangeBalanceCardProps) => {
   const { toast } = useToast();
   const [balances, setBalances] = useState<Balance[]>([]);
@@ -360,7 +362,16 @@ export const ExchangeBalanceCard = ({
         <div className="flex items-center justify-between mb-2">
           <CardTitle className="flex items-center gap-2 text-lg">
             <Wallet className="h-5 w-5" />
-            {exchangeNames[exchange]}
+            <div className="flex items-center gap-2">
+              <span>{exchangeNames[exchange]}</span>
+              {spreadPercent && (
+                <Badge 
+                  className={bestAction === 'buy' ? "bg-green-500 text-white" : "bg-red-500 text-white"}
+                >
+                  Spread: {spreadPercent}%
+                </Badge>
+              )}
+            </div>
           </CardTitle>
           <div className="flex items-center gap-2">
             <Button
