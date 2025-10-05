@@ -60,6 +60,14 @@ export const TotalBalanceCard = ({
   
   // Usar token externo se fornecido, senão usar interno
   const selectedToken = externalSelectedToken || internalSelectedToken;
+
+  // Sincronizar token externo com interno quando mudar
+  useEffect(() => {
+    if (externalSelectedToken && externalSelectedToken !== internalSelectedToken) {
+      console.log(`🔄 Sincronizando token para ${externalSelectedToken} no Total Balance`);
+      setInternalSelectedToken(externalSelectedToken);
+    }
+  }, [externalSelectedToken]);
   const [tokenPrices, setTokenPrices] = useState<PriceData>({ binance: 0, okx: 0, spread: 0 });
   const [lastExecution, setLastExecution] = useState<string>('');
   const [binanceTokens, setBinanceTokens] = useState<TokenBalance[]>([]);

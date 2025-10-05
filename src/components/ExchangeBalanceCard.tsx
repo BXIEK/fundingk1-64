@@ -68,6 +68,14 @@ export const ExchangeBalanceCard = ({
     okx: 'OKX'
   };
 
+  // Sincronizar token externo com interno quando mudar
+  useEffect(() => {
+    if (externalSelectedToken && externalSelectedToken !== internalSelectedToken) {
+      console.log(`🔄 Sincronizando token de ${internalSelectedToken} para ${externalSelectedToken} na ${exchangeNames[exchange]}`);
+      setInternalSelectedToken(externalSelectedToken);
+    }
+  }, [externalSelectedToken]);
+
   // Função para formatar números no padrão brasileiro
   const formatBRL = (value: number, decimals: number = 2): string => {
     return value.toLocaleString('pt-BR', {
