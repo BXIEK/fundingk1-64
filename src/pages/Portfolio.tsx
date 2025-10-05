@@ -461,7 +461,9 @@ export default function Portfolio() {
 
       {/* Conversor automático para USDT */}
       {isRealMode && exchangeStatuses.binance && (
-        <BinanceAutoConverter />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <BinanceAutoConverter />
+        </div>
       )}
 
       {/* Mostrar estado vazio se não há dados reais em modo real */}
