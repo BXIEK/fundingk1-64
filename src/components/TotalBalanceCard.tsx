@@ -31,6 +31,14 @@ interface PriceData {
   spread: number;
 }
 
+interface TokenSpreadData {
+  symbol: string;
+  binancePrice: number;
+  okxPrice: number;
+  spread: number;
+  absSpread: number;
+}
+
 interface TokenBalance {
   symbol: string;
   balance: number;
@@ -53,6 +61,7 @@ export const TotalBalanceCard = ({
   const [okxTokens, setOkxTokens] = useState<TokenBalance[]>([]);
   const [loadingTokens, setLoadingTokens] = useState(false);
   const [activeTab, setActiveTab] = useState<'binance' | 'okx'>('binance');
+  const [bestToken, setBestToken] = useState<TokenSpreadData | null>(null);
 
   // Lista de tokens disponíveis para conversão automática
   const availableTokens = ['BTC', 'ETH', 'BNB', 'SOL', 'ADA', 'XRP', 'DOT', 'LINK', 'UNI', 'AVAX'];
@@ -121,40 +130,66 @@ export const TotalBalanceCard = ({
     return () => clearInterval(interval);
   }, []);
 
-  // Buscar preços do token selecionado a cada 15 segundos
+  // Monitorar todos os tokens e escolher o melhor spread automaticamente
   useEffect(() => {
-    if (!autoConvertEnabled || !selectedToken) return;
+    if (!autoConvertEnabled) return;
 
-    const fetchPrices = async () => {
+    const fetchAllPrices = async () => {
       try {
-        const symbol = `${selectedToken}USDT`;
-        
-        // Buscar preço Binance
+        // Buscar preços Binance para todos os tokens
+        const symbols = availableTokens.map(t => `${t}USDT`);
         const { data: binanceData } = await supabase.functions.invoke('binance-market-data', {
-          body: { action: 'tickers', symbols: [symbol] }
+          body: { action: 'tickers', symbols }
         });
 
-        // Buscar preço OKX
+        // Buscar preços OKX
         const { data: okxData } = await supabase.functions.invoke('okx-api', {
           body: { action: 'get_prices' }
         });
 
         if (binanceData?.success && okxData?.success) {
-          const binancePrice = binanceData.data?.[symbol]?.lastPrice || binanceData.data?.[symbol]?.price || 0;
-          const okxPrice = okxData.data?.[selectedToken] || 0;
-          
-          if (binancePrice > 0 && okxPrice > 0) {
-            const spread = ((okxPrice - binancePrice) / binancePrice) * 100;
-            setTokenPrices({ binance: binancePrice, okx: okxPrice, spread });
+          const spreads: TokenSpreadData[] = [];
 
-            console.log(`📊 ${selectedToken} - Spread: ${spread.toFixed(3)}% | Threshold: 0.3%`);
+          // Calcular spreads para todos os tokens
+          for (const token of availableTokens) {
+            const symbol = `${token}USDT`;
+            const binancePrice = binanceData.data?.[symbol]?.lastPrice || binanceData.data?.[symbol]?.price || 0;
+            const okxPrice = okxData.data?.[token] || 0;
+
+            if (binancePrice > 0 && okxPrice > 0) {
+              const spread = ((okxPrice - binancePrice) / binancePrice) * 100;
+              spreads.push({
+                symbol: token,
+                binancePrice,
+                okxPrice,
+                spread,
+                absSpread: Math.abs(spread)
+              });
+            }
+          }
+
+          // Ordenar por spread absoluto (maior primeiro)
+          spreads.sort((a, b) => b.absSpread - a.absSpread);
+
+          // Pegar o melhor token
+          const best = spreads[0];
+          if (best) {
+            setBestToken(best);
+            setSelectedToken(best.symbol);
+            setTokenPrices({ 
+              binance: best.binancePrice, 
+              okx: best.okxPrice, 
+              spread: best.spread 
+            });
+
+            console.log(`🔍 Análise de ${spreads.length} tokens - Melhor: ${best.symbol} (${best.spread.toFixed(3)}%)`);
             
-            // Se spread absoluto > 0.3%, executar conversão
-            if (Math.abs(spread) > 0.3 && !isProcessing) {
-              console.log(`✅ Spread suficiente detectado! Iniciando conversão de ${selectedToken}...`);
-              await executeAutoConversion(binancePrice, okxPrice);
-            } else if (Math.abs(spread) <= 0.3) {
-              console.log(`⏸️ Spread insuficiente (${spread.toFixed(3)}%) - aguardando oportunidade melhor`);
+            // Se o melhor spread for > 0.3%, executar conversão
+            if (best.absSpread > 0.3 && !isProcessing) {
+              console.log(`✅ Melhor oportunidade encontrada: ${best.symbol} com ${best.spread.toFixed(3)}% spread!`);
+              await executeAutoConversion(best.binancePrice, best.okxPrice, best.symbol);
+            } else {
+              console.log(`⏸️ Melhor spread disponível: ${best.symbol} (${best.spread.toFixed(3)}%) - aguardando threshold > 0.3%`);
             }
           }
         }
@@ -163,13 +198,14 @@ export const TotalBalanceCard = ({
       }
     };
 
-    fetchPrices();
-    const interval = setInterval(fetchPrices, 15000);
+    fetchAllPrices();
+    const interval = setInterval(fetchAllPrices, 15000);
 
     return () => clearInterval(interval);
-  }, [autoConvertEnabled, isProcessing, selectedToken]);
+  }, [autoConvertEnabled, isProcessing]);
 
-  const executeAutoConversion = async (binancePrice: number, okxPrice: number) => {
+  const executeAutoConversion = async (binancePrice: number, okxPrice: number, tokenSymbol?: string) => {
+    const token = tokenSymbol || selectedToken;
     setIsProcessing(true);
     
     try {
@@ -212,8 +248,8 @@ export const TotalBalanceCard = ({
       const portfolio = portfolioData.data.portfolio;
       
       // Filtrar saldos por exchange
-      const binanceToken = portfolio.find((i: any) => i.exchange === 'Binance' && i.symbol === selectedToken);
-      const okxToken = portfolio.find((i: any) => i.exchange === 'OKX' && i.symbol === selectedToken);
+      const binanceToken = portfolio.find((i: any) => i.exchange === 'Binance' && i.symbol === token);
+      const okxToken = portfolio.find((i: any) => i.exchange === 'OKX' && i.symbol === token);
       const binanceUSDT = portfolio.find((i: any) => i.exchange === 'Binance' && i.symbol === 'USDT');
       const okxUSDT = portfolio.find((i: any) => i.exchange === 'OKX' && i.symbol === 'USDT');
 
@@ -222,8 +258,8 @@ export const TotalBalanceCard = ({
       const binanceUSDTBalance = binanceUSDT ? parseFloat(binanceUSDT.balance) : 0;
       const okxUSDTBalance = okxUSDT ? parseFloat(okxUSDT.balance) : 0;
 
-      console.log(`💰 Saldos - Binance: ${binanceTokenBalance} ${selectedToken}, ${binanceUSDTBalance} USDT`);
-      console.log(`💰 Saldos - OKX: ${okxTokenBalance} ${selectedToken}, ${okxUSDTBalance} USDT`);
+      console.log(`💰 Saldos - Binance: ${binanceTokenBalance} ${token}, ${binanceUSDTBalance} USDT`);
+      console.log(`💰 Saldos - OKX: ${okxTokenBalance} ${token}, ${okxUSDTBalance} USDT`);
       console.log(`📊 Preços - Binance: $${binancePrice}, OKX: $${okxPrice}, Spread: ${tokenPrices.spread.toFixed(3)}%`);
 
       const minNotionalUSD = 5;
@@ -235,27 +271,27 @@ export const TotalBalanceCard = ({
         const minTokenNeeded = minNotionalUSD / okxPrice;
         
         if (okxTokenBalance < minTokenNeeded) {
-          console.log(`❌ Saldo ${selectedToken} insuficiente na OKX: ${okxTokenBalance} (necessário: ${minTokenNeeded.toFixed(6)})`);
-          toast.warning(`⚠️ Saldo ${selectedToken} insuficiente na OKX`, {
-            description: `Necessário: ${minTokenNeeded.toFixed(6)} ${selectedToken}`,
+          console.log(`❌ Saldo ${token} insuficiente na OKX: ${okxTokenBalance} (necessário: ${minTokenNeeded.toFixed(6)})`);
+          toast.warning(`⚠️ Saldo ${token} insuficiente na OKX`, {
+            description: `Necessário: ${minTokenNeeded.toFixed(6)} ${token}`,
             duration: 5000
           });
           return;
         }
 
-        console.log(`🎯 Executando: Vender ${selectedToken} → USDT na OKX ($${okxPrice})`);
+        console.log(`🎯 Executando: Vender ${token} → USDT na OKX ($${okxPrice})`);
         const response = await supabase.functions.invoke('okx-swap-token', {
           body: {
             apiKey: okxCreds.api_key,
             secretKey: okxCreds.secret_key,
             passphrase: okxCreds.passphrase,
-            symbol: selectedToken,
+            symbol: token,
             direction: 'toUsdt'
           }
         });
         result = response.data;
         error = response.error;
-        executedAction = `${selectedToken} → USDT (OKX)`;
+        executedAction = `${token} → USDT (OKX)`;
         console.log('📊 Resultado OKX:', result);
 
       } else if (binancePrice > okxPrice && Math.abs(tokenPrices.spread) > 0.3) {
@@ -263,26 +299,26 @@ export const TotalBalanceCard = ({
         const minTokenNeeded = minNotionalUSD / binancePrice;
         
         if (binanceTokenBalance < minTokenNeeded) {
-          console.log(`❌ Saldo ${selectedToken} insuficiente na Binance: ${binanceTokenBalance} (necessário: ${minTokenNeeded.toFixed(6)})`);
-          toast.warning(`⚠️ Saldo ${selectedToken} insuficiente na Binance`, {
-            description: `Necessário: ${minTokenNeeded.toFixed(6)} ${selectedToken}`,
+          console.log(`❌ Saldo ${token} insuficiente na Binance: ${binanceTokenBalance} (necessário: ${minTokenNeeded.toFixed(6)})`);
+          toast.warning(`⚠️ Saldo ${token} insuficiente na Binance`, {
+            description: `Necessário: ${minTokenNeeded.toFixed(6)} ${token}`,
             duration: 5000
           });
           return;
         }
 
-        console.log(`🎯 Executando: Vender ${selectedToken} → USDT na Binance ($${binancePrice})`);
+        console.log(`🎯 Executando: Vender ${token} → USDT na Binance ($${binancePrice})`);
         const response = await supabase.functions.invoke('binance-swap-token', {
           body: {
             apiKey: binanceCreds.api_key,
             secretKey: binanceCreds.secret_key,
-            symbol: selectedToken,
+            symbol: token,
             direction: 'toUsdt'
           }
         });
         result = response.data;
         error = response.error;
-        executedAction = `${selectedToken} → USDT (Binance)`;
+        executedAction = `${token} → USDT (Binance)`;
         console.log('📊 Resultado Binance:', result);
       } else {
         console.log(`⏸️ Spread insuficiente (${tokenPrices.spread.toFixed(3)}%) - aguardando melhor oportunidade`);
@@ -323,21 +359,13 @@ export const TotalBalanceCard = ({
           
           {/* Controles de Conversão Automatizada */}
           <div className="flex items-center gap-2">
-            <Select value={selectedToken} onValueChange={setSelectedToken} disabled={autoConvertEnabled}>
-              <SelectTrigger className="w-[100px] h-8 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {availableTokens.map((token) => (
-                  <SelectItem key={token} value={token} className="text-xs">
-                    {token}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex items-center gap-1 px-2 py-1 bg-primary/5 rounded border border-primary/20">
+              <ArrowRightLeft className="h-3 w-3 text-primary" />
+              <span className="text-xs font-medium text-primary">{selectedToken}</span>
+            </div>
             
             <Label htmlFor="auto-convert" className="text-sm font-normal cursor-pointer flex items-center gap-1">
-              <Zap className={`h-4 w-4 ${autoConvertEnabled ? 'text-green-500' : 'text-muted-foreground'}`} />
+              <Zap className={`h-4 w-4 ${autoConvertEnabled ? 'text-green-500 animate-pulse' : 'text-muted-foreground'}`} />
               Auto
             </Label>
             <Switch
@@ -353,11 +381,16 @@ export const TotalBalanceCard = ({
         {autoConvertEnabled && (
           <div className="mt-2 p-2 bg-primary/5 rounded-lg border border-primary/20">
             <div className="flex items-center justify-between text-xs">
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-2">
                 <RefreshCw className={`h-3 w-3 ${isProcessing ? 'animate-spin' : ''} text-primary`} />
                 <span className="text-primary font-medium">
-                  {isProcessing ? 'Processando...' : 'Monitorando preços'}
+                  {isProcessing ? 'Executando conversão...' : `Escaneando ${availableTokens.length} tokens`}
                 </span>
+                {bestToken && !isProcessing && (
+                  <span className="text-green-500 font-bold">
+                    {bestToken.symbol}: {bestToken.spread > 0 ? '+' : ''}{bestToken.spread.toFixed(3)}%
+                  </span>
+                )}
               </div>
               {lastExecution && (
                 <span className="text-muted-foreground">
