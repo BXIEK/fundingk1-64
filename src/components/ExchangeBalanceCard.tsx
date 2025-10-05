@@ -44,6 +44,8 @@ export const ExchangeBalanceCard = ({
   const [selectedToken, setSelectedToken] = useState<string>('BTC');
   const [showTokenFilter, setShowTokenFilter] = useState(false);
   const [showSwapDialog, setShowSwapDialog] = useState(false);
+  const [realtimePrice, setRealtimePrice] = useState<number | null>(null);
+  const [priceChange24h, setPriceChange24h] = useState<number | null>(null);
 
   const exchangeNames = {
     binance: 'Binance',
@@ -277,6 +279,43 @@ export const ExchangeBalanceCard = ({
     });
   };
 
+  // Buscar preço em tempo real do token selecionado
+  const fetchRealtimePrice = async () => {
+    if (!selectedToken || !showTokenFilter) return;
+    
+    try {
+      const symbol = `${selectedToken}USDT`;
+      
+      if (exchange === 'binance') {
+        const response = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${symbol}`);
+        if (response.ok) {
+          const data = await response.json();
+          setRealtimePrice(parseFloat(data.lastPrice));
+          setPriceChange24h(parseFloat(data.priceChangePercent));
+        }
+      } else if (exchange === 'okx') {
+        const { data, error } = await supabase.functions.invoke('okx-api', {
+          body: { action: 'get_price', symbol: selectedToken }
+        });
+        if (!error && data?.success) {
+          setRealtimePrice(data.price);
+          setPriceChange24h(data.priceChange24h);
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao buscar preço em tempo real:', error);
+    }
+  };
+
+  // Atualizar preço em tempo real a cada 5 segundos
+  useEffect(() => {
+    if (showTokenFilter && selectedToken) {
+      fetchRealtimePrice();
+      const interval = setInterval(fetchRealtimePrice, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [selectedToken, showTokenFilter, exchange]);
+
   const profitLoss = totalValue - baseline;
   const profitLossPercent = baseline > 0 ? (profitLoss / baseline) * 100 : 0;
   const isProfit = profitLoss > 0;
@@ -358,28 +397,46 @@ export const ExchangeBalanceCard = ({
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <p className="text-lg font-bold">{selectedTokenBalance.symbol}</p>
-                <Badge className="bg-green-500 text-white">
-                  <TrendingUp className="h-3 w-3 mr-1" />
-                  Alta
+                <Badge className={priceChange24h && priceChange24h >= 0 ? "bg-green-500 text-white" : "bg-red-500 text-white"}>
+                  {priceChange24h && priceChange24h >= 0 ? (
+                    <TrendingUp className="h-3 w-3 mr-1" />
+                  ) : (
+                    <TrendingDown className="h-3 w-3 mr-1" />
+                  )}
+                  {priceChange24h ? `${priceChange24h >= 0 ? '+' : ''}${priceChange24h.toFixed(2)}%` : 'Carregando...'}
                 </Badge>
               </div>
             </div>
+            
+            {/* Preço em Tempo Real */}
+            {realtimePrice && (
+              <div className="p-3 border rounded-lg bg-background">
+                <p className="text-xs text-muted-foreground mb-1">Preço em Tempo Real</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-2xl font-bold">${realtimePrice.toFixed(selectedToken === 'BTC' || selectedToken === 'ETH' ? 2 : 6)}</p>
+                  <Badge variant={priceChange24h && priceChange24h >= 0 ? "default" : "destructive"} className="text-xs">
+                    24h: {priceChange24h ? `${priceChange24h >= 0 ? '+' : ''}${priceChange24h.toFixed(2)}%` : '...'}
+                  </Badge>
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div>
                 <p className="text-muted-foreground">Saldo</p>
                 <p className="font-semibold">{selectedTokenBalance.balance.toFixed(6)}</p>
               </div>
               <div>
-                <p className="text-muted-foreground">Valor</p>
+                <p className="text-muted-foreground">Valor Total</p>
                 <p className="font-semibold text-green-500">${selectedTokenBalance.valueUsd.toFixed(2)}</p>
               </div>
               <div>
-                <p className="text-muted-foreground">Preço</p>
+                <p className="text-muted-foreground">Preço Médio</p>
                 <p className="font-semibold">${selectedTokenBalance.priceUsd.toFixed(2)}</p>
               </div>
               <div>
-                <p className="text-muted-foreground">Status</p>
-                <p className="font-semibold text-green-500">+2.5%</p>
+                <p className="text-muted-foreground">Exchange</p>
+                <p className="font-semibold">{exchangeNames[exchange]}</p>
               </div>
             </div>
             
