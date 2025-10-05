@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { TokenFilter } from './TokenFilter';
+import { TokenSwapDialog } from './TokenSwapDialog';
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -12,7 +13,8 @@ import {
   ArrowRightLeft,
   Wallet,
   Minus,
-  Filter
+  Filter,
+  Repeat
 } from 'lucide-react';
 
 interface Balance {
@@ -41,6 +43,7 @@ export const ExchangeBalanceCard = ({
   const [totalValue, setTotalValue] = useState(0);
   const [selectedToken, setSelectedToken] = useState<string>('BTC');
   const [showTokenFilter, setShowTokenFilter] = useState(false);
+  const [showSwapDialog, setShowSwapDialog] = useState(false);
 
   const exchangeNames = {
     binance: 'Binance',
@@ -261,6 +264,19 @@ export const ExchangeBalanceCard = ({
     }
   };
 
+  const handleSwapComplete = async () => {
+    // Aguardar 2 segundos para a exchange processar
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // Forçar atualização dos saldos com refresh
+    await fetchBalances(true);
+    
+    toast({
+      title: "🔄 Saldos atualizados",
+      description: "Os saldos foram sincronizados com a exchange",
+    });
+  };
+
   const profitLoss = totalValue - baseline;
   const profitLossPercent = baseline > 0 ? (profitLoss / baseline) * 100 : 0;
   const isProfit = profitLoss > 0;
@@ -369,16 +385,13 @@ export const ExchangeBalanceCard = ({
             
             {/* Botão de Swap */}
             <Button
-              onClick={handleSwapToken}
-              disabled={swapping || loading}
+              onClick={() => setShowSwapDialog(true)}
+              disabled={loading}
               className="w-full"
               size="sm"
             >
-              <ArrowRightLeft className={`h-4 w-4 mr-2 ${swapping ? 'animate-spin' : ''}`} />
-              {selectedTokenBalance.balance > 0 
-                ? `${selectedToken} → USDT` 
-                : `USDT → ${selectedToken}`
-              }
+              <Repeat className="h-4 w-4 mr-2" />
+              Converter Tokens
             </Button>
           </div>
         )}
@@ -435,6 +448,15 @@ export const ExchangeBalanceCard = ({
           </Button>
         </div>
       </CardContent>
+
+      {/* Dialog de Conversão */}
+      <TokenSwapDialog
+        open={showSwapDialog}
+        onOpenChange={setShowSwapDialog}
+        exchange={exchange}
+        balances={balances}
+        onSwapComplete={handleSwapComplete}
+      />
     </Card>
   );
 };

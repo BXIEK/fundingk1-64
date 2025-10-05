@@ -11,14 +11,18 @@ serve(async (req) => {
   }
 
   try {
-    const { apiKey, secretKey, passphrase, symbol, direction } = await req.json();
+    const { apiKey, secretKey, passphrase, symbol, direction, amount: customAmount } = await req.json();
     // direction: 'toUsdt' ou 'toToken'
+    // amount: quantidade específica a converter (opcional)
 
     if (!apiKey || !secretKey || !passphrase || !symbol || !direction) {
       throw new Error('Parâmetros incompletos');
     }
 
     console.log(`🔄 OKX Swap: ${direction === 'toUsdt' ? symbol + ' → USDT' : 'USDT → ' + symbol}`);
+    if (customAmount) {
+      console.log(`💰 Valor personalizado: ${customAmount}`);
+    }
 
     // Buscar saldo atual
     const balancesResponse = await callOKXAPI('/api/v5/account/balance', 'GET', {}, apiKey, secretKey, passphrase);
@@ -39,12 +43,17 @@ serve(async (req) => {
       sourceBalance = parseFloat(tokenBalance?.availBal || '0');
       tradePair = `${symbol}-USDT`;
       orderSide = 'sell';
-      orderSize = sourceBalance;
+      orderSize = customAmount || sourceBalance; // Usar valor personalizado se fornecido
 
       console.log(`💰 Saldo de ${symbol}: ${sourceBalance}`);
+      console.log(`🎯 Quantidade a converter: ${orderSize}`);
 
       if (sourceBalance <= 0) {
         throw new Error(`Saldo insuficiente de ${symbol}`);
+      }
+
+      if (orderSize > sourceBalance) {
+        throw new Error(`Quantidade solicitada (${orderSize}) maior que saldo disponível (${sourceBalance})`);
       }
     } else {
       // Converter USDT para token (BUY)
@@ -74,8 +83,18 @@ serve(async (req) => {
       }
 
       const currentPrice = parseFloat(tickerResponse.data[0].last);
-      // Usar 95% do saldo USDT
-      orderSize = (sourceBalance * 0.95) / currentPrice;
+      
+      if (customAmount) {
+        // Se valor personalizado de USDT foi especificado
+        const usdtToSpend = customAmount;
+        if (usdtToSpend > sourceBalance) {
+          throw new Error(`Saldo insuficiente. Disponível: ${sourceBalance} USDT`);
+        }
+        orderSize = usdtToSpend / currentPrice;
+      } else {
+        // Usar 95% do saldo USDT
+        orderSize = (sourceBalance * 0.95) / currentPrice;
+      }
 
       console.log(`📊 Preço atual de ${symbol}: $${currentPrice}`);
       console.log(`🎯 Quantidade a comprar: ${orderSize} ${symbol}`);

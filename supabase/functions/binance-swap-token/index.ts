@@ -11,14 +11,18 @@ serve(async (req) => {
   }
 
   try {
-    const { apiKey, secretKey, symbol, direction } = await req.json();
+    const { apiKey, secretKey, symbol, direction, amount: customAmount } = await req.json();
     // direction: 'toUsdt' ou 'toToken'
+    // amount: quantidade específica a converter (opcional)
 
     if (!apiKey || !secretKey || !symbol || !direction) {
       throw new Error('Parâmetros incompletos');
     }
 
     console.log(`🔄 Binance Swap: ${direction === 'toUsdt' ? symbol + ' → USDT' : 'USDT → ' + symbol}`);
+    if (customAmount) {
+      console.log(`💰 Valor personalizado: ${customAmount}`);
+    }
 
     const timestamp = Date.now();
     const baseUrl = 'https://api.binance.com';
@@ -50,12 +54,17 @@ serve(async (req) => {
       sourceBalance = parseFloat(tokenBalance?.free || '0');
       tradePair = `${symbol}USDT`;
       orderSide = 'SELL';
-      orderQuantity = sourceBalance;
+      orderQuantity = customAmount || sourceBalance; // Usar valor personalizado se fornecido
 
       console.log(`💰 Saldo de ${symbol}: ${sourceBalance}`);
+      console.log(`🎯 Quantidade a converter: ${orderQuantity}`);
 
       if (sourceBalance <= 0) {
         throw new Error(`Saldo insuficiente de ${symbol}`);
+      }
+
+      if (orderQuantity > sourceBalance) {
+        throw new Error(`Quantidade solicitada (${orderQuantity}) maior que saldo disponível (${sourceBalance})`);
       }
     } else {
       // Converter USDT para token (BUY)
@@ -76,8 +85,17 @@ serve(async (req) => {
       const tickerData = await tickerResponse.json();
       const currentPrice = parseFloat(tickerData.price);
 
-      // Usar 95% do saldo USDT para evitar erros de saldo insuficiente
-      orderQuantity = (sourceBalance * 0.95) / currentPrice;
+      if (customAmount) {
+        // Se valor personalizado de USDT foi especificado
+        const usdtToSpend = customAmount;
+        if (usdtToSpend > sourceBalance) {
+          throw new Error(`Saldo insuficiente. Disponível: ${sourceBalance} USDT`);
+        }
+        orderQuantity = usdtToSpend / currentPrice;
+      } else {
+        // Usar 95% do saldo USDT para evitar erros de saldo insuficiente
+        orderQuantity = (sourceBalance * 0.95) / currentPrice;
+      }
 
       console.log(`📊 Preço atual de ${symbol}: $${currentPrice}`);
       console.log(`🎯 Quantidade a comprar: ${orderQuantity} ${symbol}`);
@@ -115,7 +133,9 @@ serve(async (req) => {
     if (direction === 'toUsdt') {
       orderQuery += `&quantity=${orderQuantity}`;
     } else {
-      orderQuery += `&quoteOrderQty=${sourceBalance * 0.95}`;
+      // Para BUY, usar quoteOrderQty (valor em USDT)
+      const usdtAmount = customAmount || (sourceBalance * 0.95);
+      orderQuery += `&quoteOrderQty=${usdtAmount}`;
     }
 
     const orderSignature = await createSignature(orderQuery, secretKey);
