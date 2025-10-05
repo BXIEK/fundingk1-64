@@ -32,22 +32,12 @@ interface ExchangeBalanceCardProps {
   exchange: 'binance' | 'okx';
   baseline?: number; // Valor inicial esperado (padrão 100 USD)
   onBalanceChange?: (totalValue: number) => void;
-  onPriceUpdate?: (exchange: 'binance' | 'okx', price: number | null) => void;
-  onPriceChangeUpdate?: (exchange: 'binance' | 'okx', priceChange: number | null) => void;
-  onTokenSelect?: (token: string) => void;
-  bestAction?: 'buy' | 'sell' | null;
-  spreadPercent?: string | null;
 }
 
 export const ExchangeBalanceCard = ({ 
   exchange, 
   baseline = 100,
-  onBalanceChange,
-  onPriceUpdate,
-  onPriceChangeUpdate,
-  onTokenSelect,
-  bestAction = null,
-  spreadPercent = null
+  onBalanceChange
 }: ExchangeBalanceCardProps) => {
   const { toast } = useToast();
   const [balances, setBalances] = useState<Balance[]>([]);
@@ -217,10 +207,8 @@ export const ExchangeBalanceCard = ({
 
   // Notificar mudança de token selecionado para o pai
   useEffect(() => {
-    if (onTokenSelect) {
-      onTokenSelect(selectedToken);
-    }
-  }, [selectedToken, onTokenSelect]);
+    // Token selecionado atualizado internamente apenas
+  }, [selectedToken]);
 
   const handleSwapToken = async () => {
     setSwapping(true);
@@ -342,14 +330,6 @@ export const ExchangeBalanceCard = ({
           setRealtimePrice(price);
           setPriceChange24h(change24h);
           console.log(`✅ Preço Binance ${symbol}: $${data.lastPrice} (${data.priceChangePercent}%)`);
-          
-          // Notificar preço e mudança atualizada
-          if (onPriceUpdate) {
-            onPriceUpdate(exchange, price);
-          }
-          if (onPriceChangeUpdate) {
-            onPriceChangeUpdate(exchange, change24h);
-          }
         }
       } else if (exchange === 'okx') {
         // Usar API pública da OKX diretamente
@@ -363,14 +343,6 @@ export const ExchangeBalanceCard = ({
             setRealtimePrice(price);
             setPriceChange24h(change24h);
             console.log(`✅ Preço OKX ${symbol}: $${price} (${change24h.toFixed(2)}%)`);
-            
-            // Notificar preço e mudança atualizada
-            if (onPriceUpdate) {
-              onPriceUpdate(exchange, price);
-            }
-            if (onPriceChangeUpdate) {
-              onPriceChangeUpdate(exchange, change24h);
-            }
           }
         }
       }
@@ -403,16 +375,7 @@ export const ExchangeBalanceCard = ({
         <div className="flex items-center justify-between mb-2">
           <CardTitle className="flex items-center gap-2 text-lg">
             <Wallet className="h-5 w-5" />
-            <div className="flex items-center gap-2">
-              <span>{exchangeNames[exchange]}</span>
-              {spreadPercent && (
-                <Badge 
-                  className={bestAction === 'buy' ? "bg-green-500 text-white" : "bg-red-500 text-white"}
-                >
-                  Spread: {spreadPercent}%
-                </Badge>
-              )}
-            </div>
+            <span>{exchangeNames[exchange]}</span>
           </CardTitle>
           <div className="flex items-center gap-2">
             <Button
@@ -457,24 +420,9 @@ export const ExchangeBalanceCard = ({
             </div>
             <div className="text-right flex items-center gap-2">
               {realtimePrice ? (
-                <>
-                  <p className="text-lg font-bold">
-                    ${formatBRL(realtimePrice, selectedToken === 'BTC' || selectedToken === 'ETH' ? 2 : 6)}
-                  </p>
-                  {/* Indicador de Compra/Venda */}
-                  {bestAction === 'buy' && (
-                    <div className="flex items-center gap-1">
-                      <div className="w-3 h-3 rounded-full bg-green-500 animate-pulse" title="Melhor preço para COMPRAR" />
-                      <span className="text-xs font-semibold text-green-500">COMPRAR</span>
-                    </div>
-                  )}
-                  {bestAction === 'sell' && (
-                    <div className="flex items-center gap-1">
-                      <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse" title="Melhor preço para VENDER" />
-                      <span className="text-xs font-semibold text-red-500">VENDER</span>
-                    </div>
-                  )}
-                </>
+                <p className="text-lg font-bold">
+                  ${formatBRL(realtimePrice, selectedToken === 'BTC' || selectedToken === 'ETH' ? 2 : 6)}
+                </p>
               ) : (
                 <p className="text-sm text-muted-foreground">Carregando...</p>
               )}
