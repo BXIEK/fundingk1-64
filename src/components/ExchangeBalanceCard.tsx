@@ -281,7 +281,7 @@ export const ExchangeBalanceCard = ({
 
   // Buscar preço em tempo real do token selecionado
   const fetchRealtimePrice = async () => {
-    if (!selectedToken || !showTokenFilter) return;
+    if (!selectedToken) return;
     
     try {
       const symbol = `${selectedToken}USDT`;
@@ -316,12 +316,12 @@ export const ExchangeBalanceCard = ({
 
   // Atualizar preço em tempo real a cada 5 segundos
   useEffect(() => {
-    if (showTokenFilter && selectedToken) {
+    if (selectedToken) {
       fetchRealtimePrice();
       const interval = setInterval(fetchRealtimePrice, 5000);
       return () => clearInterval(interval);
     }
-  }, [selectedToken, showTokenFilter, exchange]);
+  }, [selectedToken, exchange]);
 
   const profitLoss = totalValue - baseline;
   const profitLossPercent = baseline > 0 ? (profitLoss / baseline) * 100 : 0;
@@ -366,6 +366,31 @@ export const ExchangeBalanceCard = ({
       </CardHeader>
       
       <CardContent className="space-y-4">
+        {/* Preço em Tempo Real do Token Selecionado */}
+        <div className="p-3 border rounded-lg bg-muted/20">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-muted-foreground">{selectedToken}</span>
+              <Badge className={priceChange24h !== null && priceChange24h >= 0 ? "bg-green-500 text-white" : "bg-red-500 text-white"}>
+                {priceChange24h !== null && priceChange24h >= 0 ? (
+                  <TrendingUp className="h-3 w-3 mr-1" />
+                ) : (
+                  <TrendingDown className="h-3 w-3 mr-1" />
+                )}
+                {priceChange24h !== null ? `${priceChange24h >= 0 ? '+' : ''}${priceChange24h.toFixed(2)}%` : 'Alta'}
+              </Badge>
+            </div>
+            <div className="text-right">
+              {realtimePrice ? (
+                <p className="text-lg font-bold">
+                  ${realtimePrice.toFixed(selectedToken === 'BTC' || selectedToken === 'ETH' ? 2 : 6)}
+                </p>
+              ) : (
+                <p className="text-sm text-muted-foreground">Carregando...</p>
+              )}
+            </div>
+          </div>
+        </div>
         {/* Total Value Display */}
         <div className="text-center py-4 border rounded-lg bg-muted/30">
           <p className="text-sm text-muted-foreground mb-1">Saldo Total</p>
