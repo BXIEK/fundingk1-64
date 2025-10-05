@@ -459,12 +459,61 @@ export default function Portfolio() {
         </CardContent>
       </Card>
 
-      {/* Conversor automático para USDT */}
-      {isRealMode && exchangeStatuses.binance && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* Conversor e Saldos por Exchange */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {isRealMode && exchangeStatuses.binance && (
           <BinanceAutoConverter />
-        </div>
-      )}
+        )}
+        
+        {/* Cards de Saldos por Exchange */}
+        {Object.entries(exchangeStatuses)
+          .filter(([_, hasData]) => hasData)
+          .map(([exchange]) => {
+            const exchangeAssets = portfolio.filter(
+              asset => asset.exchange?.toLowerCase() === exchange.toLowerCase() && asset.balance > 0
+            );
+            const totalValue = exchangeAssets.reduce((sum, asset) => sum + (asset.value_usd || 0), 0);
+            
+            return (
+              <Card key={exchange}>
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <span className="capitalize">{exchange}</span>
+                    <Badge variant="outline">{exchangeAssets.length} ativos</Badge>
+                  </CardTitle>
+                  <CardDescription>
+                    Valor Total: {formatCurrency(totalValue)}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {exchangeAssets.map((asset, idx) => (
+                      <div key={idx} className="flex items-center justify-between p-2 border rounded-lg">
+                        <div>
+                          <p className="font-medium text-sm">{asset.symbol}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {asset.balance.toFixed(8)}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-medium text-sm">
+                            {formatCurrency(asset.value_usd || 0)}
+                          </p>
+                          {asset.price_usd && (
+                            <p className="text-xs text-muted-foreground">
+                              @{formatCurrency(asset.price_usd)}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })
+        }
+      </div>
 
       {/* Mostrar estado vazio se não há dados reais em modo real */}
       {shouldShowEmptyState ? (
