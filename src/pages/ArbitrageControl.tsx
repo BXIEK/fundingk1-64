@@ -45,6 +45,7 @@ import SmartTransferDashboard from '@/components/SmartTransferDashboard';
 import IPWhitelistHelper from '@/components/IPWhitelistHelper';
 import { IPWhitelistGuide } from '@/components/IPWhitelistGuide';
 import { DirectIPConnectionTest } from '@/components/DirectIPConnectionTest';
+import { InternalExchangeArbitrage } from '@/components/InternalExchangeArbitrage';
 
 import { type ArbitrageOpportunity } from '@/types/arbitrage';
 
@@ -610,6 +611,9 @@ export default function ArbitrageControl() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Painel de Arbitragem Interna Automatizada */}
+      <InternalExchangeArbitrage />
 
       {!hasCredentials && isRealMode && (
         <Card>
