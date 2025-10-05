@@ -300,79 +300,114 @@ export const TotalBalanceCard = ({
     }
   }, [externalSelectedToken]);
 
-  // Monitorar todos os tokens e escolher o melhor spread automaticamente
+  // Monitorar token selecionado e executar conversões automáticas apenas para ele
   useEffect(() => {
-    if (!autoConvertEnabled) return;
+    if (!autoConvertEnabled || !selectedToken || selectedToken === 'USDT') return;
 
-    const fetchAllPrices = async () => {
+    const fetchPricesAndMaybeConvert = async () => {
       try {
-        // Buscar preços Binance para todos os tokens
-        const symbols = availableTokens.map(t => `${t}USDT`);
+        const symbol = `${selectedToken}USDT`;
         const { data: binanceData } = await supabase.functions.invoke('binance-market-data', {
-          body: { action: 'tickers', symbols }
+          body: { action: 'tickers', symbols: [symbol] }
         });
 
-        // Buscar preços OKX
         const { data: okxData } = await supabase.functions.invoke('okx-api', {
           body: { action: 'get_prices' }
         });
 
         if (binanceData?.success && okxData?.success) {
-          const spreads: TokenSpreadData[] = [];
+          const binancePrice = binanceData.data?.[symbol]?.lastPrice || binanceData.data?.[symbol]?.price || 0;
+          const okxPrice = okxData.data?.[selectedToken] || 0;
 
-          // Calcular spreads para todos os tokens
-          for (const token of availableTokens) {
-            const symbol = `${token}USDT`;
-            const binancePrice = binanceData.data?.[symbol]?.lastPrice || binanceData.data?.[symbol]?.price || 0;
-            const okxPrice = okxData.data?.[token] || 0;
+          if (binancePrice > 0 && okxPrice > 0) {
+            const spread = ((okxPrice - binancePrice) / binancePrice) * 100;
+            setTokenPrices({ binance: binancePrice, okx: okxPrice, spread });
+            console.log(`🤖 Auto (${selectedToken}) - Binance: $${binancePrice}, OKX: $${okxPrice}, Spread: ${spread.toFixed(3)}%`);
 
-            if (binancePrice > 0 && okxPrice > 0) {
-              const spread = ((okxPrice - binancePrice) / binancePrice) * 100;
-              spreads.push({
-                symbol: token,
-                binancePrice,
-                okxPrice,
-                spread,
-                absSpread: Math.abs(spread)
-              });
-            }
-          }
-
-          // Ordenar por spread absoluto (maior primeiro)
-          spreads.sort((a, b) => b.absSpread - a.absSpread);
-
-          // Pegar o melhor token
-          const best = spreads[0];
-          if (best) {
-            setBestToken(best);
-            setInternalSelectedToken(best.symbol);
-            setTokenPrices({ 
-              binance: best.binancePrice, 
-              okx: best.okxPrice, 
-              spread: best.spread 
-            });
-
-            console.log(`🔍 Análise de ${spreads.length} tokens - Melhor: ${best.symbol} (${best.spread.toFixed(3)}%)`);
-            
-            // Se o melhor spread for > 0.3%, executar conversão
-            if (best.absSpread > 0.3 && !isProcessing) {
-              console.log(`✅ Melhor oportunidade encontrada: ${best.symbol} com ${best.spread.toFixed(3)}% spread!`);
-              await executeAutoConversion(best.binancePrice, best.okxPrice, best.symbol);
-            } else {
-              console.log(`⏸️ Melhor spread disponível: ${best.symbol} (${best.spread.toFixed(3)}%) - aguardando threshold > 0.3%`);
+            if (Math.abs(spread) > 0.3 && !isProcessing) {
+              await executeAutoConversion(binancePrice, okxPrice, selectedToken);
             }
           }
         }
       } catch (error) {
-        console.error('Erro ao buscar preços:', error);
+        console.error('Erro no auto monitoring do token selecionado:', error);
       }
     };
 
-    fetchAllPrices();
-    const interval = setInterval(fetchAllPrices, 15000);
+    fetchPricesAndMaybeConvert();
+    const interval = setInterval(fetchPricesAndMaybeConvert, 15000);
 
     return () => clearInterval(interval);
-  }, [autoConvertEnabled, isProcessing]);
+  }, [autoConvertEnabled, isProcessing, selectedToken]);
+
+  // Limpeza periódica: converter qualquer token diferente do selecionado e USDT para USDT (market)
+  useEffect(() => {
+    if (!selectedToken || selectedToken === 'USDT') return;
+
+    let cancelled = false;
+    const runCleanup = async () => {
+      if (isProcessing) return;
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const [{ data: binanceCreds }, { data: okxCreds }] = await Promise.all([
+          supabase
+            .from('exchange_api_configs')
+            .select('*')
+            .eq('user_id', user.id)
+            .eq('exchange', 'binance')
+            .eq('is_active', true)
+            .maybeSingle(),
+          supabase
+            .from('exchange_api_configs')
+            .select('*')
+            .eq('user_id', user.id)
+            .eq('exchange', 'okx')
+            .eq('is_active', true)
+            .maybeSingle(),
+        ]);
+
+        if (!binanceCreds || !okxCreds) return;
+
+        const { data: portfolioData } = await supabase.functions.invoke('get-portfolio', {
+          body: { user_id: user.id, real_mode: true, force_refresh: true }
+        });
+        if (!portfolioData?.success) return;
+
+        const portfolio = portfolioData.data.portfolio || [];
+        const toClean = (exchange: 'Binance'|'OKX') =>
+          portfolio.filter((i: any) => i.exchange === exchange && i.symbol !== 'USDT' && i.symbol !== selectedToken && parseFloat(i.balance) > 0);
+
+        const binanceOld = toClean('Binance');
+        const okxOld = toClean('OKX');
+
+        if (binanceOld.length === 0 && okxOld.length === 0) return;
+
+        console.log(`🧹 Limpeza periódica: ${[...binanceOld, ...okxOld].map((t:any)=>t.symbol).join(', ')}`);
+
+        for (const token of binanceOld) {
+          if (cancelled) return;
+          await supabase.functions.invoke('binance-swap-token', {
+            body: { apiKey: binanceCreds.api_key, secretKey: binanceCreds.secret_key, symbol: token.symbol, direction: 'toUsdt', orderType: 'market' }
+          });
+        }
+
+        for (const token of okxOld) {
+          if (cancelled) return;
+          await supabase.functions.invoke('okx-swap-token', {
+            body: { apiKey: okxCreds.api_key, secretKey: okxCreds.secret_key, passphrase: okxCreds.passphrase, symbol: token.symbol, direction: 'toUsdt', orderType: 'market' }
+          });
+        }
+      } catch (e) {
+        console.warn('Limpeza periódica falhou:', e);
+      }
+    };
+
+    runCleanup();
+    const interval = setInterval(runCleanup, 60000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [selectedToken, isProcessing]);
 
   const executeAutoConversion = async (binancePrice: number, okxPrice: number, tokenSymbol?: string) => {
     const token = tokenSymbol || selectedToken;
@@ -789,11 +824,11 @@ export const TotalBalanceCard = ({
               <div className="flex items-center gap-2">
                 <RefreshCw className={`h-3 w-3 ${isProcessing ? 'animate-spin' : ''} text-primary`} />
                 <span className="text-primary font-medium">
-                  {isProcessing ? 'Executando conversão...' : `Escaneando ${availableTokens.length} tokens`}
+                  {isProcessing ? 'Executando conversão...' : `Monitorando ${selectedToken}`}
                 </span>
-                {bestToken && !isProcessing && (
+                {!isProcessing && (
                   <span className="text-green-500 font-bold">
-                    {bestToken.symbol}: {bestToken.spread > 0 ? '+' : ''}{bestToken.spread.toFixed(3)}%
+                    {selectedToken}: {tokenPrices.spread > 0 ? '+' : ''}{tokenPrices.spread.toFixed(3)}%
                   </span>
                 )}
               </div>
