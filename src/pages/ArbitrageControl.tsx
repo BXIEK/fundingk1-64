@@ -47,7 +47,6 @@ import { IPWhitelistGuide } from '@/components/IPWhitelistGuide';
 import { DirectIPConnectionTest } from '@/components/DirectIPConnectionTest';
 import { ExchangeBalanceCard } from '@/components/ExchangeBalanceCard';
 import { TotalBalanceCard } from '@/components/TotalBalanceCard';
-import { AutoTokenConverter } from '@/components/AutoTokenConverter';
 
 import { type ArbitrageOpportunity } from '@/types/arbitrage';
 
@@ -1028,9 +1027,6 @@ export default function ArbitrageControl() {
               totalBaseline={200}
             />
           </div>
-
-          {/* Conversão Automatizada de Tokens */}
-          <AutoTokenConverter />
         </TabsContent>
 
         <TabsContent value="real-mode" className="space-y-4">
