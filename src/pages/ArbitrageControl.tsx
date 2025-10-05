@@ -972,13 +972,17 @@ export default function ArbitrageControl() {
       </Card>
 
       <Tabs defaultValue="status" className="w-full">
-        <TabsList className="grid w-full grid-cols-9">
+        <TabsList className="grid w-full grid-cols-10">
           <TabsTrigger value="status">
             <CheckCircle className="h-4 w-4 mr-2" />
             Status APIs
           </TabsTrigger>
-          <TabsTrigger value="dashboard">
+          <TabsTrigger value="balances">
             <Wallet className="h-4 w-4 mr-2" />
+            Meus Saldos
+          </TabsTrigger>
+          <TabsTrigger value="dashboard">
+            <Activity className="h-4 w-4 mr-2" />
             Dashboard
           </TabsTrigger>
           <TabsTrigger value="real-mode">
@@ -1003,7 +1007,7 @@ export default function ArbitrageControl() {
           <CredentialsValidator />
         </TabsContent>
 
-        <TabsContent value="dashboard" className="space-y-6">
+        <TabsContent value="balances" className="space-y-6">
           {/* Cards de Saldo por Exchange e Total */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Saldo Binance */}
@@ -1027,6 +1031,10 @@ export default function ArbitrageControl() {
               totalBaseline={200}
             />
           </div>
+        </TabsContent>
+
+        <TabsContent value="dashboard" className="space-y-6">
+          {/* Dashboard content aqui */}
         </TabsContent>
 
         <TabsContent value="real-mode" className="space-y-4">
