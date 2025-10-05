@@ -143,10 +143,10 @@ export const TotalBalanceCard = ({
     return () => clearInterval(interval);
   }, []);
 
-  // Acionar conversões quando token externo mudar
+  // Acionar conversões quando token externo mudar OU quando o componente montar
   useEffect(() => {
     if (externalSelectedToken && externalSelectedToken !== 'USDT' && !isProcessing) {
-      console.log(`🔄 Token mudou para ${externalSelectedToken}, iniciando limpeza de tokens antigos...`);
+      console.log(`🔄 Verificando tokens para ${externalSelectedToken}, iniciando limpeza de tokens indesejados...`);
       
       const convertOldTokensAndBuyNew = async () => {
         try {
@@ -184,7 +184,7 @@ export const TotalBalanceCard = ({
 
           const portfolio = portfolioData.data.portfolio;
           
-          // Filtrar tokens diferentes do selecionado e USDT
+          // CRÍTICO: Filtrar TODOS os tokens diferentes do selecionado e USDT (incluindo BTC)
           const binanceOldTokens = portfolio.filter((i: any) => 
             i.exchange === 'Binance' && 
             i.symbol !== 'USDT' && 
@@ -199,9 +199,21 @@ export const TotalBalanceCard = ({
             parseFloat(i.balance) > 0
           );
 
+          console.log(`🔍 Tokens a limpar - Binance: ${binanceOldTokens.map((t: any) => t.symbol).join(', ') || 'nenhum'}`);
+          console.log(`🔍 Tokens a limpar - OKX: ${okxOldTokens.map((t: any) => t.symbol).join(', ') || 'nenhum'}`);
+
+          // Alerta especial se BTC for detectado
+          const btcInBinance = binanceOldTokens.find((t: any) => t.symbol === 'BTC');
+          const btcInOkx = okxOldTokens.find((t: any) => t.symbol === 'BTC');
+          if (btcInBinance || btcInOkx) {
+            console.log(`🚨 BTC DETECTADO! Será convertido para USDT.`);
+            if (btcInBinance) console.log(`   - Binance: ${btcInBinance.balance} BTC`);
+            if (btcInOkx) console.log(`   - OKX: ${btcInOkx.balance} BTC`);
+          }
+
           // Se houver tokens antigos, converter para USDT
           if (binanceOldTokens.length > 0 || okxOldTokens.length > 0) {
-            console.log(`🧹 LIMPEZA: Convertendo ${binanceOldTokens.length + okxOldTokens.length} tokens antigos para USDT...`);
+            console.log(`🧹 LIMPEZA: Convertendo ${binanceOldTokens.length + okxOldTokens.length} tokens indesejados para USDT...`);
             
             // Converter tokens antigos da Binance
             for (const token of binanceOldTokens) {
