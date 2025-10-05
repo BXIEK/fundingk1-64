@@ -77,30 +77,18 @@ export const ExchangeBalanceCard = ({
   const fetchBalances = async (forceRefresh = false) => {
     setLoading(true);
     try {
-      // Buscar ID do usuário baseado na API key da Binance (como é feito no sistema)
-      const binanceCreds = localStorage.getItem('binance_credentials');
-      if (!binanceCreds) {
-        throw new Error('Credenciais da Binance não encontradas');
+      // Buscar usuário autenticado
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('Usuário não autenticado');
       }
 
-      const { apiKey } = JSON.parse(binanceCreds);
-      
-      // Criar hash do API key para obter o user_id
-      const encoder = new TextEncoder();
-      const data = encoder.encode(apiKey);
-      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-      
-      // Criar UUID v3-like do hash
-      const userId = `${hashHex.substring(0, 8)}-${hashHex.substring(8, 12)}-3${hashHex.substring(13, 16)}-${hashHex.substring(16, 20)}-${hashHex.substring(20, 32)}`;
-
-      // Buscar portfolio do banco de dados
+      // Buscar portfolio do banco de dados usando o user_id real
       const { data: portfolioData, error } = await supabase.functions.invoke('get-portfolio', {
         body: { 
-          user_id: userId,
+          user_id: user.id,
           real_mode: true,
-          force_refresh: forceRefresh // Adicionar parâmetro para forçar refresh
+          force_refresh: forceRefresh
         }
       });
 
@@ -150,14 +138,29 @@ export const ExchangeBalanceCard = ({
   const handleConvertToUSDT = async () => {
     setConverting(true);
     try {
-      const credsKey = `${exchange}_credentials`;
-      const credsData = localStorage.getItem(credsKey);
-      
-      if (!credsData) {
-        throw new Error(`Credenciais da ${exchangeNames[exchange]} não encontradas`);
+      // Buscar credenciais do banco de dados
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('Usuário não autenticado');
       }
 
-      const credentials = JSON.parse(credsData);
+      const { data: configData, error: configError } = await supabase
+        .from('exchange_api_configs')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('exchange', exchange)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (configError || !configData) {
+        throw new Error(`Credenciais da ${exchangeNames[exchange]} não configuradas no banco de dados`);
+      }
+
+      const credentials = {
+        apiKey: configData.api_key,
+        secretKey: configData.secret_key,
+        passphrase: configData.passphrase
+      };
 
       toast({
         title: "🔄 Convertendo para USDT",
@@ -222,14 +225,29 @@ export const ExchangeBalanceCard = ({
   const handleSwapToken = async () => {
     setSwapping(true);
     try {
-      const credsKey = `${exchange}_credentials`;
-      const credsData = localStorage.getItem(credsKey);
-      
-      if (!credsData) {
-        throw new Error(`Credenciais da ${exchangeNames[exchange]} não encontradas`);
+      // Buscar credenciais do banco de dados
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('Usuário não autenticado');
       }
 
-      const credentials = JSON.parse(credsData);
+      const { data: configData, error: configError } = await supabase
+        .from('exchange_api_configs')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('exchange', exchange)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (configError || !configData) {
+        throw new Error(`Credenciais da ${exchangeNames[exchange]} não configuradas no banco de dados`);
+      }
+
+      const credentials = {
+        apiKey: configData.api_key,
+        secretKey: configData.secret_key,
+        passphrase: configData.passphrase
+      };
 
       // Verificar se tem saldo do token ou de USDT
       const tokenBalance = balances.find(b => b.symbol === selectedToken);
