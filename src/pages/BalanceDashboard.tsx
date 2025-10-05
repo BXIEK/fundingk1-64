@@ -14,6 +14,22 @@ export default function BalanceDashboard() {
   
   const [binanceBalance, setBinanceBalance] = useState(0)
   const [okxBalance, setOkxBalance] = useState(0)
+  const [binancePrice, setBinancePrice] = useState<number | null>(null)
+  const [okxPrice, setOkxPrice] = useState<number | null>(null)
+
+  // Determinar qual exchange é melhor para comprar/vender
+  const getBestExchange = () => {
+    if (binancePrice === null || okxPrice === null) return null;
+    
+    return {
+      buy: binancePrice < okxPrice ? 'binance' : 'okx',  // Comprar na mais barata
+      sell: binancePrice > okxPrice ? 'binance' : 'okx',  // Vender na mais cara
+      spread: Math.abs(binancePrice - okxPrice),
+      spreadPercent: ((Math.abs(binancePrice - okxPrice) / Math.min(binancePrice, okxPrice)) * 100).toFixed(2)
+    };
+  };
+
+  const bestExchange = getBestExchange();
 
   if (isMobile) {
     return (
@@ -60,6 +76,8 @@ export default function BalanceDashboard() {
             exchange="binance"
             baseline={100}
             onBalanceChange={setBinanceBalance}
+            onPriceUpdate={(ex, price) => setBinancePrice(price)}
+            bestAction={bestExchange?.buy === 'binance' ? 'buy' : bestExchange?.sell === 'binance' ? 'sell' : null}
           />
           
           {/* Saldo OKX */}
@@ -67,6 +85,8 @@ export default function BalanceDashboard() {
             exchange="okx"
             baseline={100}
             onBalanceChange={setOkxBalance}
+            onPriceUpdate={(ex, price) => setOkxPrice(price)}
+            bestAction={bestExchange?.buy === 'okx' ? 'buy' : bestExchange?.sell === 'okx' ? 'sell' : null}
           />
           
           {/* Saldo Total */}

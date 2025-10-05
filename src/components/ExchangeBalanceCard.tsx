@@ -28,12 +28,16 @@ interface ExchangeBalanceCardProps {
   exchange: 'binance' | 'okx';
   baseline?: number; // Valor inicial esperado (padrão 100 USD)
   onBalanceChange?: (totalValue: number) => void;
+  onPriceUpdate?: (exchange: 'binance' | 'okx', price: number | null) => void;
+  bestAction?: 'buy' | 'sell' | null;
 }
 
 export const ExchangeBalanceCard = ({ 
   exchange, 
   baseline = 100,
-  onBalanceChange 
+  onBalanceChange,
+  onPriceUpdate,
+  bestAction = null
 }: ExchangeBalanceCardProps) => {
   const { toast } = useToast();
   const [balances, setBalances] = useState<Balance[]>([]);
@@ -298,9 +302,15 @@ export const ExchangeBalanceCard = ({
         const response = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${symbol}`);
         if (response.ok) {
           const data = await response.json();
-          setRealtimePrice(parseFloat(data.lastPrice));
+          const price = parseFloat(data.lastPrice);
+          setRealtimePrice(price);
           setPriceChange24h(parseFloat(data.priceChangePercent));
           console.log(`✅ Preço Binance ${symbol}: $${data.lastPrice} (${data.priceChangePercent}%)`);
+          
+          // Notificar preço atualizado
+          if (onPriceUpdate) {
+            onPriceUpdate(exchange, price);
+          }
         }
       } else if (exchange === 'okx') {
         // Usar API pública da OKX diretamente
@@ -314,6 +324,11 @@ export const ExchangeBalanceCard = ({
             setRealtimePrice(price);
             setPriceChange24h(change24h);
             console.log(`✅ Preço OKX ${symbol}: $${price} (${change24h.toFixed(2)}%)`);
+            
+            // Notificar preço atualizado
+            if (onPriceUpdate) {
+              onPriceUpdate(exchange, price);
+            }
           }
         }
       }
@@ -375,7 +390,7 @@ export const ExchangeBalanceCard = ({
       
       <CardContent className="space-y-4">
         {/* Preço em Tempo Real do Token Selecionado */}
-        <div className="p-3 border rounded-lg bg-muted/20">
+        <div className="p-3 border rounded-lg bg-muted/20 relative">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium text-muted-foreground">{selectedToken}</span>
@@ -388,11 +403,26 @@ export const ExchangeBalanceCard = ({
                 {priceChange24h !== null ? `${priceChange24h >= 0 ? '+' : ''}${priceChange24h.toFixed(2)}%` : 'Alta'}
               </Badge>
             </div>
-            <div className="text-right">
+            <div className="text-right flex items-center gap-2">
               {realtimePrice ? (
-                <p className="text-lg font-bold">
-                  ${formatBRL(realtimePrice, selectedToken === 'BTC' || selectedToken === 'ETH' ? 2 : 6)}
-                </p>
+                <>
+                  <p className="text-lg font-bold">
+                    ${formatBRL(realtimePrice, selectedToken === 'BTC' || selectedToken === 'ETH' ? 2 : 6)}
+                  </p>
+                  {/* Indicador de Compra/Venda */}
+                  {bestAction === 'buy' && (
+                    <div className="flex items-center gap-1">
+                      <div className="w-3 h-3 rounded-full bg-green-500 animate-pulse" title="Melhor preço para COMPRAR" />
+                      <span className="text-xs font-semibold text-green-500">COMPRAR</span>
+                    </div>
+                  )}
+                  {bestAction === 'sell' && (
+                    <div className="flex items-center gap-1">
+                      <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse" title="Melhor preço para VENDER" />
+                      <span className="text-xs font-semibold text-red-500">VENDER</span>
+                    </div>
+                  )}
+                </>
               ) : (
                 <p className="text-sm text-muted-foreground">Carregando...</p>
               )}
