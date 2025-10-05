@@ -225,7 +225,7 @@ export const TotalBalanceCard = ({
                     secretKey: binanceCreds.secret_key,
                     symbol: token.symbol,
                     direction: 'toUsdt',
-                    orderType: 'limit'
+                    orderType: 'market'
                   }
                 });
                 console.log(`✅ ${token.symbol} convertido na Binance`);
@@ -245,7 +245,7 @@ export const TotalBalanceCard = ({
                     passphrase: okxCreds.passphrase,
                     symbol: token.symbol,
                     direction: 'toUsdt',
-                    orderType: 'limit'
+                    orderType: 'market'
                   }
                 });
                 console.log(`✅ ${token.symbol} convertido na OKX`);
@@ -463,7 +463,7 @@ export const TotalBalanceCard = ({
                 secretKey: binanceCreds.secret_key,
                 symbol: tokenItem.symbol,
                 direction: 'toUsdt',
-                orderType: 'limit'
+                orderType: 'market'
               }
             });
             console.log(`✅ ${tokenItem.symbol} convertido para USDT na Binance`);
@@ -483,7 +483,7 @@ export const TotalBalanceCard = ({
                 passphrase: okxCreds.passphrase,
                 symbol: tokenItem.symbol,
                 direction: 'toUsdt',
-                orderType: 'limit'
+                orderType: 'market'
               }
             });
             console.log(`✅ ${tokenItem.symbol} convertido para USDT na OKX`);
