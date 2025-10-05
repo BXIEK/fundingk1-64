@@ -15,7 +15,7 @@ import { ArrowLeft, Wallet, Activity, RefreshCw, Settings, Shield, AlertTriangle
 import APIConfiguration from '@/components/APIConfiguration';
 import RealtimeTradingValidator from '@/components/RealtimeTradingValidator';
 import { ExchangeStatusBanner } from '@/components/ExchangeStatusBanner';
-
+import { BinanceAutoConverter } from '@/components/BinanceAutoConverter';
 import { useTradingMode } from '@/contexts/TradingModeContext';
 import { getUserId } from '@/lib/userUtils';
 
@@ -463,15 +463,22 @@ export default function Portfolio() {
 
       {/* Status das Exchanges - Mostrar apenas em modo real */}
       {isRealMode && (
-        <ExchangeStatusBanner
-          binanceOk={exchangeStatuses.binance}
-          okxOk={exchangeStatuses.okx}
-          bybitOk={exchangeStatuses.bybit}
-          mexcOk={exchangeStatuses.mexc}
-          hyperliquidOk={exchangeStatuses.hyperliquid}
-          pionexOk={exchangeStatuses.pionex}
-          onConfigClick={() => navigate('/arbitrage-control')}
-        />
+        <>
+          <ExchangeStatusBanner
+            binanceOk={exchangeStatuses.binance}
+            okxOk={exchangeStatuses.okx}
+            bybitOk={exchangeStatuses.bybit}
+            mexcOk={exchangeStatuses.mexc}
+            hyperliquidOk={exchangeStatuses.hyperliquid}
+            pionexOk={exchangeStatuses.pionex}
+            onConfigClick={() => navigate('/arbitrage-control')}
+          />
+          
+          {/* Conversor automático para USDT */}
+          {exchangeStatuses.binance && (
+            <BinanceAutoConverter />
+          )}
+        </>
       )}
 
       {/* Mostrar estado vazio se não há dados reais em modo real */}

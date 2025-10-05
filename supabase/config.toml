@@ -40,3 +40,6 @@ verify_jwt = false
 
 [functions.okx-internal-transfer]
 verify_jwt = false
+
+[functions.binance-convert-to-usdt]
+verify_jwt = false
