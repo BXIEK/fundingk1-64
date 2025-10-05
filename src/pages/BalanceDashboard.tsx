@@ -88,11 +88,6 @@ export default function BalanceDashboard() {
       <section>
         <Web3WalletManager />
       </section>
-
-      {/* Sistema de Monitoramento */}
-      <section>
-        <SmartBalanceDashboard />
-      </section>
     </div>
   )
 }
