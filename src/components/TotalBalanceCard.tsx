@@ -56,19 +56,7 @@ export const TotalBalanceCard = ({
     }
 
     const executeArbitrage = async () => {
-      // Verificar se o token está em tendência de alta (priceChange24h > 0)
-      const isUptrend = spreadData.priceChange24h && spreadData.priceChange24h > 0;
-      
-      if (!isUptrend) {
-        console.log(`⏸️ Token ${spreadData.symbol} não está em tendência de alta (${spreadData.priceChange24h?.toFixed(2)}%). Aguardando...`);
-        toast({
-          title: "⏸️ Aguardando Tendência de Alta",
-          description: `${spreadData.symbol} em ${spreadData.priceChange24h?.toFixed(2)}% nas últimas 24h. Arbitragem pausada.`,
-        });
-        return;
-      }
-
-      // Verificar se há spread positivo
+      // Verificar se há spread positivo (única condição necessária para arbitragem)
       if (spreadData.spreadPercent <= 0) {
         console.log(`⏸️ Spread negativo ou neutro (${spreadData.spreadPercent.toFixed(4)}%). Aguardando spread positivo...`);
         return;
@@ -83,14 +71,18 @@ export const TotalBalanceCard = ({
           throw new Error('Usuário não autenticado');
         }
 
-        console.log(`🤖 Executando arbitragem REAL (Token em alta +${spreadData.priceChange24h.toFixed(2)}%):
+        const trendInfo = spreadData.priceChange24h 
+          ? ` (24h: ${spreadData.priceChange24h > 0 ? '+' : ''}${spreadData.priceChange24h.toFixed(2)}%)`
+          : '';
+        
+        console.log(`🤖 Executando arbitragem REAL${trendInfo}:
           • Comprar ${spreadData.symbol} na ${spreadData.buyExchange} por $${spreadData.buyPrice.toFixed(4)}
           • Vender ${spreadData.symbol} na ${spreadData.sellExchange} por $${spreadData.sellPrice.toFixed(4)}
           • Spread: ${spreadData.spreadPercent.toFixed(4)}%`);
 
         toast({
           title: "🤖 Arbitragem Automática Executando",
-          description: `${spreadData.symbol} em alta +${spreadData.priceChange24h.toFixed(2)}%! Comprando na ${spreadData.buyExchange} e vendendo na ${spreadData.sellExchange}.`,
+          description: `${spreadData.symbol}${trendInfo} - Spread ${spreadData.spreadPercent.toFixed(4)}%`,
         });
 
         // Executar arbitragem real via edge function
@@ -249,8 +241,8 @@ export const TotalBalanceCard = ({
                     </Label>
                     <p className="text-xs text-muted-foreground">
                       {autoArbitrageEnabled 
-                        ? `A cada 60s quando token em alta • Última: ${lastExecution?.toLocaleTimeString() || 'Aguardando...'}` 
-                        : "Compra/venda automática em tendência de alta"}
+                        ? `A cada 60s quando spread > 0% • Última: ${lastExecution?.toLocaleTimeString() || 'Aguardando...'}` 
+                        : "Compra/venda automática quando houver spread positivo"}
                     </p>
                   </div>
                 </div>
@@ -267,7 +259,7 @@ export const TotalBalanceCard = ({
                     toast({
                       title: checked ? "🤖 Arbitragem Automática Ativada" : "⏸️ Arbitragem Automática Pausada",
                       description: checked 
-                        ? `Monitorando ${spreadData.symbol} a cada 60s. Executará quando em tendência de alta${trendText}` 
+                        ? `Monitorando ${spreadData.symbol} a cada 60s. Executará quando houver spread positivo${trendText}` 
                         : "Arbitragem automática foi pausada",
                     });
                   }}
@@ -334,11 +326,11 @@ export const TotalBalanceCard = ({
                   </div>
                 )}
 
-                {/* Aviso sobre tendência */}
-                {(!spreadData.priceChange24h || spreadData.priceChange24h <= 0) && (
-                  <div className="text-center p-2 bg-orange-500/10 border border-orange-500/20 rounded">
-                    <p className="text-xs text-orange-600">
-                      ⚠️ Arbitragem pausada: aguardando tendência de alta
+                {/* Informação sobre spread */}
+                {spreadData.spreadPercent > 0 && (
+                  <div className="text-center p-2 bg-green-500/10 border border-green-500/20 rounded">
+                    <p className="text-xs text-green-600">
+                      ✅ Spread positivo detectado - Pronto para arbitragem
                     </p>
                   </div>
                 )}
