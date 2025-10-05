@@ -4,13 +4,15 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { TokenFilter } from './TokenFilter';
 import { 
   TrendingUp, 
   TrendingDown, 
   RefreshCw, 
   ArrowRightLeft,
   Wallet,
-  Minus
+  Minus,
+  Filter
 } from 'lucide-react';
 
 interface Balance {
@@ -36,6 +38,8 @@ export const ExchangeBalanceCard = ({
   const [loading, setLoading] = useState(false);
   const [converting, setConverting] = useState(false);
   const [totalValue, setTotalValue] = useState(0);
+  const [selectedToken, setSelectedToken] = useState<string>('BTC');
+  const [showTokenFilter, setShowTokenFilter] = useState(false);
 
   const exchangeNames = {
     binance: 'Binance',
@@ -174,18 +178,41 @@ export const ExchangeBalanceCard = ({
   const isProfit = profitLoss > 0;
   const isLoss = profitLoss < 0;
 
+  // Filtrar balance do token selecionado
+  const selectedTokenBalance = balances.find(b => b.symbol === selectedToken);
+
   return (
     <Card className="relative overflow-hidden">
       <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-2">
           <CardTitle className="flex items-center gap-2 text-lg">
             <Wallet className="h-5 w-5" />
             {exchangeNames[exchange]}
           </CardTitle>
-          <Badge variant={exchange === 'binance' ? 'default' : 'secondary'}>
-            Conectado
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowTokenFilter(!showTokenFilter)}
+              className="h-8 px-2"
+            >
+              <Filter className="h-4 w-4" />
+            </Button>
+            <Badge variant={exchange === 'binance' ? 'default' : 'secondary'}>
+              Conectado
+            </Badge>
+          </div>
         </div>
+        
+        {showTokenFilter && (
+          <div className="mt-3">
+            <TokenFilter
+              selectedToken={selectedToken}
+              onTokenChange={setSelectedToken}
+              showOnlyUptrend={true}
+            />
+          </div>
+        )}
       </CardHeader>
       
       <CardContent className="space-y-4">
@@ -221,30 +248,65 @@ export const ExchangeBalanceCard = ({
           </div>
         </div>
 
-        {/* Assets List */}
-        <div className="space-y-2 max-h-48 overflow-y-auto">
-          {balances.map((balance) => (
-            <div 
-              key={balance.symbol}
-              className="flex items-center justify-between p-2 border rounded-md text-sm"
-            >
-              <div>
-                <p className="font-semibold">{balance.symbol}</p>
-                <p className="text-xs text-muted-foreground">
-                  {balance.balance.toFixed(6)}
-                </p>
-              </div>
-              <div className="text-right">
-                <p className="font-medium">
-                  ${balance.valueUsd.toFixed(2)}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  @${balance.priceUsd.toFixed(2)}
-                </p>
+        {/* Token Selecionado (se filtro ativo) */}
+        {showTokenFilter && selectedTokenBalance && (
+          <div className="p-4 border-2 border-primary rounded-lg bg-primary/5">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <p className="text-lg font-bold">{selectedTokenBalance.symbol}</p>
+                <Badge className="bg-green-500 text-white">
+                  <TrendingUp className="h-3 w-3 mr-1" />
+                  Alta
+                </Badge>
               </div>
             </div>
-          ))}
-        </div>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <p className="text-muted-foreground">Saldo</p>
+                <p className="font-semibold">{selectedTokenBalance.balance.toFixed(6)}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Valor</p>
+                <p className="font-semibold text-green-500">${selectedTokenBalance.valueUsd.toFixed(2)}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Preço</p>
+                <p className="font-semibold">${selectedTokenBalance.priceUsd.toFixed(2)}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Status</p>
+                <p className="font-semibold text-green-500">+2.5%</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Assets List (quando filtro desabilitado ou resumo) */}
+        {!showTokenFilter && (
+          <div className="space-y-2 max-h-48 overflow-y-auto">
+            {balances.map((balance) => (
+              <div 
+                key={balance.symbol}
+                className="flex items-center justify-between p-2 border rounded-md text-sm"
+              >
+                <div>
+                  <p className="font-semibold">{balance.symbol}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {balance.balance.toFixed(6)}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="font-medium">
+                    ${balance.valueUsd.toFixed(2)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    @${balance.priceUsd.toFixed(2)}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Action Buttons */}
         <div className="flex gap-2">
