@@ -176,10 +176,201 @@ export const TotalBalanceCard = ({
     return () => clearInterval(interval);
   }, []);
 
+  // Função para forçar limpeza imediata e iniciar conversões
+  const forceCleanupAndStart = async () => {
+    if (isProcessing) {
+      toast.info('Aguarde a operação atual finalizar');
+      return;
+    }
+    
+    setIsProcessing(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      toast.info('🧹 Iniciando limpeza forçada de tokens indesejados...');
+
+      // Buscar credenciais
+      const [{ data: binanceCreds }, { data: okxCreds }] = await Promise.all([
+        supabase
+          .from('exchange_api_configs')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('exchange', 'binance')
+          .eq('is_active', true)
+          .maybeSingle(),
+        supabase
+          .from('exchange_api_configs')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('exchange', 'okx')
+          .eq('is_active', true)
+          .maybeSingle()
+      ]);
+
+      if (!binanceCreds || !okxCreds) {
+        toast.error('Credenciais não encontradas');
+        return;
+      }
+
+      // Buscar portfólio atual
+      const { data: portfolioData } = await supabase.functions.invoke('get-portfolio', {
+        body: { user_id: user.id, real_mode: true, force_refresh: true }
+      });
+
+      if (!portfolioData?.success) {
+        toast.error('Erro ao buscar portfólio');
+        return;
+      }
+
+      const portfolio = portfolioData.data.portfolio;
+      
+      // Filtrar tokens para limpeza (tudo exceto USDT e token selecionado)
+      const binanceToClean = portfolio.filter((i: any) => 
+        i.exchange === 'Binance' && 
+        i.symbol !== 'USDT' && 
+        i.symbol !== selectedToken &&
+        parseFloat(i.balance) > 0
+      );
+      
+      const okxToClean = portfolio.filter((i: any) => 
+        i.exchange === 'OKX' && 
+        i.symbol !== 'USDT' && 
+        i.symbol !== selectedToken &&
+        parseFloat(i.balance) > 0
+      );
+
+      const totalToClean = binanceToClean.length + okxToClean.length;
+      
+      if (totalToClean === 0) {
+        toast.success('✅ Nenhum token indesejado encontrado. Pronto para operar!');
+        setIsProcessing(false);
+        return;
+      }
+
+      console.log(`🧹 LIMPEZA FORÇADA: ${totalToClean} tokens serão convertidos para USDT`);
+      console.log(`   Binance: ${binanceToClean.map((t: any) => `${t.symbol} (${t.balance})`).join(', ') || 'nenhum'}`);
+      console.log(`   OKX: ${okxToClean.map((t: any) => `${t.symbol} (${t.balance})`).join(', ') || 'nenhum'}`);
+
+      // Converter tokens da Binance para USDT
+      for (const token of binanceToClean) {
+        try {
+          console.log(`🔄 Convertendo ${token.balance} ${token.symbol} → USDT na Binance (MARKET)...`);
+          toast.info(`🔄 Convertendo ${token.symbol} na Binance...`);
+          
+          const { data: result } = await supabase.functions.invoke('binance-swap-token', {
+            body: {
+              apiKey: binanceCreds.api_key,
+              secretKey: binanceCreds.secret_key,
+              symbol: token.symbol,
+              direction: 'toUsdt',
+              orderType: 'market'
+            }
+          });
+          
+          if (result?.success) {
+            await saveConversionRecord({
+              fromToken: token.symbol,
+              toToken: 'USDT',
+              fromAmount: token.balance,
+              toAmount: result.usdtReceived || 0,
+              exchange: 'Binance',
+              conversionType: 'market',
+              price: result.price || 0,
+              status: 'success'
+            });
+            console.log(`✅ ${token.symbol} convertido: ${result.usdtReceived} USDT`);
+            toast.success(`✅ ${token.symbol} convertido na Binance`);
+          }
+          
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        } catch (err) {
+          console.error(`❌ Erro ao converter ${token.symbol} na Binance:`, err);
+          await saveConversionRecord({
+            fromToken: token.symbol,
+            toToken: 'USDT',
+            fromAmount: token.balance,
+            toAmount: 0,
+            exchange: 'Binance',
+            conversionType: 'market',
+            price: 0,
+            status: 'failed',
+            errorMessage: err instanceof Error ? err.message : 'Erro desconhecido'
+          });
+        }
+      }
+
+      // Converter tokens da OKX para USDT
+      for (const token of okxToClean) {
+        try {
+          console.log(`🔄 Convertendo ${token.balance} ${token.symbol} → USDT na OKX (MARKET)...`);
+          toast.info(`🔄 Convertendo ${token.symbol} na OKX...`);
+          
+          const { data: result } = await supabase.functions.invoke('okx-swap-token', {
+            body: {
+              apiKey: okxCreds.api_key,
+              secretKey: okxCreds.secret_key,
+              passphrase: okxCreds.passphrase,
+              symbol: token.symbol,
+              direction: 'toUsdt',
+              orderType: 'market'
+            }
+          });
+          
+          if (result?.success) {
+            await saveConversionRecord({
+              fromToken: token.symbol,
+              toToken: 'USDT',
+              fromAmount: token.balance,
+              toAmount: result.usdtReceived || 0,
+              exchange: 'OKX',
+              conversionType: 'market',
+              price: result.price || 0,
+              status: 'success'
+            });
+            console.log(`✅ ${token.symbol} convertido: ${result.usdtReceived} USDT`);
+            toast.success(`✅ ${token.symbol} convertido na OKX`);
+          }
+          
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        } catch (err) {
+          console.error(`❌ Erro ao converter ${token.symbol} na OKX:`, err);
+          await saveConversionRecord({
+            fromToken: token.symbol,
+            toToken: 'USDT',
+            fromAmount: token.balance,
+            toAmount: 0,
+            exchange: 'OKX',
+            conversionType: 'market',
+            price: 0,
+            status: 'failed',
+            errorMessage: err instanceof Error ? err.message : 'Erro desconhecido'
+          });
+        }
+      }
+
+      toast.success(`✅ Limpeza concluída! ${totalToClean} tokens convertidos para USDT`);
+      
+      // Aguardar execução das ordens
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
+      // Atualizar lista de tokens
+      await fetchAllTokens();
+      
+      toast.info(`🔍 Buscando oportunidades de arbitragem para ${selectedToken}...`);
+      
+    } catch (error) {
+      console.error('Erro na limpeza forçada:', error);
+      toast.error('Erro ao executar limpeza');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   // Acionar conversões quando token externo mudar OU quando o componente montar
   useEffect(() => {
     if (externalSelectedToken && externalSelectedToken !== 'USDT' && !isProcessing) {
-      console.log(`🔄 Verificando tokens para ${externalSelectedToken}, iniciando limpeza de tokens indesejados...`);
+      console.log(`🔄 Token selecionado: ${externalSelectedToken}. Use o botão "Forçar Limpeza" para converter tokens indesejados.`);
       
       const convertOldTokensAndBuyNew = async () => {
         try {
@@ -897,6 +1088,18 @@ export const TotalBalanceCard = ({
             />
           </div>
         </div>
+        
+        {/* Botão de Limpeza Forçada */}
+        <Button 
+          onClick={forceCleanupAndStart}
+          disabled={isProcessing || !selectedToken || selectedToken === 'USDT'}
+          className="w-full mt-2"
+          variant="outline"
+          size="sm"
+        >
+          <RefreshCw className={`h-4 w-4 mr-2 ${isProcessing ? 'animate-spin' : ''}`} />
+          {isProcessing ? 'Processando...' : '🧹 Forçar Limpeza e Iniciar'}
+        </Button>
         
         {/* Status da Conversão Automática */}
         {autoConvertEnabled && (
