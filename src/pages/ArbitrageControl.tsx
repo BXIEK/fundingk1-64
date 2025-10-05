@@ -45,6 +45,9 @@ import SmartTransferDashboard from '@/components/SmartTransferDashboard';
 import IPWhitelistHelper from '@/components/IPWhitelistHelper';
 import { IPWhitelistGuide } from '@/components/IPWhitelistGuide';
 import { DirectIPConnectionTest } from '@/components/DirectIPConnectionTest';
+import { ExchangeBalanceCard } from '@/components/ExchangeBalanceCard';
+import { TotalBalanceCard } from '@/components/TotalBalanceCard';
+import { AutoTokenConverter } from '@/components/AutoTokenConverter';
 
 import { type ArbitrageOpportunity } from '@/types/arbitrage';
 
@@ -91,6 +94,8 @@ export default function ArbitrageControl() {
   const [selectedOpportunity, setSelectedOpportunity] = useState<any>(null);
   const [portfolio, setPortfolio] = useState<PortfolioAsset[]>([]);
   const [latency, setLatency] = useState<number | null>(null);
+  const [binanceBalance, setBinanceBalance] = useState(0);
+  const [okxBalance, setOkxBalance] = useState(0);
   
   const [settings, setSettings] = useState<TradingSettings>({
     auto_trading: false,
@@ -968,10 +973,14 @@ export default function ArbitrageControl() {
       </Card>
 
       <Tabs defaultValue="status" className="w-full">
-        <TabsList className="grid w-full grid-cols-8">
+        <TabsList className="grid w-full grid-cols-9">
           <TabsTrigger value="status">
             <CheckCircle className="h-4 w-4 mr-2" />
             Status APIs
+          </TabsTrigger>
+          <TabsTrigger value="dashboard">
+            <Wallet className="h-4 w-4 mr-2" />
+            Dashboard
           </TabsTrigger>
           <TabsTrigger value="real-mode">
             <Power className="h-4 w-4 mr-2" />
@@ -993,6 +1002,35 @@ export default function ArbitrageControl() {
         
         <TabsContent value="status" className="space-y-4">
           <CredentialsValidator />
+        </TabsContent>
+
+        <TabsContent value="dashboard" className="space-y-6">
+          {/* Cards de Saldo por Exchange e Total */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Saldo Binance */}
+            <ExchangeBalanceCard 
+              exchange="binance"
+              baseline={100}
+              onBalanceChange={setBinanceBalance}
+            />
+            
+            {/* Saldo OKX */}
+            <ExchangeBalanceCard 
+              exchange="okx"
+              baseline={100}
+              onBalanceChange={setOkxBalance}
+            />
+            
+            {/* Saldo Total */}
+            <TotalBalanceCard 
+              binanceBalance={binanceBalance} 
+              okxBalance={okxBalance}
+              totalBaseline={200}
+            />
+          </div>
+
+          {/* Conversão Automatizada de Tokens */}
+          <AutoTokenConverter />
         </TabsContent>
 
         <TabsContent value="real-mode" className="space-y-4">

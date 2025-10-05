@@ -43,3 +43,21 @@ verify_jwt = false
 
 [functions.binance-convert-to-usdt]
 verify_jwt = false
+
+[functions.binance-swap-token]
+verify_jwt = false
+
+[functions.okx-swap-token]
+verify_jwt = false
+
+[functions.binance-all-balances]
+verify_jwt = false
+
+[functions.okx-convert-to-usdt]
+verify_jwt = false
+
+[functions.execute-cross-exchange-arbitrage]
+verify_jwt = false
+
+[functions.detect-arbitrage-opportunities]
+verify_jwt = false
