@@ -146,11 +146,112 @@ export const TotalBalanceCard = ({
   // Acionar conversões quando token externo mudar
   useEffect(() => {
     if (externalSelectedToken && externalSelectedToken !== 'USDT' && !isProcessing) {
-      console.log(`🔄 Token externo mudou para ${externalSelectedToken}, verificando oportunidades...`);
+      console.log(`🔄 Token mudou para ${externalSelectedToken}, iniciando limpeza de tokens antigos...`);
       
-      // Buscar preços do token selecionado e verificar spread
-      const checkTokenSpread = async () => {
+      const convertOldTokensAndBuyNew = async () => {
         try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user) return;
+
+          // Buscar credenciais
+          const { data: binanceCreds } = await supabase
+            .from('exchange_api_configs')
+            .select('*')
+            .eq('user_id', user.id)
+            .eq('exchange', 'binance')
+            .eq('is_active', true)
+            .maybeSingle();
+
+          const { data: okxCreds } = await supabase
+            .from('exchange_api_configs')
+            .select('*')
+            .eq('user_id', user.id)
+            .eq('exchange', 'okx')
+            .eq('is_active', true)
+            .maybeSingle();
+
+          if (!binanceCreds || !okxCreds) {
+            console.log('⚠️ Credenciais não encontradas');
+            return;
+          }
+
+          // Buscar todos os tokens atuais
+          const { data: portfolioData } = await supabase.functions.invoke('get-portfolio', {
+            body: { user_id: user.id, real_mode: true, force_refresh: true }
+          });
+
+          if (!portfolioData?.success) return;
+
+          const portfolio = portfolioData.data.portfolio;
+          
+          // Filtrar tokens diferentes do selecionado e USDT
+          const binanceOldTokens = portfolio.filter((i: any) => 
+            i.exchange === 'Binance' && 
+            i.symbol !== 'USDT' && 
+            i.symbol !== externalSelectedToken &&
+            parseFloat(i.balance) > 0
+          );
+          
+          const okxOldTokens = portfolio.filter((i: any) => 
+            i.exchange === 'OKX' && 
+            i.symbol !== 'USDT' && 
+            i.symbol !== externalSelectedToken &&
+            parseFloat(i.balance) > 0
+          );
+
+          // Se houver tokens antigos, converter para USDT
+          if (binanceOldTokens.length > 0 || okxOldTokens.length > 0) {
+            console.log(`🧹 LIMPEZA: Convertendo ${binanceOldTokens.length + okxOldTokens.length} tokens antigos para USDT...`);
+            
+            // Converter tokens antigos da Binance
+            for (const token of binanceOldTokens) {
+              try {
+                console.log(`🔄 Convertendo ${token.symbol} → USDT na Binance...`);
+                await supabase.functions.invoke('binance-swap-token', {
+                  body: {
+                    apiKey: binanceCreds.api_key,
+                    secretKey: binanceCreds.secret_key,
+                    symbol: token.symbol,
+                    direction: 'toUsdt',
+                    orderType: 'limit'
+                  }
+                });
+                console.log(`✅ ${token.symbol} convertido na Binance`);
+              } catch (err) {
+                console.error(`❌ Erro ao converter ${token.symbol}:`, err);
+              }
+            }
+
+            // Converter tokens antigos da OKX
+            for (const token of okxOldTokens) {
+              try {
+                console.log(`🔄 Convertendo ${token.symbol} → USDT na OKX...`);
+                await supabase.functions.invoke('okx-swap-token', {
+                  body: {
+                    apiKey: okxCreds.api_key,
+                    secretKey: okxCreds.secret_key,
+                    passphrase: okxCreds.passphrase,
+                    symbol: token.symbol,
+                    direction: 'toUsdt',
+                    orderType: 'limit'
+                  }
+                });
+                console.log(`✅ ${token.symbol} convertido na OKX`);
+              } catch (err) {
+                console.error(`❌ Erro ao converter ${token.symbol}:`, err);
+              }
+            }
+
+            toast.info(`🧹 Tokens antigos convertidos para USDT`, {
+              description: `${binanceOldTokens.length + okxOldTokens.length} tokens limpos. Aguarde para comprar ${externalSelectedToken}...`,
+              duration: 5000
+            });
+
+            // Aguardar execução das ordens
+            await new Promise(resolve => setTimeout(resolve, 3000));
+          }
+
+          // Buscar preços e executar compra do novo token
           const symbol = `${externalSelectedToken}USDT`;
           const { data: binanceData } = await supabase.functions.invoke('binance-market-data', {
             body: { action: 'tickers', symbols: [symbol] }
@@ -179,11 +280,11 @@ export const TotalBalanceCard = ({
             }
           }
         } catch (error) {
-          console.error('Erro ao verificar spread do token:', error);
+          console.error('Erro ao processar mudança de token:', error);
         }
       };
 
-      checkTokenSpread();
+      convertOldTokensAndBuyNew();
     }
   }, [externalSelectedToken]);
 
