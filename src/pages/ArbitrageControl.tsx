@@ -761,107 +761,139 @@ export default function ArbitrageControl() {
             </Card>
           )}
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5" />
-                Oportunidades Cross-Over em Tempo Real
-              </CardTitle>
-              <CardDescription>
-                {opportunities.length} oportunidades ativas | Atualização contínua a cada 30s
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {opportunities.length > 0 ? (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Símbolo</TableHead>
-                      <TableHead>Comprar</TableHead>
-                      <TableHead>Vender</TableHead>
-                      <TableHead>Spread</TableHead>
-                      <TableHead>Potencial</TableHead>
-                      <TableHead>Risco</TableHead>
-                      <TableHead className="text-center">Ação</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {opportunities.map((opportunity) => {
-                      const isHighProfit = opportunity.potential > 2;
-                      return (
-                        <TableRow 
-                          key={opportunity.id}
-                          className={isHighProfit ? 'bg-green-50/50 hover:bg-green-100/50' : ''}
-                        >
-                          <TableCell className="font-medium">
-                            <div className="flex items-center gap-2">
-                              {opportunity.symbol}
-                              {isHighProfit && (
-                                <Badge className="bg-green-600 text-white">
-                                  🔥 HOT
-                                </Badge>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="text-sm">
-                              <div className="font-medium">{opportunity.buy_exchange}</div>
-                              <div className="text-muted-foreground">{formatCurrency(opportunity.buy_price)}</div>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="text-sm">
-                              <div className="font-medium">{opportunity.sell_exchange}</div>
-                              <div className="text-muted-foreground">{formatCurrency(opportunity.sell_price)}</div>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant={opportunity.spread > 1.0 ? "default" : "secondary"}>
-                              {opportunity.spread.toFixed(3)}%
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <span className={isHighProfit ? 'font-bold text-green-600' : ''}>
-                              {formatCurrency(opportunity.potential)}
-                            </span>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className={getRiskColor(opportunity.risk_level)}>
-                              {opportunity.risk_level}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <Button
-                              size="sm"
-                              onClick={() => openExecutionModal(opportunity)}
-                              disabled={executingIds.has(opportunity.id)}
-                              className={`min-w-[100px] ${isHighProfit ? 'bg-green-600 hover:bg-green-700' : ''}`}
-                            >
-                              {executingIds.has(opportunity.id) ? (
-                                <>
-                                  <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
-                                  Executando...
-                                </>
-                              ) : (
-                                <>
-                                  <Play className="h-3 w-3 mr-1" />
-                                  Executar
-                                </>
-                              )}
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  {isLoading ? 'Carregando oportunidades...' : 'Nenhuma oportunidade encontrada no momento'}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          {/* Layout em Grid: Saldos à esquerda, Tabela à direita */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Coluna Esquerda: Cards de Saldo */}
+            <div className="lg:col-span-1 space-y-4">
+              {/* Saldo Binance */}
+              <ExchangeBalanceCard 
+                exchange="binance"
+                baseline={100}
+                onBalanceChange={setBinanceBalance}
+              />
+              
+              {/* Saldo OKX */}
+              <ExchangeBalanceCard 
+                exchange="okx"
+                baseline={100}
+                onBalanceChange={setOkxBalance}
+              />
+              
+              {/* Saldo Total */}
+              <TotalBalanceCard 
+                binanceBalance={binanceBalance} 
+                okxBalance={okxBalance}
+                totalBaseline={200}
+              />
+            </div>
+
+            {/* Coluna Direita: Tabela de Oportunidades */}
+            <div className="lg:col-span-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5" />
+                    Oportunidades Cross-Over em Tempo Real
+                  </CardTitle>
+                  <CardDescription>
+                    {opportunities.length} oportunidades ativas | Atualização contínua a cada 30s
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {opportunities.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Símbolo</TableHead>
+                            <TableHead>Comprar</TableHead>
+                            <TableHead>Vender</TableHead>
+                            <TableHead>Spread</TableHead>
+                            <TableHead>Potencial</TableHead>
+                            <TableHead>Risco</TableHead>
+                            <TableHead className="text-center">Ação</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {opportunities.map((opportunity) => {
+                            const isHighProfit = opportunity.potential > 2;
+                            return (
+                              <TableRow 
+                                key={opportunity.id}
+                                className={isHighProfit ? 'bg-green-50/50 hover:bg-green-100/50' : ''}
+                              >
+                                <TableCell className="font-medium">
+                                  <div className="flex items-center gap-2">
+                                    {opportunity.symbol}
+                                    {isHighProfit && (
+                                      <Badge className="bg-green-600 text-white">
+                                        🔥 HOT
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="text-sm">
+                                    <div className="font-medium">{opportunity.buy_exchange}</div>
+                                    <div className="text-muted-foreground">{formatCurrency(opportunity.buy_price)}</div>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="text-sm">
+                                    <div className="font-medium">{opportunity.sell_exchange}</div>
+                                    <div className="text-muted-foreground">{formatCurrency(opportunity.sell_price)}</div>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <Badge variant={opportunity.spread > 1.0 ? "default" : "secondary"}>
+                                    {opportunity.spread.toFixed(3)}%
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>
+                                  <span className={isHighProfit ? 'font-bold text-green-600' : ''}>
+                                    {formatCurrency(opportunity.potential)}
+                                  </span>
+                                </TableCell>
+                                <TableCell>
+                                  <Badge variant="outline" className={getRiskColor(opportunity.risk_level)}>
+                                    {opportunity.risk_level}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell className="text-center">
+                                  <Button
+                                    size="sm"
+                                    onClick={() => openExecutionModal(opportunity)}
+                                    disabled={executingIds.has(opportunity.id)}
+                                    className={`min-w-[100px] ${isHighProfit ? 'bg-green-600 hover:bg-green-700' : ''}`}
+                                  >
+                                    {executingIds.has(opportunity.id) ? (
+                                      <>
+                                        <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                                        Executando...
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Play className="h-3 w-3 mr-1" />
+                                        Executar
+                                      </>
+                                    )}
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      {isLoading ? 'Carregando oportunidades...' : 'Nenhuma oportunidade encontrada no momento'}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </div>
         </TabsContent>
 
         <TabsContent value="auto-config" className="space-y-4">
