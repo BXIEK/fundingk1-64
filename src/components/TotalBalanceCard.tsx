@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -12,7 +13,9 @@ import {
   PiggyBank,
   Minus,
   Zap,
-  RefreshCw
+  RefreshCw,
+  ArrowRightLeft,
+  Repeat
 } from 'lucide-react';
 
 interface TotalBalanceCardProps {
@@ -27,6 +30,14 @@ interface PriceData {
   spread: number;
 }
 
+interface TokenBalance {
+  symbol: string;
+  balance: number;
+  valueUsd: number;
+  priceUsd: number;
+  exchange: string;
+}
+
 export const TotalBalanceCard = ({ 
   binanceBalance, 
   okxBalance,
@@ -36,12 +47,74 @@ export const TotalBalanceCard = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [btcPrices, setBtcPrices] = useState<PriceData>({ binance: 0, okx: 0, spread: 0 });
   const [lastExecution, setLastExecution] = useState<string>('');
+  const [binanceTokens, setBinanceTokens] = useState<TokenBalance[]>([]);
+  const [okxTokens, setOkxTokens] = useState<TokenBalance[]>([]);
+  const [loadingTokens, setLoadingTokens] = useState(false);
+  const [activeTab, setActiveTab] = useState<'binance' | 'okx'>('binance');
 
   const totalValue = binanceBalance + okxBalance;
   const profitLoss = totalValue - totalBaseline;
   const profitLossPercent = totalBaseline > 0 ? (profitLoss / totalBaseline) * 100 : 0;
   const isProfit = profitLoss > 0;
   const isLoss = profitLoss < 0;
+
+  // Buscar tokens de ambas as exchanges
+  const fetchAllTokens = async () => {
+    setLoadingTokens(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: portfolioData, error } = await supabase.functions.invoke('get-portfolio', {
+        body: { 
+          user_id: user.id,
+          real_mode: true,
+          force_refresh: false
+        }
+      });
+
+      if (error) throw error;
+
+      if (!portfolioData?.success || !portfolioData?.data?.portfolio) {
+        return;
+      }
+
+      // Filtrar tokens por exchange
+      const binanceItems = portfolioData.data.portfolio
+        .filter((item: any) => item.exchange === 'Binance' && item.balance > 0)
+        .map((item: any) => ({
+          symbol: item.symbol,
+          balance: parseFloat(item.balance),
+          valueUsd: parseFloat(item.value_usd_calculated || item.value_usd || 0),
+          priceUsd: parseFloat(item.price_usd || 0),
+          exchange: 'Binance'
+        }));
+
+      const okxItems = portfolioData.data.portfolio
+        .filter((item: any) => item.exchange === 'OKX' && item.balance > 0)
+        .map((item: any) => ({
+          symbol: item.symbol,
+          balance: parseFloat(item.balance),
+          valueUsd: parseFloat(item.value_usd_calculated || item.value_usd || 0),
+          priceUsd: parseFloat(item.price_usd || 0),
+          exchange: 'OKX'
+        }));
+
+      setBinanceTokens(binanceItems);
+      setOkxTokens(okxItems);
+    } catch (error) {
+      console.error('Erro ao buscar tokens:', error);
+    } finally {
+      setLoadingTokens(false);
+    }
+  };
+
+  // Atualizar tokens periodicamente
+  useEffect(() => {
+    fetchAllTokens();
+    const interval = setInterval(fetchAllTokens, 60000); // A cada 60s
+    return () => clearInterval(interval);
+  }, []);
 
   // Buscar preços BTC a cada 15 segundos
   useEffect(() => {
@@ -331,6 +404,108 @@ export const TotalBalanceCard = ({
                 {profitLossPercent.toFixed(2)}%
               </p>
             </div>
+          </div>
+        </div>
+
+        {/* Tokens por Exchange */}
+        <div className="pt-4 border-t">
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'binance' | 'okx')} className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="binance">
+                Binance ({binanceTokens.length})
+              </TabsTrigger>
+              <TabsTrigger value="okx">
+                OKX ({okxTokens.length})
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="binance" className="space-y-2 mt-3">
+              {loadingTokens ? (
+                <p className="text-sm text-muted-foreground text-center py-4">Carregando...</p>
+              ) : binanceTokens.length > 0 ? (
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {binanceTokens.map((token) => (
+                    <div 
+                      key={token.symbol}
+                      className="flex items-center justify-between p-2 border rounded-md text-sm bg-muted/20"
+                    >
+                      <div>
+                        <p className="font-semibold">{token.symbol}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {token.balance.toLocaleString('pt-BR', { maximumFractionDigits: 6 })}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-medium">
+                          ${token.valueUsd.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          @${token.priceUsd.toLocaleString('pt-BR')}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-4">Nenhum token na Binance</p>
+              )}
+            </TabsContent>
+
+            <TabsContent value="okx" className="space-y-2 mt-3">
+              {loadingTokens ? (
+                <p className="text-sm text-muted-foreground text-center py-4">Carregando...</p>
+              ) : okxTokens.length > 0 ? (
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {okxTokens.map((token) => (
+                    <div 
+                      key={token.symbol}
+                      className="flex items-center justify-between p-2 border rounded-md text-sm bg-muted/20"
+                    >
+                      <div>
+                        <p className="font-semibold">{token.symbol}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {token.balance.toLocaleString('pt-BR', { maximumFractionDigits: 6 })}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-medium">
+                          ${token.valueUsd.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          @${token.priceUsd.toLocaleString('pt-BR')}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-4">Nenhum token na OKX</p>
+              )}
+            </TabsContent>
+          </Tabs>
+
+          {/* Botões de Ação */}
+          <div className="flex gap-2 mt-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={fetchAllTokens}
+              disabled={loadingTokens}
+              className="flex-1"
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${loadingTokens ? 'animate-spin' : ''}`} />
+              Atualizar
+            </Button>
+            
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={loadingTokens}
+              className="flex-1"
+            >
+              <Repeat className="h-4 w-4 mr-2" />
+              Converter
+            </Button>
           </div>
         </div>
       </CardContent>
