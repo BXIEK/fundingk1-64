@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { TrendingUp, TrendingDown, Zap, DollarSign, RefreshCw, Target } from "lucide-react";
+import { TrendingUp, TrendingDown, Zap, DollarSign, RefreshCw, Target, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface TokenPrice {
@@ -30,6 +30,8 @@ export const AutoTokenConverter = () => {
   const [configs, setConfigs] = useState<ConversionConfig[]>([]);
   const [currentPrices, setCurrentPrices] = useState<Map<string, TokenPrice>>(new Map());
   const [showAddForm, setShowAddForm] = useState(false);
+  const [hasCredentials, setHasCredentials] = useState<Record<string, boolean>>({ binance: false, okx: false });
+  const [userId, setUserId] = useState<string | null>(null);
   
   // Novo config
   const [newConfig, setNewConfig] = useState<ConversionConfig>({
@@ -40,6 +42,41 @@ export const AutoTokenConverter = () => {
     amountUsdt: 100,
     enabled: true
   });
+
+  // Get user ID
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUserId(user?.id || null);
+    };
+    getUser();
+  }, []);
+
+  // Verificar credenciais configuradas
+  useEffect(() => {
+    const checkCredentials = async () => {
+      if (!userId) return;
+
+      const exchanges = ['binance', 'okx'];
+      const credStatus: Record<string, boolean> = {};
+
+      for (const exchange of exchanges) {
+        const { data } = await supabase
+          .from('exchange_api_configs')
+          .select('api_key, secret_key')
+          .eq('user_id', userId)
+          .eq('exchange', exchange)
+          .eq('is_active', true)
+          .single();
+
+        credStatus[exchange] = !!(data?.api_key && data?.secret_key);
+      }
+
+      setHasCredentials(credStatus);
+    };
+
+    checkCredentials();
+  }, [userId]);
 
   // Buscar preços em tempo real
   useEffect(() => {
@@ -226,6 +263,8 @@ export const AutoTokenConverter = () => {
     return price?.price || 0;
   };
 
+  const missingCredentials = !hasCredentials.binance || !hasCredentials.okx;
+
   return (
     <Card className="border-primary/20">
       <CardHeader className="pb-3">
@@ -245,6 +284,7 @@ export const AutoTokenConverter = () => {
               size="sm" 
               variant="outline"
               onClick={() => setShowAddForm(!showAddForm)}
+              disabled={missingCredentials}
             >
               {showAddForm ? 'Cancelar' : '+ Nova'}
             </Button>
@@ -256,6 +296,20 @@ export const AutoTokenConverter = () => {
       </CardHeader>
 
       <CardContent className="space-y-3">
+        {missingCredentials && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Configure suas credenciais de API em{" "}
+              <a href="/arbitrage-control" className="underline font-medium">
+                Controle de Arbitragem
+              </a>
+              {!hasCredentials.binance && " (Binance)"}
+              {!hasCredentials.binance && !hasCredentials.okx && " e"}
+              {!hasCredentials.okx && " (OKX)"}
+            </AlertDescription>
+          </Alert>
+        )}
         {/* Formulário Compacto */}
         {showAddForm && (
           <div className="p-3 border rounded-lg bg-muted/20 space-y-3">
