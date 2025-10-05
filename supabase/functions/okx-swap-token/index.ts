@@ -121,6 +121,9 @@ serve(async (req) => {
     // Ajustar quantidade ao lot size
     if (lotSize > 0) {
       orderSize = Math.floor(orderSize / lotSize) * lotSize;
+      // Arredondar para a precisão correta baseada no lotSize
+      const lotPrecision = lotSize.toString().split('.')[1]?.length || 0;
+      orderSize = parseFloat(orderSize.toFixed(lotPrecision));
     }
 
     console.log(`📏 Quantidade ajustada: ${orderSize} ${symbol}`);

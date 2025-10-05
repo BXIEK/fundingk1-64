@@ -181,10 +181,13 @@ serve(async (req) => {
     let orderQuery = `symbol=${tradePair}&side=${orderSide}&type=MARKET&timestamp=${orderTimestamp}`;
     
     if (direction === 'toUsdt') {
+      console.log(`📊 Quantidade a vender: ${orderQuantity} ${symbol}`);
       orderQuery += `&quantity=${orderQuantity}`;
     } else {
-      // Para BUY, usar quoteOrderQty (valor em USDT) já validado contra NOTIONAL
-      orderQuery += `&quoteOrderQty=${usdtAmountForBuy}`;
+      // Para BUY, usar quoteOrderQty (valor em USDT) arredondado para 2 casas decimais
+      const usdtRounded = parseFloat(usdtAmountForBuy.toFixed(2));
+      orderQuery += `&quoteOrderQty=${usdtRounded}`;
+      console.log(`💵 USDT a gastar (arredondado): ${usdtRounded}`);
     }
 
     const orderSignature = await createSignature(orderQuery, secretKey);
