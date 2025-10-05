@@ -156,7 +156,13 @@ export const ExchangeBalanceCard = ({
 
       if (!configData) {
         console.error('❌ Credenciais não encontradas');
-        throw new Error(`Credenciais da ${exchangeNames[exchange]} não configuradas no banco de dados. Configure em Controle de Arbitragem.`);
+        toast({
+          title: "⚠️ Credenciais não configuradas",
+          description: `Configure suas credenciais da ${exchangeNames[exchange]} na aba "Configuração API" em Controle de Arbitragem.`,
+          variant: "destructive",
+          duration: 7000
+        });
+        throw new Error(`Credenciais da ${exchangeNames[exchange]} não configuradas no banco de dados.`);
       }
 
       const credentials = {

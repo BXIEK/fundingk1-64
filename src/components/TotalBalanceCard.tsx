@@ -90,24 +90,33 @@ export const TotalBalanceCard = ({
       if (!user) throw new Error('Usuário não autenticado');
 
       // Buscar credenciais
-      const { data: binanceCreds } = await supabase
+      console.log('🔍 Buscando credenciais da Binance...');
+      const { data: binanceCreds, error: binanceError } = await supabase
         .from('exchange_api_configs')
         .select('*')
         .eq('user_id', user.id)
         .eq('exchange', 'binance')
         .eq('is_active', true)
-        .single();
+        .maybeSingle();
 
-      const { data: okxCreds } = await supabase
+      console.log('🔍 Buscando credenciais da OKX...');
+      const { data: okxCreds, error: okxError } = await supabase
         .from('exchange_api_configs')
         .select('*')
         .eq('user_id', user.id)
         .eq('exchange', 'okx')
         .eq('is_active', true)
-        .single();
+        .maybeSingle();
+
+      console.log('Binance creds:', binanceCreds ? 'OK' : 'NÃO ENCONTRADO');
+      console.log('OKX creds:', okxCreds ? 'OK' : 'NÃO ENCONTRADO');
 
       if (!binanceCreds || !okxCreds) {
-        toast.error('Configure suas credenciais de API');
+        console.error('❌ Credenciais não configuradas no banco de dados');
+        toast.error('⚠️ Credenciais não encontradas', {
+          description: 'Configure suas credenciais da Binance e OKX na aba "Configuração API" antes de usar a conversão automática.',
+          duration: 7000
+        });
         setAutoConvertEnabled(false);
         return;
       }
