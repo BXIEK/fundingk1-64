@@ -11,15 +11,17 @@ serve(async (req) => {
   }
 
   try {
-    const { apiKey, secretKey, passphrase, symbol, direction, amount: customAmount } = await req.json();
+    const { apiKey, secretKey, passphrase, symbol, direction, amount: customAmount, orderType = 'limit' } = await req.json();
     // direction: 'toUsdt' ou 'toToken'
     // amount: quantidade específica a converter (opcional)
+    // orderType: 'market' (taker fees ~0.08%) ou 'limit' (maker fees ~0.02% ou menos)
 
     if (!apiKey || !secretKey || !passphrase || !symbol || !direction) {
       throw new Error('Parâmetros incompletos');
     }
 
     console.log(`🔄 OKX Swap: ${direction === 'toUsdt' ? symbol + ' → USDT' : 'USDT → ' + symbol}`);
+    console.log(`📊 Tipo de ordem: ${orderType.toUpperCase()} (${orderType === 'limit' ? 'maker fees ~0.02%' : 'taker fees ~0.08%'})`);
     if (customAmount) {
       console.log(`💰 Valor personalizado: ${customAmount}`);
     }
@@ -132,19 +134,57 @@ serve(async (req) => {
       throw new Error(`Quantidade mínima não atingida. Mínimo: ${minSize} ${symbol}`);
     }
 
-    // Executar ordem MARKET
-    console.log(`📤 Executando ordem ${orderSide.toUpperCase()} MARKET`);
+    // Buscar preço atual para limit order
+    let limitPrice = 0;
+    if (orderType === 'limit') {
+      const tickerResponse = await callOKXAPI(
+        '/api/v5/market/ticker',
+        'GET',
+        { instId: tradePair },
+        apiKey,
+        secretKey,
+        passphrase
+      );
+
+      if (!tickerResponse.data || tickerResponse.data.length === 0) {
+        throw new Error(`Preço de ${tradePair} não encontrado`);
+      }
+
+      const currentPrice = parseFloat(tickerResponse.data[0].last);
+      
+      // Ajustar preço para ser maker:
+      // SELL: colocar 0.05% acima do mercado (mais favorável para nós)
+      // BUY: colocar 0.05% abaixo do mercado (mais favorável para nós)
+      if (orderSide === 'sell') {
+        limitPrice = currentPrice * 1.0005;
+      } else {
+        limitPrice = currentPrice * 0.9995;
+      }
+
+      // Arredondar para precisão adequada (8 casas decimais)
+      limitPrice = parseFloat(limitPrice.toFixed(8));
+      console.log(`💹 Preço limite ajustado: $${limitPrice} (mercado: $${currentPrice})`);
+    }
+
+    // Executar ordem
+    console.log(`📤 Executando ordem ${orderSide.toUpperCase()} ${orderType.toUpperCase()}`);
+
+    const orderParams: any = {
+      instId: tradePair,
+      tdMode: 'cash',
+      side: orderSide,
+      ordType: orderType,
+      sz: orderSize.toString()
+    };
+
+    if (orderType === 'limit') {
+      orderParams.px = limitPrice.toString();
+    }
 
     const orderResponse = await callOKXAPI(
       '/api/v5/trade/order',
       'POST',
-      {
-        instId: tradePair,
-        tdMode: 'cash',
-        side: orderSide,
-        ordType: 'market',
-        sz: orderSize.toString()
-      },
+      orderParams,
       apiKey,
       secretKey,
       passphrase
@@ -155,14 +195,22 @@ serve(async (req) => {
     }
 
     const orderId = orderResponse.data[0].ordId;
-    console.log(`✅ Ordem executada com sucesso!`);
-    console.log(`🆔 Order ID: ${orderId}`);
+    const orderState = orderResponse.data[0].sCode; // Status code
+    
+    if (orderType === 'limit') {
+      console.log(`✅ Ordem LIMIT colocada com sucesso!`);
+      console.log(`🆔 Order ID: ${orderId}`);
+      console.log(`⏳ Aguardando execução (ordens limit podem levar alguns segundos)`);
+    } else {
+      console.log(`✅ Ordem MARKET executada com sucesso!`);
+      console.log(`🆔 Order ID: ${orderId}`);
+    }
 
     let resultMessage = '';
     if (direction === 'toUsdt') {
-      resultMessage = `${orderSize.toFixed(6)} ${symbol} convertido para USDT`;
+      resultMessage = `${orderSize.toFixed(6)} ${symbol} → USDT (${orderType})`;
     } else {
-      resultMessage = `USDT convertido para ${orderSize.toFixed(6)} ${symbol}`;
+      resultMessage = `USDT → ${orderSize.toFixed(6)} ${symbol} (${orderType})`;
     }
 
     return new Response(

@@ -271,14 +271,15 @@ export const TotalBalanceCard = ({
         const minTokenNeeded = minNotionalUSD / okxPrice;
 
         if (okxTokenBalance >= minTokenNeeded) {
-          console.log(`🎯 Executando: Vender ${token} → USDT na OKX ($${okxPrice})`);
+        console.log(`🎯 Executando: Vender ${token} → USDT na OKX ($${okxPrice}) [LIMIT ORDER]`);
           const response = await supabase.functions.invoke('okx-swap-token', {
             body: {
               apiKey: okxCreds.api_key,
               secretKey: okxCreds.secret_key,
               passphrase: okxCreds.passphrase,
               symbol: token,
-              direction: 'toUsdt'
+              direction: 'toUsdt',
+              orderType: 'limit'
             }
           });
           result = response.data;
@@ -287,14 +288,15 @@ export const TotalBalanceCard = ({
           console.log('📊 Resultado OKX:', result);
         } else if (binanceUSDTBalance >= minNotionalUSD) {
           const buyAmountUsd = Math.min(binanceUSDTBalance, minNotionalUSD);
-          console.log(`🟦 Alternativa: Comprar ${token} com ${buyAmountUsd} USDT na Binance (preço $${binancePrice})`);
+          console.log(`🟦 Alternativa: Comprar ${token} com ${buyAmountUsd} USDT na Binance (preço $${binancePrice}) [LIMIT ORDER]`);
           const response = await supabase.functions.invoke('binance-swap-token', {
             body: {
               apiKey: binanceCreds.api_key,
               secretKey: binanceCreds.secret_key,
               symbol: token,
               direction: 'toToken',
-              customAmount: buyAmountUsd
+              customAmount: buyAmountUsd,
+              orderType: 'limit'
             }
           });
           result = response.data;
@@ -315,13 +317,14 @@ export const TotalBalanceCard = ({
         const minTokenNeeded = minNotionalUSD / binancePrice;
 
         if (binanceTokenBalance >= minTokenNeeded) {
-          console.log(`🎯 Executando: Vender ${token} → USDT na Binance ($${binancePrice})`);
+          console.log(`🎯 Executando: Vender ${token} → USDT na Binance ($${binancePrice}) [LIMIT ORDER]`);
           const response = await supabase.functions.invoke('binance-swap-token', {
             body: {
               apiKey: binanceCreds.api_key,
               secretKey: binanceCreds.secret_key,
               symbol: token,
-              direction: 'toUsdt'
+              direction: 'toUsdt',
+              orderType: 'limit'
             }
           });
           result = response.data;
@@ -330,7 +333,7 @@ export const TotalBalanceCard = ({
           console.log('📊 Resultado Binance:', result);
         } else if (okxUSDTBalance >= minNotionalUSD) {
           const buyAmountUsd = Math.min(okxUSDTBalance, minNotionalUSD);
-          console.log(`🟧 Alternativa: Comprar ${token} com ${buyAmountUsd} USDT na OKX (preço $${okxPrice})`);
+          console.log(`🟧 Alternativa: Comprar ${token} com ${buyAmountUsd} USDT na OKX (preço $${okxPrice}) [LIMIT ORDER]`);
           const response = await supabase.functions.invoke('okx-swap-token', {
             body: {
               apiKey: okxCreds.api_key,
@@ -338,7 +341,8 @@ export const TotalBalanceCard = ({
               passphrase: okxCreds.passphrase,
               symbol: token,
               direction: 'toToken',
-              customAmount: buyAmountUsd
+              customAmount: buyAmountUsd,
+              orderType: 'limit'
             }
           });
           result = response.data;

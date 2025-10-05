@@ -11,9 +11,10 @@ serve(async (req) => {
   }
 
   try {
-    const { apiKey, secretKey, symbol, direction, amount, customAmount } = await req.json();
+    const { apiKey, secretKey, symbol, direction, amount, customAmount, orderType = 'limit' } = await req.json();
     // direction: 'toUsdt' ou 'toToken'
     // amount/customAmount: quantidade específica a converter (opcional)
+    // orderType: 'market' (taker fees ~0.1%) ou 'limit' (maker fees ~0.02% ou menos)
     const requestedAmount = typeof customAmount !== 'undefined' ? customAmount : amount;
 
     if (!apiKey || !secretKey || !symbol || !direction) {
@@ -21,6 +22,7 @@ serve(async (req) => {
     }
 
     console.log(`🔄 Binance Swap: ${direction === 'toUsdt' ? symbol + ' → USDT' : 'USDT → ' + symbol}`);
+    console.log(`📊 Tipo de ordem: ${orderType.toUpperCase()} (${orderType === 'limit' ? 'maker fees ~0.02%' : 'taker fees ~0.1%'})`);
     if (requestedAmount) {
       console.log(`💰 Valor personalizado: ${requestedAmount}`);
     }
@@ -177,24 +179,58 @@ serve(async (req) => {
       throw new Error(`Quantidade mínima não atingida. Mínimo: ${minQty} ${symbol}`);
     }
 
-    // Executar ordem MARKET
+    // Buscar preço para limit order (se necessário)
+    let limitPrice = 0;
+    if (orderType === 'limit') {
+      // Ajustar preço para ser maker:
+      // SELL: colocar 0.05% acima do mercado
+      // BUY: colocar 0.05% abaixo do mercado
+      if (direction === 'toUsdt') {
+        limitPrice = currentPrice * 1.0005;
+      } else {
+        limitPrice = currentPrice * 0.9995;
+      }
+
+      // Buscar tick size para arredondar preço corretamente
+      const priceFilter = symbolInfo.filters.find((f: any) => f.filterType === 'PRICE_FILTER');
+      const tickSize = priceFilter ? parseFloat(priceFilter.tickSize) : 0.00000001;
+      const pricePrecision = tickSize.toString().split('.')[1]?.length || 8;
+      
+      limitPrice = Math.floor(limitPrice / tickSize) * tickSize;
+      limitPrice = parseFloat(limitPrice.toFixed(pricePrecision));
+      
+      console.log(`💹 Preço limite ajustado: $${limitPrice} (mercado: $${currentPrice})`);
+    }
+
+    // Executar ordem
     const orderTimestamp = Date.now();
-    let orderQuery = `symbol=${tradePair}&side=${orderSide}&type=MARKET&timestamp=${orderTimestamp}`;
+    let orderQuery = `symbol=${tradePair}&side=${orderSide}&type=${orderType.toUpperCase()}&timestamp=${orderTimestamp}`;
     
-    if (direction === 'toUsdt') {
-      console.log(`📊 Quantidade a vender: ${orderQuantity} ${symbol}`);
-      orderQuery += `&quantity=${orderQuantity}`;
+    if (orderType === 'limit') {
+      orderQuery += `&timeInForce=GTC&price=${limitPrice}`;
+      if (direction === 'toUsdt') {
+        orderQuery += `&quantity=${orderQuantity}`;
+      } else {
+        // Para limit BUY, precisamos usar quantity (não quoteOrderQty)
+        orderQuery += `&quantity=${orderQuantity}`;
+      }
     } else {
-      // Para BUY, usar quoteOrderQty (valor em USDT) arredondado para 2 casas decimais
-      const usdtRounded = parseFloat(usdtAmountForBuy.toFixed(2));
-      orderQuery += `&quoteOrderQty=${usdtRounded}`;
-      console.log(`💵 USDT a gastar (arredondado): ${usdtRounded}`);
+      // MARKET order
+      if (direction === 'toUsdt') {
+        console.log(`📊 Quantidade a vender: ${orderQuantity} ${symbol}`);
+        orderQuery += `&quantity=${orderQuantity}`;
+      } else {
+        // Para BUY, usar quoteOrderQty (valor em USDT) arredondado para 2 casas decimais
+        const usdtRounded = parseFloat(usdtAmountForBuy.toFixed(2));
+        orderQuery += `&quoteOrderQty=${usdtRounded}`;
+        console.log(`💵 USDT a gastar (arredondado): ${usdtRounded}`);
+      }
     }
 
     const orderSignature = await createSignature(orderQuery, secretKey);
     const orderUrl = `${baseUrl}/api/v3/order?${orderQuery}&signature=${orderSignature}`;
 
-    console.log(`📤 Executando ordem ${orderSide} MARKET`);
+    console.log(`📤 Executando ordem ${orderSide} ${orderType.toUpperCase()}`);
 
     const orderResponse = await fetch(orderUrl, {
       method: 'POST',
@@ -208,23 +244,33 @@ serve(async (req) => {
 
     const orderData = await orderResponse.json();
     const fills = orderData.fills || [];
-    const totalExecuted = fills.reduce((sum: number, fill: any) => sum + parseFloat(fill.qty), 0);
+    const totalExecuted = fills.length > 0 
+      ? fills.reduce((sum: number, fill: any) => sum + parseFloat(fill.qty), 0)
+      : parseFloat(orderData.executedQty || '0');
+    
     const avgPrice = fills.length > 0
       ? fills.reduce((sum: number, fill: any) => sum + (parseFloat(fill.price) * parseFloat(fill.qty)), 0) / totalExecuted
-      : 0;
+      : parseFloat(orderData.price || limitPrice || '0');
 
-    console.log(`✅ Ordem executada com sucesso!`);
-    console.log(`🆔 Order ID: ${orderData.orderId}`);
-    console.log(`💹 Preço médio: $${avgPrice.toFixed(6)}`);
+    if (orderType === 'limit') {
+      console.log(`✅ Ordem LIMIT colocada com sucesso!`);
+      console.log(`🆔 Order ID: ${orderData.orderId}`);
+      console.log(`💹 Preço limite: $${limitPrice}`);
+      console.log(`⏳ Status: ${orderData.status} (ordens limit podem levar alguns segundos)`);
+    } else {
+      console.log(`✅ Ordem MARKET executada com sucesso!`);
+      console.log(`🆔 Order ID: ${orderData.orderId}`);
+      console.log(`💹 Preço médio: $${avgPrice.toFixed(6)}`);
+    }
 
     let resultMessage = '';
     if (direction === 'toUsdt') {
       const usdtReceived = totalExecuted * avgPrice;
-      resultMessage = `${totalExecuted.toFixed(6)} ${symbol} convertido para ${usdtReceived.toFixed(2)} USDT`;
-      console.log(`💵 USDT recebido: ${usdtReceived.toFixed(2)}`);
+      resultMessage = `${totalExecuted.toFixed(6)} ${symbol} → ${usdtReceived.toFixed(2)} USDT (${orderType})`;
+      console.log(`💵 USDT: ${usdtReceived.toFixed(2)}`);
     } else {
-      resultMessage = `USDT convertido para ${totalExecuted.toFixed(6)} ${symbol}`;
-      console.log(`🪙 ${symbol} recebido: ${totalExecuted.toFixed(6)}`);
+      resultMessage = `USDT → ${totalExecuted.toFixed(6)} ${symbol} (${orderType})`;
+      console.log(`🪙 ${symbol}: ${totalExecuted.toFixed(6)}`);
     }
 
     return new Response(
