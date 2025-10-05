@@ -162,7 +162,7 @@ const APIConfiguration = () => {
     });
   };
 
-  const handleSaveBinance = () => {
+  const handleSaveBinance = async () => {
     if (!binanceCredentials.apiKey || !binanceCredentials.secretKey) {
       toast({
         title: "Erro",
@@ -172,12 +172,45 @@ const APIConfiguration = () => {
       return;
     }
 
-    localStorage.setItem("binance_credentials", JSON.stringify(binanceCredentials));
-    recheckCredentials(); // Revalidar credenciais no contexto
-    toast({
-      title: "Sucesso",
-      description: "Credenciais da Binance salvas com segurança",
-    });
+    try {
+      // Salvar no localStorage
+      localStorage.setItem("binance_credentials", JSON.stringify(binanceCredentials));
+      
+      // Salvar no banco de dados Supabase
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('Usuário não autenticado');
+      }
+
+      const { error } = await supabase
+        .from('exchange_api_configs')
+        .upsert({
+          user_id: user.id,
+          exchange: 'binance',
+          api_key: binanceCredentials.apiKey,
+          secret_key: binanceCredentials.secretKey,
+          is_testnet: false,
+          is_active: true,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id,exchange,is_testnet'
+        });
+
+      if (error) throw error;
+
+      recheckCredentials(); // Revalidar credenciais no contexto
+      toast({
+        title: "✅ Sucesso",
+        description: "Credenciais da Binance salvas no banco de dados",
+      });
+    } catch (error) {
+      console.error('Erro ao salvar credenciais da Binance:', error);
+      toast({
+        title: "Erro",
+        description: "Falha ao salvar credenciais no banco de dados",
+        variant: "destructive"
+      });
+    }
   };
 
   const testHyperliquidConnection = async () => {
@@ -365,7 +398,7 @@ const APIConfiguration = () => {
     }
   };
 
-  const handleSaveOKX = () => {
+  const handleSaveOKX = async () => {
     if (!okxCredentials.apiKey || !okxCredentials.secretKey || !okxCredentials.passphrase) {
       toast({
         title: "Erro",
@@ -375,12 +408,46 @@ const APIConfiguration = () => {
       return;
     }
 
-    localStorage.setItem("okx_credentials", JSON.stringify(okxCredentials));
-    recheckCredentials();
-    toast({
-      title: "Sucesso",
-      description: "Credenciais da OKX salvas com segurança",
-    });
+    try {
+      // Salvar no localStorage
+      localStorage.setItem("okx_credentials", JSON.stringify(okxCredentials));
+      
+      // Salvar no banco de dados Supabase
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('Usuário não autenticado');
+      }
+
+      const { error } = await supabase
+        .from('exchange_api_configs')
+        .upsert({
+          user_id: user.id,
+          exchange: 'okx',
+          api_key: okxCredentials.apiKey,
+          secret_key: okxCredentials.secretKey,
+          passphrase: okxCredentials.passphrase,
+          is_testnet: false,
+          is_active: true,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id,exchange,is_testnet'
+        });
+
+      if (error) throw error;
+
+      recheckCredentials();
+      toast({
+        title: "✅ Sucesso",
+        description: "Credenciais da OKX salvas no banco de dados",
+      });
+    } catch (error) {
+      console.error('Erro ao salvar credenciais da OKX:', error);
+      toast({
+        title: "Erro",
+        description: "Falha ao salvar credenciais no banco de dados",
+        variant: "destructive"
+      });
+    }
   };
 
   const testOKXConnection = async () => {
