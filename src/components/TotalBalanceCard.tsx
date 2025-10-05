@@ -275,6 +275,21 @@ export const TotalBalanceCard = ({
               </div>
 
               <div className="space-y-2">
+                {/* Spread em Tempo Real */}
+                <div className="p-3 rounded-lg border-2 bg-gradient-to-r from-primary/10 to-primary/20 border-primary/30">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Zap className="h-4 w-4 text-primary" />
+                      <span className="text-xs font-medium text-muted-foreground">Spread em Tempo Real</span>
+                    </div>
+                    <span className={`text-xl font-bold ${
+                      spreadData.spreadPercent > 0 ? 'text-green-600' : 'text-red-600'
+                    }`}>
+                      {spreadData.spreadPercent > 0 ? '+' : ''}{spreadData.spreadPercent.toFixed(4)}%
+                    </span>
+                  </div>
+                </div>
+
                 {/* Status da Tendência */}
                 <div className={`p-2 rounded border ${
                   spreadData.priceChange24h && spreadData.priceChange24h > 0 
