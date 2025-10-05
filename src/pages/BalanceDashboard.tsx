@@ -99,31 +99,39 @@ export default function BalanceDashboard() {
         
         {/* Indicador de Spread entre Exchanges */}
         {bestExchange && binancePrice && okxPrice && (
-          <div className="mt-4 p-4 border rounded-lg bg-gradient-to-r from-primary/5 to-primary/10">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-medium text-muted-foreground mb-1">📊 Spread Cross-Exchange</h3>
-                <p className="text-xs text-muted-foreground">
+          <div className="mt-6 p-6 border-2 rounded-lg bg-gradient-to-r from-primary/10 to-primary/20 shadow-lg">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+              <div className="flex-1">
+                <h3 className="text-xl font-bold text-foreground mb-2 flex items-center gap-2">
+                  📊 Spread Cross-Exchange
+                </h3>
+                <p className="text-sm text-muted-foreground">
                   Diferença de preço entre Binance e OKX
                 </p>
               </div>
-              <div className="text-right">
-                <div className="flex items-center gap-3">
-                  <div>
-                    <p className="text-2xl font-bold text-primary">
+              <div className="flex-1 text-center md:text-right">
+                <div className="flex flex-col md:flex-row items-center justify-end gap-6">
+                  <div className="text-center">
+                    <p className="text-4xl font-bold text-primary mb-1">
                       ${bestExchange.spread.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 6 })}
                     </p>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-lg font-semibold text-muted-foreground">
                       {bestExchange.spreadPercent}% de diferença
                     </p>
                   </div>
-                  <div className="text-left border-l pl-3">
-                    <p className="text-xs text-green-500 font-semibold">
-                      Comprar: {bestExchange.buy === 'binance' ? 'Binance' : 'OKX'}
-                    </p>
-                    <p className="text-xs text-red-500 font-semibold">
-                      Vender: {bestExchange.sell === 'binance' ? 'Binance' : 'OKX'}
-                    </p>
+                  <div className="flex flex-col gap-2 border-l-2 border-primary/30 pl-6">
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 rounded-full bg-green-500" />
+                      <p className="text-base text-green-500 font-bold">
+                        Comprar: {bestExchange.buy === 'binance' ? 'Binance' : 'OKX'}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 rounded-full bg-red-500" />
+                      <p className="text-base text-red-500 font-bold">
+                        Vender: {bestExchange.sell === 'binance' ? 'Binance' : 'OKX'}
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
