@@ -49,9 +49,9 @@ export const TotalBalanceCard = ({
 
     const fetchPrices = async () => {
       try {
-        // Buscar preço Binance
+        // Buscar preço Binance usando endpoint correto
         const { data: binanceData } = await supabase.functions.invoke('binance-market-data', {
-          body: { action: 'get_spot_prices' }
+          body: { action: 'tickers', symbols: ['BTCUSDT'] }
         });
 
         // Buscar preço OKX
@@ -60,8 +60,8 @@ export const TotalBalanceCard = ({
         });
 
         if (binanceData?.success && okxData?.success) {
-          const binancePrice = binanceData.data?.BTCUSDT?.price || 0;
-          const okxPrice = okxData.data?.BTCUSDT?.price || 0;
+          const binancePrice = binanceData.data?.BTCUSDT?.lastPrice || binanceData.data?.BTCUSDT?.price || 0;
+          const okxPrice = okxData.data?.BTC || okxData.data?.BTCUSDT || 0;
           const spread = ((okxPrice - binancePrice) / binancePrice) * 100;
 
           setBtcPrices({ binance: binancePrice, okx: okxPrice, spread });
