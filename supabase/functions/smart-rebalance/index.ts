@@ -1,277 +1,237 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+interface RebalanceRequest {
+  userId: string;
+  targetAllocations: Record<string, number>;
+  maxDeviation: number;
+  minTradeValue: number;
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const supabaseClient = createClient(
+    const { 
+      userId, 
+      targetAllocations,
+      maxDeviation = 10,
+      minTradeValue = 10
+    }: RebalanceRequest = await req.json();
+
+    console.log(`🔄 REBALANCEAMENTO INICIADO - User: ${userId}`);
+
+    const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
+    );
 
-    console.log('🔄 Processando alertas e recomendações de transferência...')
-
-    // Buscar apenas recomendações em modo 'alert' (não executar transferências reais)
-    const { data: operations, error: operationsError } = await supabaseClient
-      .from('wallet_rebalance_operations')
+    // Buscar credenciais
+    const { data: credentials } = await supabase
+      .from('exchange_api_configs')
       .select('*')
-      .eq('status', 'pending')
-      .eq('mode', 'alert') // Apenas alertas, não transferências reais
-      .order('priority', { ascending: false })
-      .order('created_at', { ascending: true })
-      .limit(10)
+      .eq('user_id', userId)
+      .eq('is_active', true);
 
-    if (operationsError) {
-      console.error('❌ Erro ao buscar operações:', operationsError)
-      throw operationsError
+    if (!credentials || credentials.length === 0) {
+      throw new Error('Credenciais não configuradas');
     }
 
-    if (!operations || operations.length === 0) {
-      console.log('ℹ️ Nenhuma operação de rebalanceamento pendente encontrada')
-      return new Response(
-        JSON.stringify({
-          success: true,
-          message: 'Nenhuma operação pendente',
-          processed: 0
-        }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200,
-        }
-      )
-    }
+    const binanceCred = credentials.find(c => c.exchange === 'binance');
+    const okxCred = credentials.find(c => c.exchange === 'okx');
 
-    console.log(`📋 Encontradas ${operations.length} operações para executar`)
-
-    const results = []
-    let processed = 0
-    let successful = 0
-
-    for (const operation of operations) {
-      console.log(`🔄 Processando alerta ${operation.id}: ${operation.from_exchange} → ${operation.to_exchange} ${operation.amount} ${operation.symbol}`)
-      
-      try {
-        // Marcar como processado (apenas informativo)
-        await supabaseClient
-          .from('wallet_rebalance_operations')
-          .update({ 
-            status: 'completed',
-            started_at: new Date().toISOString(),
-            completed_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', operation.id)
-
-        console.log(`✅ Alerta processado: ${operation.id} - Transferência deve ser feita manualmente`)
-        
-        results.push({
-          operation_id: operation.id,
-          success: true,
-          message: 'Alerta processado - Transferência manual necessária'
-        })
-
-        successful++
-        processed++
-
-        // Aguardar um pouco entre operações
-        await new Promise(resolve => setTimeout(resolve, 1000))
-
-      } catch (operationError) {
-        console.error(`❌ Erro ao processar alerta ${operation.id}:`, operationError)
-        
-        const errorMessage = operationError instanceof Error ? operationError.message : 'Erro desconhecido'
-        
-        await supabaseClient
-          .from('wallet_rebalance_operations')
-          .update({
-            status: 'failed',
-            completed_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-            error_message: `Erro ao processar alerta: ${errorMessage}`
-          })
-          .eq('id', operation.id)
-
-        results.push({
-          operation_id: operation.id,
-          success: false,
-          error: errorMessage
-        })
-
-        processed++
-      }
-    }
-
-    console.log(`✅ Processamento de alertas concluído: ${processed} alertas processados, ${successful} bem-sucedidos`)
-
-    return new Response(
-      JSON.stringify({
-        success: true,
-        processed: processed,
-        successful: successful,
-        failed: processed - successful,
-        results: results,
-        timestamp: new Date().toISOString()
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      }
-    )
-
-  } catch (error) {
-    console.error('❌ Erro no sistema de rebalanceamento:', error)
-    return new Response(
-      JSON.stringify({
-        success: false,
-        error: error instanceof Error ? error.message : 'Erro desconhecido',
-        timestamp: new Date().toISOString()
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500,
-      }
-    )
-  }
-})
-
-async function executeRebalanceOperation(operation: any, supabaseClient: any) {
-  try {
-    // Buscar saldos atuais
-    const { data: portfolios, error: portfolioError } = await supabaseClient
+    // Buscar saldos
+    const { data: portfolioData } = await supabase
       .from('portfolios')
       .select('*')
-      .eq('user_id', operation.user_id)
-      .eq('symbol', operation.symbol)
+      .eq('user_id', userId)
+      .gt('balance', 0);
 
-    if (portfolioError) {
-      return { success: false, error: `Erro ao buscar portfolios: ${portfolioError.message}` }
+    if (!portfolioData) {
+      throw new Error('Sem saldos encontrados');
     }
 
-    const fromPortfolio = portfolios?.find((p: any) => (p.exchange || 'default') === operation.from_exchange)
-    const toPortfolio = portfolios?.find((p: any) => (p.exchange || 'default') === operation.to_exchange)
+    // Agrupar por exchange
+    const byExchange = portfolioData.reduce((acc: any, item) => {
+      const exchange = item.exchange || 'GLOBAL';
+      if (!acc[exchange]) acc[exchange] = [];
+      acc[exchange].push(item);
+      return acc;
+    }, {});
 
-    // Verificar se há saldo suficiente na exchange origem
-    const fromBalance = fromPortfolio?.balance || 0
-    const fromLocked = fromPortfolio?.locked_balance || 0
-    const fromAvailable = fromBalance - fromLocked
+    let totalConversions = 0;
+    const executionResults: any[] = [];
 
-    if (fromAvailable < operation.amount) {
-      return { 
-        success: false, 
-        error: `Saldo insuficiente na ${operation.from_exchange}: disponível ${fromAvailable}, necessário ${operation.amount}` 
+    // Processar cada exchange
+    for (const [exchange, tokens] of Object.entries(byExchange)) {
+      console.log(`\n📊 Processando ${exchange}...`);
+      
+      const tokenArray = tokens as any[];
+      const totalValue = tokenArray.reduce((sum: number, t: any) => sum + (t.value_usd_calculated || 0), 0);
+      
+      if (totalValue < minTradeValue) {
+        console.log(`⚠️ Valor total muito baixo: $${totalValue}`);
+        continue;
+      }
+
+      const allocations = tokenArray.map((token: any) => ({
+        symbol: token.symbol,
+        currentValue: token.value_usd_calculated || 0,
+        currentPercent: (token.value_usd_calculated / totalValue) * 100,
+        targetPercent: targetAllocations[token.symbol] || 0,
+        targetValue: (totalValue * (targetAllocations[token.symbol] || 0)) / 100,
+        balance: token.balance
+      }));
+
+      console.log('📈 Alocações:', allocations.map((a: any) =>
+        `${a.symbol}: ${a.currentPercent.toFixed(1)}% → ${a.targetPercent}%`
+      ));
+
+      for (const alloc of allocations) {
+        const deviation = Math.abs(alloc.currentPercent - alloc.targetPercent);
+        
+        if (deviation > maxDeviation) {
+          const needsToSell = alloc.currentPercent > alloc.targetPercent;
+          const deltaValue = Math.abs(alloc.currentValue - alloc.targetValue);
+          
+          if (deltaValue < minTradeValue) continue;
+
+          console.log(`🔄 ${alloc.symbol}: ${needsToSell ? 'VENDER' : 'COMPRAR'} ~$${deltaValue.toFixed(2)}`);
+
+          try {
+            const result = await executeConversion(
+              exchange,
+              needsToSell ? alloc.symbol : 'USDT',
+              needsToSell ? 'USDT' : alloc.symbol,
+              deltaValue,
+              binanceCred,
+              okxCred
+            );
+
+            if (result.success) {
+              totalConversions++;
+              executionResults.push({
+                exchange,
+                from: needsToSell ? alloc.symbol : 'USDT',
+                to: needsToSell ? 'USDT' : alloc.symbol,
+                value: deltaValue,
+                status: 'success'
+              });
+            }
+
+          } catch (error) {
+            console.error(`❌ Erro na conversão:`, error);
+            executionResults.push({
+              exchange,
+              error: error instanceof Error ? error.message : String(error),
+              status: 'failed'
+            });
+          }
+        }
       }
     }
 
-    console.log(`💰 Saldos antes: ${operation.from_exchange}=${fromBalance}, ${operation.to_exchange}=${toPortfolio?.balance || 0}`)
+    await supabase
+      .from('smart_rebalance_configs')
+      .update({ last_rebalance_at: new Date().toISOString() })
+      .eq('user_id', userId);
 
-    // Simular taxa de transferência (0.1% para transferências internas)
-    const transferFee = operation.amount * 0.001
-    const netAmount = operation.amount - transferFee
+    console.log(`\n✅ CONCLUÍDO: ${totalConversions} conversões`);
 
-    // Se estiver em modo teste, apenas simular
-    if (operation.mode === 'test') {
-      return {
+    return new Response(
+      JSON.stringify({
         success: true,
-        simulated: true,
-        balance_before_from: fromBalance,
-        balance_before_to: toPortfolio?.balance || 0,
-        balance_after_from: fromBalance - operation.amount,
-        balance_after_to: (toPortfolio?.balance || 0) + netAmount,
-        fees: transferFee,
-        message: 'Simulação de transferência - modo teste'
+        conversions: totalConversions,
+        details: executionResults
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+
+  } catch (error) {
+    console.error('❌ Erro:', error);
+    return new Response(
+      JSON.stringify({ 
+        success: false, 
+        error: error instanceof Error ? error.message : String(error)
+      }),
+      { 
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       }
-    }
+    );
+  }
+});
 
-    // Executar transferência real
-    // Debitar da exchange origem
-    if (fromPortfolio) {
-      await supabaseClient
-        .from('portfolios')
-        .update({ 
-          balance: fromBalance - operation.amount,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', fromPortfolio.id)
-    }
+async function executeConversion(
+  exchange: string,
+  fromToken: string,
+  toToken: string,
+  valueUsd: number,
+  binanceCred: any,
+  okxCred: any
+): Promise<{ success: boolean }> {
+  
+  console.log(`🔄 Conversão: ${fromToken} → ${toToken} ($${valueUsd.toFixed(2)})`);
 
-    // Creditar na exchange destino
-    if (toPortfolio) {
-      await supabaseClient
-        .from('portfolios')
-        .update({ 
-          balance: toPortfolio.balance + netAmount,
-          updated_at: new Date().toISOString()
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+
+  try {
+    if (exchange.toLowerCase() === 'binance') {
+      const response = await fetch(`${supabaseUrl}/functions/v1/binance-swap-token`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseKey}`
+        },
+        body: JSON.stringify({
+          apiKey: binanceCred?.api_key,
+          secretKey: binanceCred?.secret_key,
+          fromToken,
+          toToken,
+          amount: 'all',
+          orderType: 'market'
         })
-        .eq('id', toPortfolio.id)
+      });
+
+      const result = await response.json();
+      if (!result.success) throw new Error(result.error);
+      return { success: true };
+
+    } else if (exchange.toLowerCase() === 'okx') {
+      const response = await fetch(`${supabaseUrl}/functions/v1/okx-swap-token`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseKey}`
+        },
+        body: JSON.stringify({
+          apiKey: okxCred?.api_key,
+          secretKey: okxCred?.secret_key,
+          passphrase: okxCred?.passphrase,
+          fromToken,
+          toToken,
+          amount: 'all'
+        })
+      });
+
+      const result = await response.json();
+      if (!result.success) throw new Error(result.error);
+      return { success: true };
+
     } else {
-      // Criar novo registro se não existir
-      await supabaseClient
-        .from('portfolios')
-        .insert({
-          user_id: operation.user_id,
-          symbol: operation.symbol,
-          balance: netAmount,
-          locked_balance: 0,
-          exchange: operation.to_exchange,
-          application_title: 'Rebalanceamento Automático'
-        })
-    }
-
-    console.log(`✅ Transferência executada: ${operation.amount} ${operation.symbol} (líquido: ${netAmount})`)
-
-    return {
-      success: true,
-      simulated: false,
-      balance_before_from: fromBalance,
-      balance_before_to: toPortfolio?.balance || 0,
-      balance_after_from: fromBalance - operation.amount,
-      balance_after_to: (toPortfolio?.balance || 0) + netAmount,
-      fees: transferFee,
-      message: 'Transferência executada com sucesso'
+      throw new Error(`Exchange ${exchange} não suportada`);
     }
 
   } catch (error) {
-    console.error('❌ Erro na execução do rebalanceamento:', error)
-    return {
-      success: false,
-      error: `Erro na execução: ${error instanceof Error ? error.message : 'Erro desconhecido'}`
-    }
+    console.error(`❌ Erro:`, error);
+    return { success: false };
   }
-}
-
-// Função para otimizar horários de transferência
-function isOptimalTransferTime() {
-  const now = new Date()
-  const hour = now.getUTCHours()
-  
-  // Evitar horários de alta volatilidade (0-2 UTC, 12-14 UTC)
-  const avoidHours = [0, 1, 2, 12, 13, 14]
-  
-  return !avoidHours.includes(hour)
-}
-
-// Função para calcular custo de transferência baseado na rede
-function calculateTransferCost(symbol: string, amount: number) {
-  const networkFees: { [key: string]: number } = {
-    'BTC': 0.0005,   // ~$25
-    'ETH': 0.005,    // ~$15
-    'USDT': 1,       // 1 USDT
-    'BNB': 0.0005,   // ~$0.3
-    'ADA': 1,        // 1 ADA  
-    'XRP': 0.1       // 0.1 XRP
-  }
-  
-  const fixedFee = networkFees[symbol] || 0.001
-  const percentageFee = amount * 0.001 // 0.1%
-  
-  return Math.max(fixedFee, percentageFee)
 }

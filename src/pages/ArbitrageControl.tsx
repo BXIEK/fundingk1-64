@@ -49,6 +49,7 @@ import { ExchangeBalanceCard } from '@/components/ExchangeBalanceCard';
 import { TotalBalanceCard } from '@/components/TotalBalanceCard';
 import { ConversionHistory } from '@/components/ConversionHistory';
 import { QuickArbitrageSetup } from '@/components/QuickArbitrageSetup';
+import { SmartBalanceRebalancer } from '@/components/SmartBalanceRebalancer';
 
 import { type ArbitrageOpportunity } from '@/types/arbitrage';
 
@@ -815,6 +816,9 @@ export default function ArbitrageControl() {
               
               {/* Setup Rápido de Arbitragem */}
               <QuickArbitrageSetup />
+              
+              {/* Rebalanceamento Inteligente */}
+              <SmartBalanceRebalancer />
             </div>
 
             {/* Coluna Direita: Tabela de Oportunidades */}

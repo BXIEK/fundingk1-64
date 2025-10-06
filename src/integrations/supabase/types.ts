@@ -3651,6 +3651,45 @@ export type Database = {
           },
         ]
       }
+      smart_rebalance_configs: {
+        Row: {
+          created_at: string
+          id: string
+          is_enabled: boolean
+          last_rebalance_at: string | null
+          max_deviation_percent: number
+          min_trade_value: number
+          rebalance_frequency_hours: number
+          target_allocations: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          last_rebalance_at?: string | null
+          max_deviation_percent?: number
+          min_trade_value?: number
+          rebalance_frequency_hours?: number
+          target_allocations?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          last_rebalance_at?: string | null
+          max_deviation_percent?: number
+          min_trade_value?: number
+          rebalance_frequency_hours?: number
+          target_allocations?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       smart_transfer_configs: {
         Row: {
           auto_2fa: boolean
