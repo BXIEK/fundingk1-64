@@ -234,7 +234,7 @@ export const SmartBalanceRebalancer = () => {
         .upsert({
           user_id: userId,
           is_enabled: newState,
-          rebalance_frequency_hours: 24,
+          rebalance_frequency_hours: 4, // Executar a cada 4 horas
           target_allocations: {
             'USDT': 25,
             'BTC': 25,
@@ -251,7 +251,7 @@ export const SmartBalanceRebalancer = () => {
       toast({
         title: newState ? "✅ Auto-Rebalanceamento Ativado" : "⏸️ Auto-Rebalanceamento Pausado",
         description: newState 
-          ? "Sistema rebalanceará automaticamente a cada 24h"
+          ? "Sistema rebalanceará automaticamente a cada 4 horas"
           : "Rebalanceamento manual apenas",
       });
 
@@ -367,7 +367,7 @@ export const SmartBalanceRebalancer = () => {
               <li>Mantém 25% do valor em cada token (USDT, BTC, ETH, SOL)</li>
               <li>Conversões internas dentro de cada exchange</li>
               <li>Sem transferências entre exchanges</li>
-              <li>Execução automática quando desvio &gt; 10%</li>
+              <li>Execução automática a cada 4 horas quando desvio &gt; 10%</li>
             </ul>
           </div>
         </div>
