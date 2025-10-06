@@ -5,14 +5,24 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { getUserId } from "@/lib/userUtils";
-import { RefreshCw, TrendingUp, DollarSign, Wallet, Settings2 } from "lucide-react";
+import { RefreshCw, TrendingUp, DollarSign, Wallet, Settings2, ArrowRight, Eye } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface TokenAllocation {
   symbol: string;
   targetPercent: number;
   currentPercent: number;
   needsRebalance: boolean;
+  currentValue: number;
+  targetValue: number;
 }
 
 interface ExchangeBalance {
@@ -21,12 +31,24 @@ interface ExchangeBalance {
   totalValue: number;
 }
 
+interface ConversionPreview {
+  exchange: string;
+  fromToken: string;
+  toToken: string;
+  amount: number;
+  valueUsd: number;
+  reason: string;
+}
+
 export const SmartBalanceRebalancer = () => {
   const { toast } = useToast();
   const [isRebalancing, setIsRebalancing] = useState(false);
   const [balances, setBalances] = useState<ExchangeBalance[]>([]);
   const [autoRebalanceEnabled, setAutoRebalanceEnabled] = useState(false);
   const [lastRebalance, setLastRebalance] = useState<Date | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
+  const [conversionsPreview, setConversionsPreview] = useState<ConversionPreview[]>([]);
+  const [portfolioData, setPortfolioData] = useState<any[]>([]);
 
   useEffect(() => {
     loadBalances();
@@ -64,6 +86,8 @@ export const SmartBalanceRebalancer = () => {
 
       if (!portfolioData) return;
 
+      setPortfolioData(portfolioData);
+
       // Agrupar por exchange
       const byExchange = portfolioData.reduce((acc: any, item) => {
         const exchange = item.exchange || 'GLOBAL';
@@ -79,14 +103,18 @@ export const SmartBalanceRebalancer = () => {
         const totalValue = tokens.reduce((sum: number, t: any) => sum + (t.value_usd_calculated || 0), 0);
         
         const tokenAllocations: TokenAllocation[] = tokens.map((t: any) => {
-          const currentPercent = totalValue > 0 ? (t.value_usd_calculated / totalValue) * 100 : 0;
+          const currentValue = t.value_usd_calculated || 0;
+          const currentPercent = totalValue > 0 ? (currentValue / totalValue) * 100 : 0;
           const targetPercent = 25; // 25% cada token (USDT, BTC, ETH, SOL)
+          const targetValue = (totalValue * targetPercent) / 100;
           const needsRebalance = Math.abs(currentPercent - targetPercent) > 10; // >10% desvio
 
           return {
             symbol: t.symbol,
             targetPercent,
             currentPercent,
+            currentValue,
+            targetValue,
             needsRebalance
           };
         });
@@ -104,7 +132,53 @@ export const SmartBalanceRebalancer = () => {
     }
   };
 
+  const calculateConversions = () => {
+    const conversions: ConversionPreview[] = [];
+    const maxDeviation = 10;
+    const minTradeValue = 10;
+
+    balances.forEach((balance) => {
+      balance.tokens.forEach((token) => {
+        const deviation = token.currentPercent - token.targetPercent;
+        const deltaValue = Math.abs(token.currentValue - token.targetValue);
+
+        if (Math.abs(deviation) > maxDeviation && deltaValue >= minTradeValue) {
+          if (deviation > 0) {
+            // Token acima do alvo - vender para USDT
+            conversions.push({
+              exchange: balance.exchange,
+              fromToken: token.symbol,
+              toToken: 'USDT',
+              amount: deltaValue / (token.currentValue / 100), // estimativa
+              valueUsd: deltaValue,
+              reason: `${token.currentPercent.toFixed(1)}% → ${token.targetPercent}% (excesso de ${deviation.toFixed(1)}%)`
+            });
+          } else {
+            // Token abaixo do alvo - comprar com USDT
+            conversions.push({
+              exchange: balance.exchange,
+              fromToken: 'USDT',
+              toToken: token.symbol,
+              amount: deltaValue,
+              valueUsd: deltaValue,
+              reason: `${token.currentPercent.toFixed(1)}% → ${token.targetPercent}% (falta ${Math.abs(deviation).toFixed(1)}%)`
+            });
+          }
+        }
+      });
+    });
+
+    return conversions;
+  };
+
+  const showConversionsPreview = () => {
+    const conversions = calculateConversions();
+    setConversionsPreview(conversions);
+    setShowPreview(true);
+  };
+
   const executeRebalance = async () => {
+    setShowPreview(false);
     setIsRebalancing(true);
     try {
       const userId = await getUserId();
@@ -269,7 +343,7 @@ export const SmartBalanceRebalancer = () => {
         {/* Ação de Rebalanceamento */}
         <div className="space-y-3">
           <Button
-            onClick={executeRebalance}
+            onClick={showConversionsPreview}
             disabled={isRebalancing}
             className="w-full"
             size="lg"
@@ -281,8 +355,8 @@ export const SmartBalanceRebalancer = () => {
               </>
             ) : (
               <>
-                <TrendingUp className="h-4 w-4 mr-2" />
-                Rebalancear Agora
+                <Eye className="h-4 w-4 mr-2" />
+                Visualizar Conversões
               </>
             )}
           </Button>
@@ -297,6 +371,94 @@ export const SmartBalanceRebalancer = () => {
             </ul>
           </div>
         </div>
+
+        {/* Dialog de Preview */}
+        <Dialog open={showPreview} onOpenChange={setShowPreview}>
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <TrendingUp className="h-5 w-5 text-primary" />
+                Preview de Conversões
+              </DialogTitle>
+              <DialogDescription>
+                Conversões que serão executadas para rebalancear o portfólio
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              {conversionsPreview.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <p className="font-medium">✅ Portfólio já está balanceado!</p>
+                  <p className="text-sm mt-2">Nenhuma conversão necessária no momento.</p>
+                </div>
+              ) : (
+                <>
+                  {/* Resumo */}
+                  <div className="bg-primary/10 p-4 rounded-lg">
+                    <p className="font-medium text-sm mb-2">📊 Resumo</p>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div>
+                        <span className="text-muted-foreground">Total de conversões:</span>
+                        <span className="ml-2 font-medium">{conversionsPreview.length}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Valor total:</span>
+                        <span className="ml-2 font-medium">
+                          ${conversionsPreview.reduce((sum, c) => sum + c.valueUsd, 0).toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Lista de Conversões */}
+                  <div className="space-y-3">
+                    {conversionsPreview.map((conversion, idx) => (
+                      <div key={idx} className="border rounded-lg p-4 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Badge variant="outline">{conversion.exchange}</Badge>
+                          <span className="text-sm text-muted-foreground">
+                            ${conversion.valueUsd.toFixed(2)}
+                          </span>
+                        </div>
+                        
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-lg">{conversion.fromToken}</span>
+                          <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                          <span className="font-medium text-lg text-primary">{conversion.toToken}</span>
+                        </div>
+
+                        <p className="text-sm text-muted-foreground">
+                          {conversion.reason}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowPreview(false)}>
+                Cancelar
+              </Button>
+              {conversionsPreview.length > 0 && (
+                <Button onClick={executeRebalance} disabled={isRebalancing}>
+                  {isRebalancing ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      Executando...
+                    </>
+                  ) : (
+                    <>
+                      <TrendingUp className="h-4 w-4 mr-2" />
+                      Confirmar Rebalanceamento
+                    </>
+                  )}
+                </Button>
+              )}
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );
