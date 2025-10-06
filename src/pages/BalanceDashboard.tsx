@@ -8,6 +8,7 @@ import MobileAPIManager from "@/components/MobileAPIManger"
 import { ExchangeBalanceCard } from "@/components/ExchangeBalanceCard"
 import { TotalBalanceCard } from "@/components/TotalBalanceCard"
 import { AutoTokenConverter } from "@/components/AutoTokenConverter"
+import { SmartBalanceRebalancer } from "@/components/SmartBalanceRebalancer"
 
 export default function BalanceDashboard() {
   const navigate = useNavigate()
@@ -88,6 +89,11 @@ export default function BalanceDashboard() {
       {/* Conversão Automatizada de Tokens */}
       <section>
         <AutoTokenConverter />
+      </section>
+
+      {/* Rebalanceamento Inteligente */}
+      <section>
+        <SmartBalanceRebalancer />
       </section>
 
       {/* Carteira Web3 */}
