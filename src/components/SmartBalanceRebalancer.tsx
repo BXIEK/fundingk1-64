@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { getUserId } from "@/lib/userUtils";
-import { RefreshCw, TrendingUp, DollarSign, Wallet, Settings2, ArrowRight, Eye } from "lucide-react";
+import { RefreshCw, TrendingUp, TrendingDown, DollarSign, Wallet, Settings2, ArrowRight, Eye, Zap } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import {
   Dialog,
@@ -40,6 +40,15 @@ interface ConversionPreview {
   reason: string;
 }
 
+interface TrendingToken {
+  symbol: string;
+  change24h: number;
+  volume24h: number;
+  price: number;
+  trend: 'bullish' | 'bearish' | 'neutral';
+  exchange: string;
+}
+
 export const SmartBalanceRebalancer = () => {
   const { toast } = useToast();
   const [isRebalancing, setIsRebalancing] = useState(false);
@@ -49,11 +58,37 @@ export const SmartBalanceRebalancer = () => {
   const [showPreview, setShowPreview] = useState(false);
   const [conversionsPreview, setConversionsPreview] = useState<ConversionPreview[]>([]);
   const [portfolioData, setPortfolioData] = useState<any[]>([]);
+  const [bullishTokens, setBullishTokens] = useState<TrendingToken[]>([]);
+  const [bearishTokens, setBearishTokens] = useState<TrendingToken[]>([]);
+  const [loadingTrends, setLoadingTrends] = useState(false);
 
   useEffect(() => {
     loadBalances();
     loadConfig();
+    loadMarketTrends();
   }, []);
+
+  const loadMarketTrends = async () => {
+    try {
+      setLoadingTrends(true);
+      const userId = await getUserId();
+      
+      const { data, error } = await supabase.functions.invoke('market-trends-analyzer', {
+        body: { userId }
+      });
+
+      if (error) throw error;
+
+      if (data.success) {
+        setBullishTokens(data.bullish || []);
+        setBearishTokens(data.bearish || []);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar tendências:', error);
+    } finally {
+      setLoadingTrends(false);
+    }
+  };
 
   const loadConfig = async () => {
     try {
@@ -221,8 +256,12 @@ export const SmartBalanceRebalancer = () => {
             'ETH': 25,
             'SOL': 25
           },
-          maxDeviation: 10, // % máximo de desvio tolerado
-          minTradeValue: 10 // Mínimo $10 por conversão
+          maxDeviation: 10,
+          minTradeValue: 10,
+          marketTrends: {
+            bullish: bullishTokens,
+            bearish: bearishTokens
+          }
         }
       });
 
@@ -323,6 +362,103 @@ export const SmartBalanceRebalancer = () => {
           >
             {autoRebalanceEnabled ? "Desativar" : "Ativar"}
           </Button>
+        </div>
+
+        {/* Tendências de Mercado */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Tokens em Alta */}
+          <Card className="border-green-500/20 bg-green-500/5">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <TrendingUp className="h-4 w-4 text-green-500" />
+                Oportunidades de Compra
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Tokens com forte tendência de alta
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loadingTrends ? (
+                <div className="text-center py-4 text-muted-foreground text-sm">
+                  <RefreshCw className="h-4 w-4 animate-spin inline mr-2" />
+                  Analisando mercado...
+                </div>
+              ) : bullishTokens.length === 0 ? (
+                <p className="text-center py-4 text-muted-foreground text-sm">
+                  Nenhuma oportunidade identificada
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {bullishTokens.slice(0, 5).map((token) => (
+                    <div key={`${token.exchange}-${token.symbol}`} className="flex items-center justify-between p-2 bg-background rounded border border-green-500/20">
+                      <div className="flex items-center gap-2">
+                        <Zap className="h-3 w-3 text-green-500" />
+                        <span className="font-medium text-sm">{token.symbol}</span>
+                        <Badge variant="outline" className="text-xs">
+                          {token.exchange}
+                        </Badge>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-green-500 font-medium text-sm">
+                          +{token.change24h.toFixed(2)}%
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          ${token.price.toFixed(2)}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Tokens em Baixa */}
+          <Card className="border-red-500/20 bg-red-500/5">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <TrendingDown className="h-4 w-4 text-red-500" />
+                Alertas de Venda
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Tokens com forte tendência de baixa
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loadingTrends ? (
+                <div className="text-center py-4 text-muted-foreground text-sm">
+                  <RefreshCw className="h-4 w-4 animate-spin inline mr-2" />
+                  Analisando mercado...
+                </div>
+              ) : bearishTokens.length === 0 ? (
+                <p className="text-center py-4 text-muted-foreground text-sm">
+                  Nenhum alerta no momento
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {bearishTokens.slice(0, 5).map((token) => (
+                    <div key={`${token.exchange}-${token.symbol}`} className="flex items-center justify-between p-2 bg-background rounded border border-red-500/20">
+                      <div className="flex items-center gap-2">
+                        <TrendingDown className="h-3 w-3 text-red-500" />
+                        <span className="font-medium text-sm">{token.symbol}</span>
+                        <Badge variant="outline" className="text-xs">
+                          {token.exchange}
+                        </Badge>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-red-500 font-medium text-sm">
+                          {token.change24h.toFixed(2)}%
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          ${token.price.toFixed(2)}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
         {/* Alocações por Exchange */}

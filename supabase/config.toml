@@ -61,3 +61,6 @@ verify_jwt = false
 
 [functions.detect-arbitrage-opportunities]
 verify_jwt = false
+
+[functions.market-trends-analyzer]
+verify_jwt = false

@@ -6,11 +6,22 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+interface TrendingToken {
+  symbol: string;
+  change24h: number;
+  trend: 'bullish' | 'bearish' | 'neutral';
+  exchange: string;
+}
+
 interface RebalanceRequest {
   userId: string;
   targetAllocations: Record<string, number>;
   maxDeviation: number;
   minTradeValue: number;
+  marketTrends?: {
+    bullish: TrendingToken[];
+    bearish: TrendingToken[];
+  };
 }
 
 serve(async (req) => {
@@ -23,8 +34,14 @@ serve(async (req) => {
       userId, 
       targetAllocations,
       maxDeviation = 10,
-      minTradeValue = 10
+      minTradeValue = 10,
+      marketTrends
     }: RebalanceRequest = await req.json();
+
+    console.log(`📊 Tendências recebidas:`, {
+      bullish: marketTrends?.bullish?.length || 0,
+      bearish: marketTrends?.bearish?.length || 0
+    });
 
     console.log(`🔄 REBALANCEAMENTO INICIADO - User: ${userId}`);
 
@@ -138,8 +155,31 @@ serve(async (req) => {
         const deviation = Math.abs(alloc.currentPercent - alloc.targetPercent);
         const deltaValue = Math.abs(alloc.currentValue - alloc.targetValue);
         
-        if (deviation > maxDeviation && deltaValue >= minTradeValue) {
-          const needsToSell = alloc.currentPercent > alloc.targetPercent;
+        // Verificar se token está em tendência forte
+        const isBullish = marketTrends?.bullish?.some(t => 
+          t.symbol === alloc.symbol && t.exchange.toLowerCase() === exchange.toLowerCase()
+        );
+        const isBearish = marketTrends?.bearish?.some(t => 
+          t.symbol === alloc.symbol && t.exchange.toLowerCase() === exchange.toLowerCase()
+        );
+
+        // Ajustar decisão baseado em tendências
+        let shouldProcess = deviation > maxDeviation && deltaValue >= minTradeValue;
+        
+        // Se token está em alta forte, priorizar compra mesmo com desvio menor
+        if (isBullish && alloc.currentPercent < alloc.targetPercent && deltaValue >= minTradeValue) {
+          shouldProcess = true;
+          console.log(`  🚀 ${alloc.symbol} em forte alta - priorizando compra`);
+        }
+        
+        // Se token está em baixa forte, priorizar venda mesmo com desvio menor
+        if (isBearish && alloc.currentPercent > alloc.targetPercent && deltaValue >= minTradeValue) {
+          shouldProcess = true;
+          console.log(`  📉 ${alloc.symbol} em forte baixa - priorizando venda`);
+        }
+        
+        if (shouldProcess) {
+          const needsToSell = alloc.currentPercent > alloc.targetPercent || isBearish;
           
           console.log(`\n🔄 ${alloc.symbol}:`);
           console.log(`  Desvio: ${deviation.toFixed(1)}% | Delta: $${deltaValue.toFixed(2)}`);
