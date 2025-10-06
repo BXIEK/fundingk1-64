@@ -88,8 +88,19 @@ export const SmartBalanceRebalancer = () => {
 
       setPortfolioData(portfolioData);
 
+      // Lista de tokens válidos para rebalanceamento
+      const VALID_TOKENS = ['USDT', 'BTC', 'ETH', 'SOL', 'USDC', 'BNB'];
+      const MIN_TOKEN_VALUE = 1; // Mínimo $1 USD
+
+      // Filtrar apenas tokens válidos e com valor mínimo
+      const validData = portfolioData.filter((item: any) => {
+        const isValid = VALID_TOKENS.includes(item.symbol);
+        const hasMinValue = (item.value_usd_calculated || 0) >= MIN_TOKEN_VALUE;
+        return isValid && hasMinValue;
+      });
+
       // Agrupar por exchange
-      const byExchange = portfolioData.reduce((acc: any, item) => {
+      const byExchange = validData.reduce((acc: any, item) => {
         const exchange = item.exchange || 'GLOBAL';
         if (!acc[exchange]) {
           acc[exchange] = [];
@@ -135,34 +146,47 @@ export const SmartBalanceRebalancer = () => {
   const calculateConversions = () => {
     const conversions: ConversionPreview[] = [];
     const maxDeviation = 10;
-    const minTradeValue = 10;
+    const minTradeValue = 5; // Mínimo $5 por conversão
 
     balances.forEach((balance) => {
+      // Verificar se tem valor mínimo total para rebalancear
+      if (balance.totalValue < minTradeValue * 2) {
+        return; // Pular exchange com valor muito baixo
+      }
+
       balance.tokens.forEach((token) => {
         const deviation = token.currentPercent - token.targetPercent;
         const deltaValue = Math.abs(token.currentValue - token.targetValue);
 
+        // Validações: desvio significativo + valor mínimo + saldo real
         if (Math.abs(deviation) > maxDeviation && deltaValue >= minTradeValue) {
           if (deviation > 0) {
             // Token acima do alvo - vender para USDT
-            conversions.push({
-              exchange: balance.exchange,
-              fromToken: token.symbol,
-              toToken: 'USDT',
-              amount: deltaValue / (token.currentValue / 100), // estimativa
-              valueUsd: deltaValue,
-              reason: `${token.currentPercent.toFixed(1)}% → ${token.targetPercent}% (excesso de ${deviation.toFixed(1)}%)`
-            });
+            if (token.currentValue >= minTradeValue) {
+              conversions.push({
+                exchange: balance.exchange,
+                fromToken: token.symbol,
+                toToken: 'USDT',
+                amount: deltaValue,
+                valueUsd: deltaValue,
+                reason: `${token.currentPercent.toFixed(1)}% → ${token.targetPercent}% (reduzir ${deviation.toFixed(1)}%)`
+              });
+            }
           } else {
             // Token abaixo do alvo - comprar com USDT
-            conversions.push({
-              exchange: balance.exchange,
-              fromToken: 'USDT',
-              toToken: token.symbol,
-              amount: deltaValue,
-              valueUsd: deltaValue,
-              reason: `${token.currentPercent.toFixed(1)}% → ${token.targetPercent}% (falta ${Math.abs(deviation).toFixed(1)}%)`
-            });
+            const usdtToken = balance.tokens.find(t => t.symbol === 'USDT');
+            const hasEnoughUsdt = (usdtToken?.currentValue || 0) >= minTradeValue;
+            
+            if (hasEnoughUsdt) {
+              conversions.push({
+                exchange: balance.exchange,
+                fromToken: 'USDT',
+                toToken: token.symbol,
+                amount: deltaValue,
+                valueUsd: deltaValue,
+                reason: `${token.currentPercent.toFixed(1)}% → ${token.targetPercent}% (aumentar ${Math.abs(deviation).toFixed(1)}%)`
+              });
+            }
           }
         }
       });
@@ -362,13 +386,23 @@ export const SmartBalanceRebalancer = () => {
           </Button>
 
           <div className="text-xs text-muted-foreground p-3 bg-muted/30 rounded">
-            <p className="font-medium mb-1">📊 Como Funciona</p>
+            <p className="font-medium mb-2">📊 Como Funciona</p>
             <ul className="list-disc ml-4 space-y-1">
-              <li>Mantém 25% do valor em cada token (USDT, BTC, ETH, SOL)</li>
-              <li>Conversões internas dentro de cada exchange</li>
-              <li>Sem transferências entre exchanges</li>
-              <li>Execução automática a cada 4 horas quando desvio &gt; 10%</li>
+              <li>Meta: 25% do valor em cada token principal</li>
+              <li>Tokens válidos: USDT, BTC, ETH, SOL, BNB, USDC</li>
+              <li>Valor mínimo por token: $1 USD</li>
+              <li>Conversão mínima: $5 USD</li>
+              <li>Conversões internas (dentro da exchange)</li>
+              <li>Rebalanceamento automático a cada 4 horas</li>
+              <li>Tokens com saldo &lt; $1 são ignorados automaticamente</li>
             </ul>
+            
+            <div className="mt-3 p-2 bg-yellow-500/10 border border-yellow-500/20 rounded">
+              <p className="text-xs font-medium text-yellow-600">⚠️ Importante</p>
+              <p className="text-xs mt-1">
+                Tokens sem par de negociação ou saldo insuficiente para atingir o mínimo de $5 não serão convertidos.
+              </p>
+            </div>
           </div>
         </div>
 
