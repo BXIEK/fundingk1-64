@@ -199,127 +199,47 @@ serve(async (req) => {
         continue;
       }
 
-      // Calcular alocações ideais mantendo a ordem sequencial: BTC, BNB, SOL, ETH, ENA
-      const targetPercentPerToken = 100 / REBALANCE_TOKENS.length;
-      
-      // Acumular decimais para reserva de USDT
-      let decimalAccumulator = 0;
+      // LÓGICA DE DISTRIBUIÇÃO SEQUENCIAL
+      // Ao invés de dividir igualmente, distribui $10 por vez seguindo a ordem: BTC, BNB, SOL, ETH, ENA
+      // Para até esgotar o saldo disponível
       
       const allocations = REBALANCE_TOKENS.map((symbol: string) => {
         const token = tokenArray.find((t: any) => t.symbol === symbol);
         const currentValue = token?.value_usd_calculated || 0;
         
-        // Calcular valor alvo com decimais
-        const targetValueRaw = (totalRebalanceValue * targetPercentPerToken) / 100;
-        
-        // Arredondar para baixo (sem decimais)
-        const targetValue = Math.floor(targetValueRaw);
-        
-        // Acumular a diferença decimal na reserva
-        const decimalPart = targetValueRaw - targetValue;
-        decimalAccumulator += decimalPart;
-        
         return {
           symbol,
           currentValue,
           currentPercent: (currentValue / totalRebalanceValue) * 100,
-          targetPercent: targetPercentPerToken,
-          targetValue, // Valor sem decimais
-          targetValueRaw, // Valor original com decimais (para log)
+          targetValue: 10, // Sempre tentar alocar $10 (mínimo das exchanges)
           balance: token?.balance || 0,
           price_usd: token?.price_usd || 0
         };
       });
       
-      // Atualizar reserva de USDT com os decimais acumulados
-      const finalUsdtReserve = usdtReserve + decimalAccumulator;
-      
-      console.log(`💰 Decimais acumulados para reserva USDT: $${decimalAccumulator.toFixed(2)}`);
-      console.log(`💵 USDT total reservado (base + decimais): $${finalUsdtReserve.toFixed(2)}`);
-
-      console.log('📈 Alocações atuais (ordem sequencial: USDT→BTC, USDT→BNB, USDT→SOL, USDT→ETH, USDT→ENA):', allocations.map((a: any) =>
-        `${a.symbol}: ${a.currentPercent.toFixed(1)}% ($${a.currentValue.toFixed(2)}) → alvo ${a.targetValue} USDT (${a.targetPercent.toFixed(1)}%)`
+      console.log('📈 Alocações sequenciais (ordem: BTC→BNB→SOL→ETH→ENA):', allocations.map((a: any) =>
+        `${a.symbol}: atual $${a.currentValue.toFixed(2)} → alvo $10`
       ).join(' | '));
 
-      // Processar conversões na ordem sequencial definida
-      // IMPORTANTE: Recalcular USDT disponível após cada conversão
+      // Processar conversões sequencialmente seguindo a ordem definida
+      // Cada token tenta alocar $10, até esgotar o saldo disponível
       let remainingUsdt = tradingValue; // USDT disponível para distribuir
       
       for (const alloc of allocations) {
-        const deviation = Math.abs(alloc.currentPercent - alloc.targetPercent);
-        const deltaValue = Math.abs(alloc.currentValue - alloc.targetValue);
-        
         console.log(`\n🔍 Analisando ${alloc.symbol}:`);
-        console.log(`  Current: ${alloc.currentValue.toFixed(2)} USDT (${alloc.currentPercent.toFixed(1)}%)`);
-        console.log(`  Target: ${alloc.targetValue} USDT (${alloc.targetPercent.toFixed(1)}%)`);
-        console.log(`  Delta: ${deltaValue.toFixed(2)} USDT | Desvio: ${deviation.toFixed(1)}%`);
+        console.log(`  Saldo atual: $${alloc.currentValue.toFixed(2)}`);
+        console.log(`  Alvo: $${alloc.targetValue}`);
+        console.log(`  USDT disponível: $${remainingUsdt.toFixed(2)}`);
         
-        // LÓGICA CORRIGIDA: Se valor atual < valor alvo, precisa COMPRAR
+        // Verificar se precisa comprar (saldo atual < $10)
         const needsToBuy = alloc.currentValue < alloc.targetValue;
-        const needsToSell = alloc.currentValue > alloc.targetValue;
+        const deltaValue = alloc.targetValue - alloc.currentValue;
         
-        // Verificar se token está em tendência forte
-        const isBullish = marketTrends?.bullish?.some(t => 
-          t.symbol === alloc.symbol && t.exchange.toLowerCase() === exchange.toLowerCase()
-        );
-        const isBearish = marketTrends?.bearish?.some(t => 
-          t.symbol === alloc.symbol && t.exchange.toLowerCase() === exchange.toLowerCase()
-        );
-
-        // Ajustar decisão baseado em tendências
-        let shouldProcess = deviation > maxDeviation && deltaValue >= minTradeValue;
-        
-        // Se token está em alta forte, priorizar compra mesmo com desvio menor
-        if (isBullish && needsToBuy && deltaValue >= minTradeValue) {
-          shouldProcess = true;
-          console.log(`  🚀 ${alloc.symbol} em forte alta - priorizando compra`);
-        }
-        
-        // Se token está em baixa forte, priorizar venda mesmo com desvio menor
-        if (isBearish && needsToSell && deltaValue >= minTradeValue) {
-          shouldProcess = true;
-          console.log(`  📉 ${alloc.symbol} em forte baixa - priorizando venda`);
-        }
+        // Verificar se há USDT suficiente para converter $10
+        const shouldProcess = needsToBuy && remainingUsdt >= minTradeValue;
         
         if (shouldProcess) {
-          const action = needsToBuy ? 'COMPRAR' : 'VENDER';
-          
-          console.log(`  💰 USDT restante: $${remainingUsdt.toFixed(2)}`);
-          console.log(`  ⚡ Ação: ${action}`);
-
-          // Validações adicionais - valores mínimos reduzidos
-          if (needsToSell) {
-            // Vender token → USDT (conversão reversa)
-            const minSellValue = 1;
-            if (deltaValue < minSellValue) {
-              console.log(`  ⏭️ Valor de venda muito baixo: $${deltaValue.toFixed(2)} < $${minSellValue}`);
-              continue;
-            }
-            
-            if (alloc.balance <= 0) {
-              console.log(`  ⏭️ Saldo zero para venda`);
-              continue;
-            }
-          } else if (needsToBuy) {
-            // Comprar token com USDT - usar USDT restante
-            const minBuyValue = 1;
-            
-            if (remainingUsdt < minBuyValue) {
-              console.log(`  ⏭️ USDT restante insuficiente: $${remainingUsdt.toFixed(2)} < $${minBuyValue}`);
-              continue;
-            }
-            
-            // Usar o menor valor entre o delta calculado e o USDT restante
-            const actualBuyValue = Math.min(deltaValue, remainingUsdt);
-            
-            if (actualBuyValue < minBuyValue) {
-              console.log(`  ⏭️ Valor de compra muito baixo: $${actualBuyValue.toFixed(2)} < $${minBuyValue}`);
-              continue;
-            }
-            
-            console.log(`  📊 Valor ajustado para compra: $${actualBuyValue.toFixed(2)}`);
-            console.log(`  💰 USDT disponível: $${remainingUsdt.toFixed(2)}`);
-          }
+          console.log(`  ⚡ COMPRANDO: $${alloc.targetValue} de ${alloc.symbol}`);
 
           try {
             if (!isRealMode) {
@@ -337,55 +257,57 @@ serve(async (req) => {
 
             console.log(`  ⚡ EXECUTANDO CONVERSÃO REAL...`);
             
-            // Usar valor ajustado para compras
-            const conversionValue = needsToSell ? deltaValue : Math.min(deltaValue, remainingUsdt);
-            
             const result = await executeConversion(
               exchange,
-              needsToBuy ? 'USDT' : alloc.symbol,
-              needsToBuy ? alloc.symbol : 'USDT',
-              conversionValue,
+              'USDT',
+              alloc.symbol,
+              alloc.targetValue, // Sempre $10
               binanceCred,
               okxCred,
-              alloc.price_usd // Passar preço para cálculo de quantidade
+              alloc.price_usd
             );
 
             if (result.success) {
               totalConversions++;
-              
-              // Atualizar USDT restante após conversão bem-sucedida
-              if (needsToBuy) {
-                remainingUsdt -= conversionValue;
-                console.log(`  ✅ Conversão realizada! USDT restante: $${remainingUsdt.toFixed(2)}`);
-              }
+              remainingUsdt -= alloc.targetValue;
+              console.log(`  ✅ Conversão realizada! USDT restante: $${remainingUsdt.toFixed(2)}`);
               
               executionResults.push({
                 exchange,
-                from: needsToBuy ? 'USDT' : alloc.symbol,
-                to: needsToBuy ? alloc.symbol : 'USDT',
-                value: conversionValue,
+                from: 'USDT',
+                to: alloc.symbol,
+                value: alloc.targetValue,
                 status: 'success'
               });
             } else {
-              console.log(`  ⚠️ Conversão não executada: ${result.error}`);
+              console.log(`  ⚠️ Conversão falhou: ${result.error}`);
               executionResults.push({
                 exchange,
-                from: needsToBuy ? 'USDT' : alloc.symbol,
-                to: needsToBuy ? alloc.symbol : 'USDT',
-                value: deltaValue,
+                from: 'USDT',
+                to: alloc.symbol,
+                value: alloc.targetValue,
                 error: result.error,
-                status: 'skipped'
+                status: 'failed'
               });
+              // Parar conversões se houver erro
+              break;
             }
 
           } catch (error) {
             console.error(`❌ Erro na conversão:`, error);
             executionResults.push({
               exchange,
+              from: 'USDT',
+              to: alloc.symbol,
               error: error instanceof Error ? error.message : String(error),
               status: 'failed'
             });
+            // Parar conversões se houver erro
+            break;
           }
+        } else {
+          console.log(`  ⏭️ Pulando: USDT insuficiente ($${remainingUsdt.toFixed(2)} < $${minTradeValue})`);
+          break; // Parar se não há mais saldo
         }
       }
     }
