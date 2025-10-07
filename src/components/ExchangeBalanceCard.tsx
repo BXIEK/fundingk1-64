@@ -21,8 +21,12 @@ import {
   Zap,
   Settings,
   Circle,
-  Scale
+  Scale,
+  Clock,
+  CheckCircle2,
+  XCircle
 } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface Balance {
   symbol: string;
@@ -62,6 +66,7 @@ export const ExchangeBalanceCard = ({
   const [realtimePrice, setRealtimePrice] = useState<number | null>(null);
   const [priceChange24h, setPriceChange24h] = useState<number | null>(null);
   const [rebalancing, setRebalancing] = useState(false);
+  const [operationLogs, setOperationLogs] = useState<any[]>([]);
 
   // Usar token externo se fornecido, senão usar interno
   const selectedToken = externalSelectedToken || internalSelectedToken;
@@ -93,6 +98,29 @@ export const ExchangeBalanceCard = ({
       minimumFractionDigits: decimals,
       maximumFractionDigits: decimals
     });
+  };
+
+  const fetchOperationLogs = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return;
+
+      const exchangeName = exchange === 'binance' ? 'Binance' : 'OKX';
+      
+      const { data, error } = await supabase
+        .from('conversion_history')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .eq('exchange', exchangeName)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (!error && data) {
+        setOperationLogs(data);
+      }
+    } catch (error) {
+      console.error('Erro ao buscar logs:', error);
+    }
   };
 
   const fetchBalances = async (forceRefresh = false) => {
@@ -267,6 +295,9 @@ export const ExchangeBalanceCard = ({
           // Forçar atualização dos saldos com refresh
           await fetchBalances(true);
           
+          // Atualizar logs
+          await fetchOperationLogs();
+          
           toast({
             title: "🔄 Saldos atualizados",
             description: "Os saldos foram sincronizados com a exchange",
@@ -312,6 +343,9 @@ export const ExchangeBalanceCard = ({
           // Forçar atualização dos saldos com refresh
           await fetchBalances(true);
           
+          // Atualizar logs
+          await fetchOperationLogs();
+          
           toast({
             title: "🔄 Saldos atualizados",
             description: "Os saldos foram sincronizados com a exchange",
@@ -337,8 +371,13 @@ export const ExchangeBalanceCard = ({
 
   useEffect(() => {
     fetchBalances();
-    const interval = setInterval(fetchBalances, 60000); // Atualiza a cada 60s
-    return () => clearInterval(interval);
+    fetchOperationLogs();
+    const balanceInterval = setInterval(fetchBalances, 60000); // Atualiza a cada 60s
+    const logsInterval = setInterval(fetchOperationLogs, 30000); // Atualiza logs a cada 30s
+    return () => {
+      clearInterval(balanceInterval);
+      clearInterval(logsInterval);
+    };
   }, [exchange]);
 
   // Notificar mudança de token selecionado para o pai e acionar conversão
@@ -436,6 +475,9 @@ export const ExchangeBalanceCard = ({
         // Forçar atualização dos saldos com refresh
         await fetchBalances(true);
         
+        // Atualizar logs
+        await fetchOperationLogs();
+        
         toast({
           title: "🔄 Saldos atualizados",
           description: "Os saldos foram sincronizados com a exchange",
@@ -462,6 +504,9 @@ export const ExchangeBalanceCard = ({
     
     // Forçar atualização dos saldos com refresh
     await fetchBalances(true);
+    
+    // Atualizar logs
+    await fetchOperationLogs();
     
     toast({
       title: "🔄 Saldos atualizados",
@@ -550,6 +595,7 @@ export const ExchangeBalanceCard = ({
       // Aguardar e atualizar saldos
       await new Promise(resolve => setTimeout(resolve, 2000));
       await fetchBalances(true);
+      await fetchOperationLogs();
 
     } catch (error: any) {
       console.error('❌ Erro no rebalanceamento:', error);
@@ -834,6 +880,63 @@ export const ExchangeBalanceCard = ({
             )}
             {rebalancing ? 'Rebalanceando...' : 'Rebalancear'}
           </Button>
+        </div>
+
+        {/* Logs de Operações */}
+        <div className="border-t pt-4 mt-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Clock className="h-4 w-4 text-muted-foreground" />
+            <h4 className="text-sm font-semibold">Histórico de Operações</h4>
+          </div>
+          
+          <ScrollArea className="h-32 w-full rounded-md border bg-muted/10">
+            <div className="p-3 space-y-2">
+              {operationLogs.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-4">
+                  Nenhuma operação registrada ainda
+                </p>
+              ) : (
+                operationLogs.map((log, index) => (
+                  <div 
+                    key={index}
+                    className="flex items-start gap-2 p-2 rounded-md bg-background text-xs"
+                  >
+                    {log.status === 'success' ? (
+                      <CheckCircle2 className="h-3 w-3 text-green-500 flex-shrink-0 mt-0.5" />
+                    ) : (
+                      <XCircle className="h-3 w-3 text-red-500 flex-shrink-0 mt-0.5" />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">
+                        {log.from_token} → {log.to_token}
+                      </p>
+                      <p className="text-muted-foreground">
+                        {log.from_amount?.toFixed(4)} {log.from_token} = {log.to_amount?.toFixed(4)} {log.to_token}
+                      </p>
+                      <p className="text-muted-foreground text-[10px]">
+                        {new Date(log.created_at).toLocaleString('pt-BR', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </p>
+                    </div>
+                    {log.status === 'success' && (
+                      <Badge variant="outline" className="text-[10px] h-5">
+                        Sucesso
+                      </Badge>
+                    )}
+                    {log.status === 'failed' && (
+                      <Badge variant="destructive" className="text-[10px] h-5">
+                        Erro
+                      </Badge>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          </ScrollArea>
         </div>
       </CardContent>
 
