@@ -18,7 +18,8 @@ interface RebalanceRequest {
   targetAllocations: Record<string, number>;
   maxDeviation: number;
   minTradeValue: number;
-  specificExchange?: string; // Opcional: rebalancear apenas uma exchange específica
+  specificExchange?: string;
+  mode?: string; // 'real' ou 'test'
   marketTrends?: {
     bullish: TrendingToken[];
     bearish: TrendingToken[];
@@ -37,8 +38,12 @@ serve(async (req) => {
       maxDeviation = 10,
       minTradeValue = 10,
       specificExchange,
+      mode = 'real', // Padrão: modo real
       marketTrends
     }: RebalanceRequest = await req.json();
+
+    const isRealMode = mode === 'real';
+    console.log(`🎯 MODO DE EXECUÇÃO: ${isRealMode ? '⚡ REAL TRADING' : '🧪 SIMULAÇÃO'}`);
 
     console.log(`📊 Tendências recebidas:`, {
       bullish: marketTrends?.bullish?.length || 0,
@@ -46,9 +51,9 @@ serve(async (req) => {
     });
 
     if (specificExchange) {
-      console.log(`🔄 REBALANCEAMENTO INICIADO - User: ${userId} - Exchange: ${specificExchange}`);
+      console.log(`🔄 REBALANCEAMENTO INICIADO - User: ${userId} - Exchange: ${specificExchange} - Modo: ${mode.toUpperCase()}`);
     } else {
-      console.log(`🔄 REBALANCEAMENTO INICIADO - User: ${userId} - Todas exchanges`);
+      console.log(`🔄 REBALANCEAMENTO INICIADO - User: ${userId} - Todas exchanges - Modo: ${mode.toUpperCase()}`);
     }
 
     const supabase = createClient(
@@ -302,6 +307,21 @@ serve(async (req) => {
           }
 
           try {
+            if (!isRealMode) {
+              console.log(`  🧪 MODO SIMULAÇÃO - Conversão não executada`);
+              executionResults.push({
+                exchange,
+                from: needsToSell ? alloc.symbol : 'USDT',
+                to: needsToSell ? 'USDT' : alloc.symbol,
+                value: deltaValue,
+                status: 'simulated',
+                message: 'Modo simulação ativo'
+              });
+              continue;
+            }
+
+            console.log(`  ⚡ EXECUTANDO CONVERSÃO REAL...`);
+            
             const result = await executeConversion(
               exchange,
               needsToSell ? alloc.symbol : 'USDT',

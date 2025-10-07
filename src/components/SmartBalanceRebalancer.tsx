@@ -267,8 +267,8 @@ export const SmartBalanceRebalancer = () => {
 
       const exchangeText = specificExchange ? ` na ${specificExchange}` : " em todas exchanges";
       toast({
-        title: "🔄 Iniciando Rebalanceamento",
-        description: `Analisando desvios e executando conversões internas${exchangeText}...`,
+        title: "🔄 Iniciando Rebalanceamento REAL",
+        description: `⚡ Executando conversões reais${exchangeText}...`,
       });
 
       const { data, error } = await supabase.functions.invoke('smart-rebalance', {
@@ -283,6 +283,7 @@ export const SmartBalanceRebalancer = () => {
           },
           maxDeviation: 10,
           minTradeValue: 1,
+          mode: 'real', // ⚡ MODO REAL para rebalanceamento manual
           marketTrends: {
             bullish: bullishTokens,
             bearish: bearishTokens
