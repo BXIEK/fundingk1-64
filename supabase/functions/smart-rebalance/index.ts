@@ -82,8 +82,8 @@ serve(async (req) => {
     }
 
     // Lista de tokens válidos para rebalanceamento
-    const VALID_TOKENS = ['USDT', 'BTC', 'ETH', 'SOL', 'USDC', 'BNB'];
-    const MIN_TOKEN_VALUE = 1; // Mínimo $1 USD por token
+    const VALID_TOKENS = ['USDT', 'BTC', 'ETH', 'SOL', 'USDC', 'BNB', 'ATOM', 'NFT'];
+    const MIN_TOKEN_VALUE = 0.1; // Mínimo $0.10 USD por token (reduzido para permitir trades menores)
 
     // Filtrar tokens válidos e com valor mínimo
     const validPortfolioData = portfolioData.filter((item: any) => {
@@ -155,14 +155,26 @@ serve(async (req) => {
       
       console.log(`💰 Valor total: $${totalValue.toFixed(2)}`);
       
-      if (totalValue < minTradeValue * 2) {
-        console.log(`⏭️ Valor total muito baixo para rebalancear ($${totalValue.toFixed(2)} < $${minTradeValue * 2})`);
+      // Reduzir mínimo para $5 (antes era $20)
+      if (totalValue < 5) {
+        console.log(`⏭️ Valor total muito baixo para rebalancear ($${totalValue.toFixed(2)} < $5)`);
         continue;
       }
 
       // Obter apenas os tokens que existem no portfolio
       const availableTokens = tokenArray.map((t: any) => t.symbol);
       console.log(`📋 Tokens disponíveis: ${availableTokens.join(', ')}`);
+      
+      // Verificar se há pelo menos 2 tokens diferentes para rebalancear
+      if (availableTokens.length < 2) {
+        console.log(`⏭️ Necessita pelo menos 2 tokens para rebalancear (encontrado: ${availableTokens.length})`);
+        executionResults.push({
+          exchange,
+          status: 'skipped',
+          reason: 'Apenas 1 token disponível - não é possível rebalancear'
+        });
+        continue;
+      }
 
       const allocations = tokenArray.map((token: any) => ({
         symbol: token.symbol,
@@ -212,10 +224,10 @@ serve(async (req) => {
           console.log(`  Desvio: ${deviation.toFixed(1)}% | Delta: $${deltaValue.toFixed(2)}`);
           console.log(`  Ação: ${needsToSell ? 'VENDER' : 'COMPRAR'}`);
 
-          // Validações adicionais
+          // Validações adicionais - valores mínimos reduzidos
           if (needsToSell) {
             // Vender token → USDT
-            const minSellValue = 5; // Mínimo $5 para vender
+            const minSellValue = 1; // Reduzido de $5 para $1
             if (deltaValue < minSellValue) {
               console.log(`  ⏭️ Valor de venda muito baixo: $${deltaValue.toFixed(2)} < $${minSellValue}`);
               continue;
@@ -229,7 +241,7 @@ serve(async (req) => {
             // Comprar token com USDT
             const usdtAlloc = allocations.find((a: any) => a.symbol === 'USDT');
             const availableUsdt = usdtAlloc?.currentValue || 0;
-            const minBuyValue = 5; // Mínimo $5 para comprar
+            const minBuyValue = 1; // Reduzido de $5 para $1
             
             if (availableUsdt < minBuyValue) {
               console.log(`  ⏭️ USDT insuficiente: $${availableUsdt.toFixed(2)} < $${minBuyValue}`);

@@ -281,7 +281,7 @@ export const SmartBalanceRebalancer = () => {
             'SOL': 25
           },
           maxDeviation: 10,
-          minTradeValue: 10,
+          minTradeValue: 1, // Reduzido de 10 para 1 para permitir trades menores
           marketTrends: {
             bullish: bullishTokens,
             bearish: bearishTokens
@@ -292,10 +292,25 @@ export const SmartBalanceRebalancer = () => {
 
       if (error) throw error;
 
-      toast({
-        title: "✅ Rebalanceamento Concluído",
-        description: `${data.conversions} conversões executadas${exchangeText}!`,
-      });
+      // Mostrar mensagem apropriada baseada no resultado
+      if (data.conversions > 0) {
+        toast({
+          title: "✅ Rebalanceamento Concluído",
+          description: `${data.conversions} conversões executadas${exchangeText}!`,
+        });
+      } else {
+        // Verificar se há detalhes sobre por que não executou
+        const skippedReasons = data.details?.filter((d: any) => d.status === 'skipped' && d.reason);
+        const reasonText = skippedReasons?.length > 0 
+          ? `\n${skippedReasons[0].reason}`
+          : '\nVerifique: saldos mínimos, credenciais das exchanges e diversificação de tokens.';
+        
+        toast({
+          title: "ℹ️ Nenhuma Conversão Necessária",
+          description: `0 conversões executadas${exchangeText}.${reasonText}`,
+          variant: "default"
+        });
+      }
 
       setLastRebalance(new Date());
       loadBalances();
