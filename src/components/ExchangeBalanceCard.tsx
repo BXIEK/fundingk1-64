@@ -380,19 +380,11 @@ export const ExchangeBalanceCard = ({
     };
   }, [exchange]);
 
-  // Notificar mudança de token selecionado para o pai e acionar conversão
+  // Notificar mudança de token selecionado para o pai
   useEffect(() => {
     if (onTokenChange && internalSelectedToken !== externalSelectedToken && internalSelectedToken) {
       console.log(`🔄 Token alterado para ${internalSelectedToken} na ${exchangeNames[exchange]}`);
       onTokenChange(internalSelectedToken);
-      
-      // Acionar conversão automática quando token mudar (somente se não for USDT)
-      if (internalSelectedToken !== 'USDT') {
-        console.log(`🎯 Iniciando conversão automática de ${internalSelectedToken}...`);
-        setTimeout(() => {
-          handleConvertToUSDT();
-        }, 500); // Pequeno delay para evitar conflitos
-      }
     }
   }, [internalSelectedToken]);
 
