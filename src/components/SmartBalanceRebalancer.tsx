@@ -275,10 +275,11 @@ export const SmartBalanceRebalancer = () => {
         body: { 
           userId,
           targetAllocations: {
-            'BTC': 25,
-            'ETH': 25,
-            'SOL': 25,
-            'BNB': 25
+            'BTC': 20,
+            'BNB': 20,
+            'SOL': 20,
+            'ETH': 20,
+            'ENA': 20
           },
           maxDeviation: 10,
           minTradeValue: 1,
@@ -339,10 +340,11 @@ export const SmartBalanceRebalancer = () => {
           is_enabled: newState,
           rebalance_frequency_hours: 4, // Executar a cada 4 horas
           target_allocations: {
-            'BTC': 25,
-            'ETH': 25,
-            'SOL': 25,
-            'BNB': 25
+            'BTC': 20,
+            'BNB': 20,
+            'SOL': 20,
+            'ETH': 20,
+            'ENA': 20
           },
           max_deviation_percent: 10,
           min_trade_value: 10

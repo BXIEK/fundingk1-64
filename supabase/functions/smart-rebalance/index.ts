@@ -81,8 +81,8 @@ serve(async (req) => {
       throw new Error('Sem saldos encontrados');
     }
 
-    // Lista de tokens para rebalanceamento (sem USDT, pois é a reserva)
-    const REBALANCE_TOKENS = ['BTC', 'ETH', 'SOL', 'BNB'];
+    // Lista de tokens para rebalanceamento em ordem de prioridade
+    const REBALANCE_TOKENS = ['BTC', 'BNB', 'SOL', 'ETH', 'ENA']; // Ordem sequencial
     const VALID_TOKENS = ['USDT', ...REBALANCE_TOKENS, 'USDC', 'ATOM', 'NFT'];
     const MIN_TOKEN_VALUE = 0.1; // Mínimo $0.10 USD por token
     const TRADING_BASE_UNIT = 10; // Múltiplos de 10 ($10, $20, $30...)
@@ -194,7 +194,7 @@ serve(async (req) => {
         continue;
       }
 
-      // Calcular alocações ideais: 25% para cada token (BTC, ETH, SOL, BNB)
+      // Calcular alocações ideais mantendo a ordem sequencial: BTC, BNB, SOL, ETH, ENA
       const targetPercentPerToken = 100 / REBALANCE_TOKENS.length;
       
       const allocations = REBALANCE_TOKENS.map((symbol: string) => {
@@ -212,7 +212,7 @@ serve(async (req) => {
         };
       });
 
-      console.log('📈 Alocações atuais:', allocations.map((a: any) =>
+      console.log('📈 Alocações atuais (ordem: BTC → BNB → SOL → ETH → ENA):', allocations.map((a: any) =>
         `${a.symbol}: ${a.currentPercent.toFixed(1)}% ($${a.currentValue.toFixed(2)}) → alvo ${a.targetPercent.toFixed(1)}% ($${a.targetValue.toFixed(2)})`
       ).join(' | '));
 
