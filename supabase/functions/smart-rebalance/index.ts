@@ -85,8 +85,8 @@ serve(async (req) => {
     const REBALANCE_TOKENS = ['BTC', 'ETH', 'SOL', 'BNB'];
     const VALID_TOKENS = ['USDT', ...REBALANCE_TOKENS, 'USDC', 'ATOM', 'NFT'];
     const MIN_TOKEN_VALUE = 0.1; // Mínimo $0.10 USD por token
-    const TRADING_BASE = 80; // Valor base para trading
-    const FEE_RESERVE_PERCENT = 20; // Percentual a reservar para fees
+    const TRADING_BASE_UNIT = 40; // Unidade base para trading ($40, $80, $120...)
+    const MIN_TRADING_VALUE = 40; // Valor mínimo para rebalancear
 
     // Filtrar tokens válidos e com valor mínimo
     const validPortfolioData = portfolioData.filter((item: any) => {
@@ -159,27 +159,27 @@ serve(async (req) => {
       console.log(`💰 Valor total: $${totalValue.toFixed(2)}`);
       
       // Verificar se há valor mínimo para rebalancear
-      if (totalValue < TRADING_BASE) {
-        console.log(`⏭️ Valor total muito baixo para rebalancear ($${totalValue.toFixed(2)} < $${TRADING_BASE})`);
+      if (totalValue < MIN_TRADING_VALUE) {
+        console.log(`⏭️ Valor total muito baixo para rebalancear ($${totalValue.toFixed(2)} < $${MIN_TRADING_VALUE})`);
         continue;
       }
 
-      // Calcular USDT disponível e reserva para fees
+      // Calcular USDT disponível
       const usdtToken = tokenArray.find((t: any) => t.symbol === 'USDT');
       const currentUsdt = usdtToken?.value_usd_calculated || 0;
       
-      // Calcular quanto USDT deve ser reservado para fees
-      let usdtReserve = 0;
-      if (currentUsdt > TRADING_BASE) {
-        usdtReserve = currentUsdt - TRADING_BASE;
-        console.log(`💵 USDT total: $${currentUsdt.toFixed(2)} | Reserva fees: $${usdtReserve.toFixed(2)} | Trading: $${TRADING_BASE}`);
-      } else {
-        console.log(`💵 USDT disponível: $${currentUsdt.toFixed(2)} (sem reserva, abaixo de $${TRADING_BASE})`);
-      }
-
-      // Valor disponível para distribuir entre tokens (excluindo USDT)
-      const tradingValue = Math.min(currentUsdt, TRADING_BASE);
+      // Calcular o valor base de trading como múltiplo de $40
+      // Ex: $53 → $40, $100 → $80, $150 → $120
+      const tradingValue = Math.floor(currentUsdt / TRADING_BASE_UNIT) * TRADING_BASE_UNIT;
+      const usdtReserve = currentUsdt - tradingValue;
       
+      if (tradingValue < MIN_TRADING_VALUE) {
+        console.log(`⏭️ USDT insuficiente para rebalancear: $${currentUsdt.toFixed(2)} (mínimo $${MIN_TRADING_VALUE})`);
+        continue;
+      }
+      
+      console.log(`💵 USDT total: $${currentUsdt.toFixed(2)} | Reserva fees: $${usdtReserve.toFixed(2)} | Trading: $${tradingValue.toFixed(2)}`);
+
       // Filtrar apenas tokens de rebalanceamento (BTC, ETH, SOL, BNB)
       const rebalanceTokens = tokenArray.filter((t: any) => REBALANCE_TOKENS.includes(t.symbol));
       const currentRebalanceValue = rebalanceTokens.reduce((sum: number, t: any) => sum + (t.value_usd_calculated || 0), 0);
