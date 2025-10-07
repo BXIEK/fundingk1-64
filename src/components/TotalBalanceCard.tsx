@@ -658,83 +658,9 @@ export const TotalBalanceCard = ({
     return () => clearInterval(interval);
   }, [autoConvertEnabled, isProcessing, selectedToken]);
 
-  // Limpeza periódica: converter tokens "lixo" para USDT (exceto tokens do rebalanceamento)
-  useEffect(() => {
-    if (!selectedToken || selectedToken === 'USDT') return;
-
-    let cancelled = false;
-    const runCleanup = async () => {
-      if (isProcessing) return;
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-
-        const [{ data: binanceCreds }, { data: okxCreds }] = await Promise.all([
-          supabase
-            .from('exchange_api_configs')
-            .select('*')
-            .eq('user_id', user.id)
-            .eq('exchange', 'binance')
-            .eq('is_active', true)
-            .maybeSingle(),
-          supabase
-            .from('exchange_api_configs')
-            .select('*')
-            .eq('user_id', user.id)
-            .eq('exchange', 'okx')
-            .eq('is_active', true)
-            .maybeSingle(),
-        ]);
-
-        if (!binanceCreds || !okxCreds) return;
-
-        const { data: portfolioData } = await supabase.functions.invoke('get-portfolio', {
-          body: { user_id: user.id, real_mode: true, force_refresh: true }
-        });
-        if (!portfolioData?.success) return;
-
-        const portfolio = portfolioData.data.portfolio || [];
-        
-        // Tokens protegidos: não devem ser convertidos automaticamente
-        const PROTECTED_TOKENS = ['USDT', 'BTC', 'BNB', 'SOL', 'ETH', 'ENA', 'USDC', 'ATOM'];
-        
-        const toClean = (exchange: 'Binance'|'OKX') =>
-          portfolio.filter((i: any) => 
-            i.exchange === exchange && 
-            !PROTECTED_TOKENS.includes(i.symbol) && 
-            parseFloat(i.balance) > 0 &&
-            (i.value_usd_calculated || 0) > 0.5 // Apenas tokens com mais de $0.50
-          );
-
-        const binanceOld = toClean('Binance');
-        const okxOld = toClean('OKX');
-
-        if (binanceOld.length === 0 && okxOld.length === 0) return;
-
-        console.log(`🧹 Limpeza periódica: ${[...binanceOld, ...okxOld].map((t:any)=>t.symbol).join(', ')}`);
-
-        for (const token of binanceOld) {
-          if (cancelled) return;
-          await supabase.functions.invoke('binance-swap-token', {
-            body: { apiKey: binanceCreds.api_key, secretKey: binanceCreds.secret_key, symbol: token.symbol, direction: 'toUsdt', orderType: 'market' }
-          });
-        }
-
-        for (const token of okxOld) {
-          if (cancelled) return;
-          await supabase.functions.invoke('okx-swap-token', {
-            body: { apiKey: okxCreds.api_key, secretKey: okxCreds.secret_key, passphrase: okxCreds.passphrase, symbol: token.symbol, direction: 'toUsdt', orderType: 'market' }
-          });
-        }
-      } catch (e) {
-        console.warn('Limpeza periódica falhou:', e);
-      }
-    };
-
-    runCleanup();
-    const interval = setInterval(runCleanup, 86400000); // 24 horas
-    return () => { cancelled = true; clearInterval(interval); };
-  }, [selectedToken, isProcessing]);
+  // LIMPEZA AUTOMÁTICA DESABILITADA
+  // Os tokens agora só são convertidos manualmente através do botão "Limpar e Converter"
+  // Tokens protegidos do rebalanceamento: BTC, BNB, SOL, ETH, ENA nunca serão vendidos automaticamente
 
   const executeAutoConversion = async (binancePrice: number, okxPrice: number, tokenSymbol?: string) => {
     const token = tokenSymbol || selectedToken;
