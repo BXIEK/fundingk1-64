@@ -212,10 +212,11 @@ serve(async (req) => {
         };
       });
 
-      console.log('📈 Alocações atuais (ordem: BTC → BNB → SOL → ETH → ENA):', allocations.map((a: any) =>
+      console.log('📈 Alocações atuais (ordem sequencial: USDT→BTC, USDT→BNB, USDT→SOL, USDT→ETH, USDT→ENA):', allocations.map((a: any) =>
         `${a.symbol}: ${a.currentPercent.toFixed(1)}% ($${a.currentValue.toFixed(2)}) → alvo ${a.targetPercent.toFixed(1)}% ($${a.targetValue.toFixed(2)})`
       ).join(' | '));
 
+      // Processar conversões na ordem sequencial definida
       for (const alloc of allocations) {
         const deviation = Math.abs(alloc.currentPercent - alloc.targetPercent);
         const deltaValue = Math.abs(alloc.currentValue - alloc.targetValue);
@@ -246,13 +247,13 @@ serve(async (req) => {
         if (shouldProcess) {
           const needsToSell = alloc.currentPercent > alloc.targetPercent || isBearish;
           
-          console.log(`\n🔄 ${alloc.symbol}:`);
+          console.log(`\n🔄 USDT → ${alloc.symbol}:`);
           console.log(`  Desvio: ${deviation.toFixed(1)}% | Delta: $${deltaValue.toFixed(2)}`);
           console.log(`  Ação: ${needsToSell ? 'VENDER' : 'COMPRAR'}`);
 
           // Validações adicionais - valores mínimos reduzidos
           if (needsToSell) {
-            // Vender token → USDT
+            // Vender token → USDT (conversão reversa)
             const minSellValue = 1; // Reduzido de $5 para $1
             if (deltaValue < minSellValue) {
               console.log(`  ⏭️ Valor de venda muito baixo: $${deltaValue.toFixed(2)} < $${minSellValue}`);
@@ -264,9 +265,9 @@ serve(async (req) => {
               continue;
             }
           } else {
-            // Comprar token com USDT
-            const usdtAlloc = allocations.find((a: any) => a.symbol === 'USDT');
-            const availableUsdt = usdtAlloc?.currentValue || 0;
+            // Comprar token com USDT (conversão sequencial USDT → Token)
+            const usdtAlloc = tokenArray.find((t: any) => t.symbol === 'USDT');
+            const availableUsdt = usdtAlloc?.value_usd_calculated || 0;
             const minBuyValue = 1; // Reduzido de $5 para $1
             
             if (availableUsdt < minBuyValue) {
