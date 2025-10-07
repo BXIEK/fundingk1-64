@@ -203,9 +203,29 @@ serve(async (req) => {
       // Ao invés de dividir igualmente, distribui $10 por vez seguindo a ordem: BTC, BNB, SOL, ETH, ENA
       // Para até esgotar o saldo disponível
       
+      // Buscar preços de mercado para tokens sem saldo
+      const marketPrices: { [key: string]: number } = {};
+      for (const symbol of REBALANCE_TOKENS) {
+        const token = tokenArray.find((t: any) => t.symbol === symbol);
+        if (!token || !token.price_usd || token.price_usd === 0) {
+          // Buscar preço do mercado Binance
+          try {
+            const priceResponse = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${symbol}USDT`);
+            if (priceResponse.ok) {
+              const priceData = await priceResponse.json();
+              marketPrices[symbol] = parseFloat(priceData.price);
+              console.log(`💵 Preço do token ${symbol}: $${marketPrices[symbol]}`);
+            }
+          } catch (error) {
+            console.log(`⚠️ Não foi possível obter preço de mercado para ${symbol}`);
+          }
+        }
+      }
+
       const allocations = REBALANCE_TOKENS.map((symbol: string) => {
         const token = tokenArray.find((t: any) => t.symbol === symbol);
         const currentValue = token?.value_usd_calculated || 0;
+        const priceUsd = token?.price_usd || marketPrices[symbol] || 0;
         
         return {
           symbol,
@@ -213,7 +233,7 @@ serve(async (req) => {
           currentPercent: (currentValue / totalRebalanceValue) * 100,
           targetValue: 10, // Sempre tentar alocar $10 (mínimo das exchanges)
           balance: token?.balance || 0,
-          price_usd: token?.price_usd || 0
+          price_usd: priceUsd
         };
       });
       
@@ -390,19 +410,28 @@ async function executeConversion(
         return { success: false, error: 'Credenciais Binance não encontradas' };
       }
 
+      // Preparar body com amount para compras
+      let requestBody: any = {
+        apiKey: binanceCred.api_key,
+        secretKey: binanceCred.secret_key,
+        symbol: symbol,
+        direction: direction,
+        orderType: 'limit' // Usar limit para taxas menores (~0.02%)
+      };
+      
+      // Passar valor em USDT como 'amount' para compras
+      if (direction === 'toToken' && valueUsd > 0) {
+        requestBody.amount = valueUsd;
+        console.log(`  💰 Valor USDT a gastar: $${valueUsd.toFixed(2)}`);
+      }
+
       const response = await fetch(`${supabaseUrl}/functions/v1/binance-swap-token`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${supabaseKey}`
         },
-        body: JSON.stringify({
-          apiKey: binanceCred.api_key,
-          secretKey: binanceCred.secret_key,
-          symbol: symbol,
-          direction: direction,
-          orderType: 'limit' // Usar limit para taxas menores (~0.02%)
-        })
+        body: JSON.stringify(requestBody)
       });
 
       const result = await response.json();
