@@ -19,7 +19,8 @@ import {
   Repeat,
   Zap,
   Settings,
-  Circle
+  Circle,
+  Scale
 } from 'lucide-react';
 
 interface Balance {
@@ -59,6 +60,7 @@ export const ExchangeBalanceCard = ({
   const [showSwapDialog, setShowSwapDialog] = useState(false);
   const [realtimePrice, setRealtimePrice] = useState<number | null>(null);
   const [priceChange24h, setPriceChange24h] = useState<number | null>(null);
+  const [rebalancing, setRebalancing] = useState(false);
 
   // Usar token externo se fornecido, senão usar interno
   const selectedToken = externalSelectedToken || internalSelectedToken;
@@ -489,6 +491,58 @@ export const ExchangeBalanceCard = ({
     }
   }, [realtimePrice, onPriceUpdate]);
 
+  const handleRebalance = async () => {
+    setRebalancing(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('Usuário não autenticado');
+      }
+
+      const exchangeName = exchange === 'binance' ? 'Binance' : 'OKX';
+
+      toast({
+        title: "🔄 Rebalanceando Carteira",
+        description: `Iniciando rebalanceamento na ${exchangeName}...`,
+      });
+
+      const { data, error } = await supabase.functions.invoke('smart-rebalance', {
+        body: { 
+          userId: user.id,
+          targetAllocations: {
+            'USDT': 25,
+            'BTC': 25,
+            'ETH': 25,
+            'SOL': 25
+          },
+          maxDeviation: 10,
+          minTradeValue: 10,
+          specificExchange: exchangeName
+        }
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "✅ Rebalanceamento Concluído",
+        description: `${data.conversions} conversões executadas na ${exchangeName}!`,
+      });
+
+      // Aguardar e atualizar saldos
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      await fetchBalances(true);
+
+    } catch (error: any) {
+      console.error('Erro no rebalanceamento:', error);
+      toast({
+        title: "Erro",
+        description: error.message || "Falha no rebalanceamento",
+        variant: "destructive"
+      });
+    } finally {
+      setRebalancing(false);
+    }
+  };
 
   const profitLoss = totalValue - baseline;
   const profitLossPercent = baseline > 0 ? (profitLoss / baseline) * 100 : 0;
@@ -703,13 +757,12 @@ export const ExchangeBalanceCard = ({
         )}
 
         {/* Action Buttons */}
-        <div className="flex gap-2">
+        <div className="grid grid-cols-2 gap-2">
           <Button
             variant="outline"
             size="sm"
             onClick={() => fetchBalances(false)}
             disabled={loading}
-            className="flex-1"
           >
             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             Atualizar
@@ -720,7 +773,6 @@ export const ExchangeBalanceCard = ({
             size="sm"
             onClick={handleConvertToUSDT}
             disabled={converting || loading}
-            className="flex-1"
           >
             <ArrowRightLeft className={`h-4 w-4 mr-2 ${converting ? 'animate-spin' : ''}`} />
             → USDT
@@ -731,10 +783,20 @@ export const ExchangeBalanceCard = ({
             size="sm"
             onClick={() => setShowSwapDialog(true)}
             disabled={loading}
-            className="flex-1"
           >
             <Repeat className="h-4 w-4 mr-2" />
             Converter
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRebalance}
+            disabled={rebalancing || loading}
+            className="bg-primary/10 hover:bg-primary/20 border-primary/30"
+          >
+            <Scale className={`h-4 w-4 mr-2 ${rebalancing ? 'animate-spin' : ''}`} />
+            Rebalancear
           </Button>
         </div>
       </CardContent>
