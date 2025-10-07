@@ -89,11 +89,18 @@ export const ExchangeBalanceCard = ({
   const fetchBalances = async (forceRefresh = false) => {
     setLoading(true);
     try {
-      // Buscar usuário autenticado
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        throw new Error('Usuário não autenticado');
+      // Buscar sessão ativa primeiro
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        console.warn('⚠️ Sessão não encontrada, tentando obter usuário...');
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        if (userError || !user) {
+          console.error('❌ Erro de autenticação:', userError);
+          return; // Silenciosamente falhar sem toast para evitar spam
+        }
       }
+      
+      const user = session?.user;
 
       // Buscar portfolio do banco de dados usando o user_id real
       const { data: portfolioData, error } = await supabase.functions.invoke('get-portfolio', {
@@ -152,12 +159,19 @@ export const ExchangeBalanceCard = ({
     setConverting(true);
     
     try {
-      // Buscar credenciais do banco de dados
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      // Verificar sessão antes de continuar
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
         console.error('❌ Usuário não autenticado');
-        throw new Error('Usuário não autenticado');
+        toast({
+          title: "⚠️ Sessão expirada",
+          description: "Por favor, faça login novamente",
+          variant: "destructive"
+        });
+        return;
       }
+      
+      const user = session.user;
 
       console.log(`🔍 Buscando credenciais para ${exchangeNames[exchange]}...`);
       
@@ -337,11 +351,19 @@ export const ExchangeBalanceCard = ({
   const handleSwapToken = async () => {
     setSwapping(true);
     try {
-      // Buscar credenciais do banco de dados
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        throw new Error('Usuário não autenticado');
+      // Verificar sessão antes de continuar
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        toast({
+          title: "⚠️ Sessão expirada",
+          description: "Por favor, faça login novamente",
+          variant: "destructive"
+        });
+        setSwapping(false);
+        return;
       }
+      
+      const user = session.user;
 
       const { data: configData, error: configError } = await supabase
         .from('exchange_api_configs')
@@ -494,10 +516,18 @@ export const ExchangeBalanceCard = ({
   const handleRebalance = async () => {
     setRebalancing(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        throw new Error('Usuário não autenticado');
+      // Verificar sessão antes de continuar
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        toast({
+          title: "⚠️ Sessão expirada",
+          description: "Por favor, faça login novamente",
+          variant: "destructive"
+        });
+        return;
       }
+      
+      const user = session.user;
 
       const exchangeName = exchange === 'binance' ? 'Binance' : 'OKX';
 
@@ -593,33 +623,35 @@ export const ExchangeBalanceCard = ({
       
       <CardContent className="space-y-4">
         {/* Preço em Tempo Real do Token Selecionado */}
-        <div className="p-3 border rounded-lg bg-muted/20 relative">
+        <div className="p-3 border rounded-lg bg-muted/20 relative min-h-[60px]">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 min-w-[120px]">
               <span className="text-sm font-medium text-muted-foreground">{selectedToken}</span>
-              <Badge className={priceChange24h !== null && priceChange24h >= 0 ? "bg-green-500 text-white" : "bg-red-500 text-white"}>
-                {priceChange24h !== null && priceChange24h >= 0 ? (
-                  <TrendingUp className="h-3 w-3 mr-1" />
-                ) : (
-                  <TrendingDown className="h-3 w-3 mr-1" />
-                )}
-                {priceChange24h !== null ? `${priceChange24h >= 0 ? '+' : ''}${priceChange24h.toFixed(2)}%` : 'Alta'}
-              </Badge>
+              {priceChange24h !== null && (
+                <Badge className={priceChange24h >= 0 ? "bg-green-500 text-white" : "bg-red-500 text-white"}>
+                  {priceChange24h >= 0 ? (
+                    <TrendingUp className="h-3 w-3 mr-1" />
+                  ) : (
+                    <TrendingDown className="h-3 w-3 mr-1" />
+                  )}
+                  {`${priceChange24h >= 0 ? '+' : ''}${priceChange24h.toFixed(2)}%`}
+                </Badge>
+              )}
             </div>
-            <div className="text-right flex items-center gap-2">
+            <div className="text-right flex items-center gap-2 min-w-[140px] justify-end">
               {realtimePrice ? (
                 <>
                   {/* Indicador de preço comparativo */}
                   {otherExchangePrice && realtimePrice !== otherExchangePrice && (
                     <Circle 
-                      className={`h-4 w-4 ${
+                      className={`h-4 w-4 flex-shrink-0 ${
                         realtimePrice < otherExchangePrice 
                           ? 'fill-green-500 text-green-500' 
                           : 'fill-red-500 text-red-500'
                       }`}
                     />
                   )}
-                  <p className="text-lg font-bold">
+                  <p className="text-lg font-bold tabular-nums">
                     ${formatBRL(realtimePrice, selectedToken === 'BTC' || selectedToken === 'ETH' ? 2 : 6)}
                   </p>
                 </>
@@ -664,32 +696,36 @@ export const ExchangeBalanceCard = ({
         {/* Token Selecionado (se filtro ativo) */}
         {showTokenFilter && selectedTokenBalance && (
           <div className="p-4 border-2 border-primary rounded-lg bg-primary/5 space-y-3">
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-between mb-2 min-h-[32px]">
               <div className="flex items-center gap-2">
                 <p className="text-lg font-bold">{selectedTokenBalance.symbol}</p>
-                <Badge className={priceChange24h && priceChange24h >= 0 ? "bg-green-500 text-white" : "bg-red-500 text-white"}>
-                  {priceChange24h && priceChange24h >= 0 ? (
-                    <TrendingUp className="h-3 w-3 mr-1" />
-                  ) : (
-                    <TrendingDown className="h-3 w-3 mr-1" />
-                  )}
-                  {priceChange24h ? `${priceChange24h >= 0 ? '+' : ''}${priceChange24h.toFixed(2)}%` : 'Carregando...'}
-                </Badge>
+                {priceChange24h !== null && (
+                  <Badge className={priceChange24h >= 0 ? "bg-green-500 text-white" : "bg-red-500 text-white"}>
+                    {priceChange24h >= 0 ? (
+                      <TrendingUp className="h-3 w-3 mr-1" />
+                    ) : (
+                      <TrendingDown className="h-3 w-3 mr-1" />
+                    )}
+                    {`${priceChange24h >= 0 ? '+' : ''}${priceChange24h.toFixed(2)}%`}
+                  </Badge>
+                )}
               </div>
             </div>
             
             {/* Preço em Tempo Real */}
-            <div className="p-3 border rounded-lg bg-background">
+            <div className="p-3 border rounded-lg bg-background min-h-[80px]">
               <p className="text-xs text-muted-foreground mb-1">💹 Preço em Tempo Real ({exchangeNames[exchange]})</p>
               <div className="flex items-center gap-2">
                 {realtimePrice ? (
                   <>
-                    <p className="text-2xl font-bold">
+                    <p className="text-2xl font-bold tabular-nums">
                       ${formatBRL(realtimePrice, selectedToken === 'BTC' || selectedToken === 'ETH' ? 2 : 6)}
                     </p>
-                    <Badge variant={priceChange24h && priceChange24h >= 0 ? "default" : "destructive"} className="text-xs">
-                      24h: {priceChange24h ? `${priceChange24h >= 0 ? '+' : ''}${priceChange24h.toFixed(2)}%` : '...'}
-                    </Badge>
+                    {priceChange24h !== null && (
+                      <Badge variant={priceChange24h >= 0 ? "default" : "destructive"} className="text-xs">
+                        24h: {`${priceChange24h >= 0 ? '+' : ''}${priceChange24h.toFixed(2)}%`}
+                      </Badge>
+                    )}
                   </>
                 ) : (
                   <p className="text-lg text-muted-foreground">Carregando preço...</p>
