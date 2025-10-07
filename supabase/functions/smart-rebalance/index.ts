@@ -346,7 +346,8 @@ serve(async (req) => {
               needsToBuy ? alloc.symbol : 'USDT',
               conversionValue,
               binanceCred,
-              okxCred
+              okxCred,
+              alloc.price_usd // Passar preço para cálculo de quantidade
             );
 
             if (result.success) {
@@ -426,10 +427,12 @@ async function executeConversion(
   toToken: string,
   valueUsd: number,
   binanceCred: any,
-  okxCred: any
+  okxCred: any,
+  tokenPrice?: number
 ): Promise<{ success: boolean; error?: string }> {
   
   console.log(`🔄 Executando conversão: ${fromToken} → ${toToken} ($${valueUsd.toFixed(2)}) em ${exchange}`);
+  console.log(`💵 Preço do token: $${tokenPrice || 'não fornecido'}`);
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -488,20 +491,29 @@ async function executeConversion(
         return { success: false, error: 'Credenciais OKX não encontradas' };
       }
 
+      // Calcular quantidade se estiver comprando
+      let requestBody: any = {
+        apiKey: okxCred.api_key,
+        secretKey: okxCred.secret_key,
+        passphrase: okxCred.passphrase,
+        symbol: symbol,
+        direction: direction,
+        orderType: 'market'
+      };
+      
+      // Passar valor em USDT como 'amount' para compras
+      if (direction === 'toToken' && valueUsd > 0) {
+        requestBody.amount = valueUsd;
+        console.log(`  💰 Valor USDT a gastar: $${valueUsd.toFixed(2)}`);
+      }
+      
       const response = await fetch(`${supabaseUrl}/functions/v1/okx-swap-token`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${supabaseKey}`
         },
-        body: JSON.stringify({
-          apiKey: okxCred.api_key,
-          secretKey: okxCred.secret_key,
-          passphrase: okxCred.passphrase,
-          symbol: symbol,
-          direction: direction,
-          orderType: 'market'
-        })
+        body: JSON.stringify(requestBody)
       });
 
       const result = await response.json();
