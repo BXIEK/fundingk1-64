@@ -318,6 +318,7 @@ serve(async (req) => {
             }
             
             console.log(`  📊 Valor ajustado para compra: $${actualBuyValue.toFixed(2)}`);
+            console.log(`  💰 USDT disponível: $${remainingUsdt.toFixed(2)}`);
           }
 
           try {
