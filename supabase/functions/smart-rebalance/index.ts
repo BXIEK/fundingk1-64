@@ -197,23 +197,43 @@ serve(async (req) => {
       // Calcular alocações ideais mantendo a ordem sequencial: BTC, BNB, SOL, ETH, ENA
       const targetPercentPerToken = 100 / REBALANCE_TOKENS.length;
       
+      // Acumular decimais para reserva de USDT
+      let decimalAccumulator = 0;
+      
       const allocations = REBALANCE_TOKENS.map((symbol: string) => {
         const token = tokenArray.find((t: any) => t.symbol === symbol);
         const currentValue = token?.value_usd_calculated || 0;
+        
+        // Calcular valor alvo com decimais
+        const targetValueRaw = (totalRebalanceValue * targetPercentPerToken) / 100;
+        
+        // Arredondar para baixo (sem decimais)
+        const targetValue = Math.floor(targetValueRaw);
+        
+        // Acumular a diferença decimal na reserva
+        const decimalPart = targetValueRaw - targetValue;
+        decimalAccumulator += decimalPart;
         
         return {
           symbol,
           currentValue,
           currentPercent: (currentValue / totalRebalanceValue) * 100,
           targetPercent: targetPercentPerToken,
-          targetValue: (totalRebalanceValue * targetPercentPerToken) / 100,
+          targetValue, // Valor sem decimais
+          targetValueRaw, // Valor original com decimais (para log)
           balance: token?.balance || 0,
           price_usd: token?.price_usd || 0
         };
       });
+      
+      // Atualizar reserva de USDT com os decimais acumulados
+      const finalUsdtReserve = usdtReserve + decimalAccumulator;
+      
+      console.log(`💰 Decimais acumulados para reserva USDT: $${decimalAccumulator.toFixed(2)}`);
+      console.log(`💵 USDT total reservado (base + decimais): $${finalUsdtReserve.toFixed(2)}`);
 
       console.log('📈 Alocações atuais (ordem sequencial: USDT→BTC, USDT→BNB, USDT→SOL, USDT→ETH, USDT→ENA):', allocations.map((a: any) =>
-        `${a.symbol}: ${a.currentPercent.toFixed(1)}% ($${a.currentValue.toFixed(2)}) → alvo ${a.targetPercent.toFixed(1)}% ($${a.targetValue.toFixed(2)})`
+        `${a.symbol}: ${a.currentPercent.toFixed(1)}% ($${a.currentValue.toFixed(2)}) → alvo ${a.targetValue} USDT (${a.targetPercent.toFixed(1)}%)`
       ).join(' | '));
 
       // Processar conversões na ordem sequencial definida
