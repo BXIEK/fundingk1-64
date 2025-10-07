@@ -658,7 +658,7 @@ export const TotalBalanceCard = ({
     return () => clearInterval(interval);
   }, [autoConvertEnabled, isProcessing, selectedToken]);
 
-  // Limpeza periódica: converter qualquer token diferente do selecionado e USDT para USDT (market)
+  // Limpeza periódica: converter tokens "lixo" para USDT (exceto tokens do rebalanceamento)
   useEffect(() => {
     if (!selectedToken || selectedToken === 'USDT') return;
 
@@ -694,8 +694,17 @@ export const TotalBalanceCard = ({
         if (!portfolioData?.success) return;
 
         const portfolio = portfolioData.data.portfolio || [];
+        
+        // Tokens protegidos: não devem ser convertidos automaticamente
+        const PROTECTED_TOKENS = ['USDT', 'BTC', 'BNB', 'SOL', 'ETH', 'ENA', 'USDC', 'ATOM'];
+        
         const toClean = (exchange: 'Binance'|'OKX') =>
-          portfolio.filter((i: any) => i.exchange === exchange && i.symbol !== 'USDT' && i.symbol !== selectedToken && parseFloat(i.balance) > 0);
+          portfolio.filter((i: any) => 
+            i.exchange === exchange && 
+            !PROTECTED_TOKENS.includes(i.symbol) && 
+            parseFloat(i.balance) > 0 &&
+            (i.value_usd_calculated || 0) > 0.5 // Apenas tokens com mais de $0.50
+          );
 
         const binanceOld = toClean('Binance');
         const okxOld = toClean('OKX');
