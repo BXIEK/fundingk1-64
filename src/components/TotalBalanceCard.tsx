@@ -54,7 +54,6 @@ export const TotalBalanceCard = ({
   totalBaseline = 200,
   selectedToken: externalSelectedToken
 }: TotalBalanceCardProps) => {
-  const [autoConvertEnabled, setAutoConvertEnabled] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [internalSelectedToken, setInternalSelectedToken] = useState<string>('SOL');
   
@@ -74,10 +73,6 @@ export const TotalBalanceCard = ({
   const [okxTokens, setOkxTokens] = useState<TokenBalance[]>([]);
   const [loadingTokens, setLoadingTokens] = useState(false);
   const [activeTab, setActiveTab] = useState<'binance' | 'okx'>('binance');
-  const [bestToken, setBestToken] = useState<TokenSpreadData | null>(null);
-
-  // Lista de tokens disponíveis para conversão automática
-  const availableTokens = ['BTC', 'ETH', 'BNB', 'SOL', 'ADA', 'XRP', 'DOT', 'LINK', 'UNI', 'AVAX'];
 
   // Helper para salvar conversões no histórico
   const saveConversionRecord = async (params: {
@@ -618,90 +613,7 @@ export const TotalBalanceCard = ({
     }
   }, [externalSelectedToken]);
 
-  // Monitorar token selecionado e executar conversões automáticas apenas para ele
-  useEffect(() => {
-    if (!autoConvertEnabled || !selectedToken || selectedToken === 'USDT') return;
-
-    const fetchPricesAndMaybeConvert = async () => {
-      try {
-        const symbol = `${selectedToken}USDT`;
-        const { data: binanceData } = await supabase.functions.invoke('binance-market-data', {
-          body: { action: 'tickers', symbols: [symbol] }
-        });
-
-        const { data: okxData } = await supabase.functions.invoke('okx-api', {
-          body: { action: 'get_prices' }
-        });
-
-        if (binanceData?.success && okxData?.success) {
-          const binancePrice = binanceData.data?.[symbol]?.lastPrice || binanceData.data?.[symbol]?.price || 0;
-          const okxPrice = okxData.data?.[selectedToken] || 0;
-
-          if (binancePrice > 0 && okxPrice > 0) {
-            const spread = ((okxPrice - binancePrice) / binancePrice) * 100;
-            setTokenPrices({ binance: binancePrice, okx: okxPrice, spread });
-            console.log(`🤖 Auto (${selectedToken}) - Binance: $${binancePrice}, OKX: $${okxPrice}, Spread: ${spread.toFixed(3)}%`);
-
-            if (Math.abs(spread) > 0.3 && !isProcessing) {
-              await executeAutoConversion(binancePrice, okxPrice, selectedToken);
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Erro no auto monitoring do token selecionado:', error);
-      }
-    };
-
-    fetchPricesAndMaybeConvert();
-    const interval = setInterval(fetchPricesAndMaybeConvert, 15000);
-
-    return () => clearInterval(interval);
-  }, [autoConvertEnabled, isProcessing, selectedToken]);
-
-  // LIMPEZA AUTOMÁTICA DESABILITADA
-  // Os tokens agora só são convertidos manualmente através do botão "Limpar e Converter"
-  // Tokens protegidos do rebalanceamento: BTC, BNB, SOL, ETH, ENA nunca serão vendidos automaticamente
-
-  const executeAutoConversion = async (binancePrice: number, okxPrice: number, tokenSymbol?: string) => {
-    const token = tokenSymbol || selectedToken;
-    setIsProcessing(true);
-    
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Usuário não autenticado');
-
-      // Buscar credenciais
-      const { data: binanceCreds } = await supabase
-        .from('exchange_api_configs')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('exchange', 'binance')
-        .eq('is_active', true)
-        .maybeSingle();
-
-      const { data: okxCreds } = await supabase
-        .from('exchange_api_configs')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('exchange', 'okx')
-        .eq('is_active', true)
-        .maybeSingle();
-
-      if (!binanceCreds || !okxCreds) {
-        toast.error('⚠️ Credenciais não encontradas', {
-          description: 'Configure suas credenciais da Binance e OKX.',
-          duration: 5000
-        });
-        setAutoConvertEnabled(false);
-        return;
-      }
-
-      // Buscar saldos do token e USDT
-      const { data: portfolioData } = await supabase.functions.invoke('get-portfolio', {
-        body: { user_id: user.id, real_mode: true, force_refresh: false }
-      });
-
-      if (!portfolioData?.success) throw new Error('Erro ao buscar saldos');
+  const saveConversionRecord = async (params: {
 
       const portfolio = portfolioData.data.portfolio;
       
