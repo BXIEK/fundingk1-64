@@ -460,48 +460,45 @@ export const ExchangeBalanceCard = ({
     });
   };
 
-  // Buscar preço em tempo real do token selecionado
+  // Buscar preço usando a edge function binance-market-data (evita CORS)
   const fetchRealtimePrice = async () => {
     if (!selectedToken) return;
     
     try {
       const symbol = `${selectedToken}USDT`;
       
-      if (exchange === 'binance') {
-        const response = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${symbol}`);
-        if (response.ok) {
-          const data = await response.json();
-          const price = parseFloat(data.lastPrice);
-          const change24h = parseFloat(data.priceChangePercent);
-          setRealtimePrice(price);
-          setPriceChange24h(change24h);
-          console.log(`✅ Preço Binance ${symbol}: $${data.lastPrice} (${data.priceChangePercent}%)`);
+      // Usar edge function ao invés de chamadas diretas (evita CORS)
+      const { data, error } = await supabase.functions.invoke('binance-market-data', {
+        body: { 
+          action: 'tickers',
+          symbols: [symbol]
         }
-      } else if (exchange === 'okx') {
-        // Usar API pública da OKX diretamente
-        const response = await fetch(`https://www.okx.com/api/v5/market/ticker?instId=${selectedToken}-USDT`);
-        if (response.ok) {
-          const data = await response.json();
-          if (data.data && data.data[0]) {
-            const ticker = data.data[0];
-            const price = parseFloat(ticker.last);
-            const change24h = ((parseFloat(ticker.last) - parseFloat(ticker.open24h)) / parseFloat(ticker.open24h)) * 100;
-            setRealtimePrice(price);
-            setPriceChange24h(change24h);
-            console.log(`✅ Preço OKX ${symbol}: $${price} (${change24h.toFixed(2)}%)`);
-          }
-        }
+      });
+
+      if (error) {
+        console.error('Erro ao buscar preço:', error);
+        return;
+      }
+
+      if (data?.success && data.data?.length > 0) {
+        const ticker = data.data[0];
+        const price = parseFloat(ticker.lastPrice);
+        const change24h = parseFloat(ticker.priceChangePercent);
+        setRealtimePrice(price);
+        setPriceChange24h(change24h);
+        
+        console.log(`✅ Preço ${exchangeNames[exchange]} ${symbol}: $${ticker.lastPrice} (${ticker.priceChangePercent}%)`);
       }
     } catch (error) {
       console.error('Erro ao buscar preço em tempo real:', error);
     }
   };
 
-  // Atualizar preço em tempo real a cada 5 segundos
+  // Atualizar preço em tempo real - reduzido para 30 segundos para evitar sobrecarga
   useEffect(() => {
     if (selectedToken) {
       fetchRealtimePrice();
-      const interval = setInterval(fetchRealtimePrice, 5000);
+      const interval = setInterval(fetchRealtimePrice, 30000); // 30s ao invés de 5s
       return () => clearInterval(interval);
     }
   }, [selectedToken, exchange]);
