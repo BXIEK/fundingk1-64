@@ -91,7 +91,7 @@ serve(async (req) => {
     const VALID_TOKENS = ['USDT', ...REBALANCE_TOKENS, 'USDC', 'ATOM', 'NFT'];
     const MIN_TOKEN_VALUE = 0.1; // Mínimo $0.10 USD por token
     const TRADING_BASE_UNIT = 10; // Múltiplos de 10 ($10, $20, $30...)
-    const MIN_TRADING_VALUE = 5; // Valor mínimo para rebalancear (reduzido para portfólios menores)
+    const MIN_TRADING_VALUE = 10; // Valor mínimo para rebalancear ($10 = mínimo das exchanges)
 
     // Filtrar tokens válidos e com valor mínimo
     const validPortfolioData = portfolioData.filter((item: any) => {
@@ -266,9 +266,8 @@ serve(async (req) => {
           t.symbol === alloc.symbol && t.exchange.toLowerCase() === exchange.toLowerCase()
         );
 
-        // Ajustar decisão baseado em tendências (usar minTradeValue mais flexível)
-        const effectiveMinTradeValue = Math.min(minTradeValue, 5); // Mínimo $5 para portfólios pequenos
-        let shouldProcess = deviation > maxDeviation && deltaValue >= effectiveMinTradeValue;
+        // Ajustar decisão baseado em tendências
+        let shouldProcess = deviation > maxDeviation && deltaValue >= minTradeValue;
         
         // Se token está em alta forte, priorizar compra mesmo com desvio menor
         if (isBullish && needsToBuy && deltaValue >= minTradeValue) {
