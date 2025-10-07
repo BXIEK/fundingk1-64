@@ -732,7 +732,7 @@ export const TotalBalanceCard = ({
     };
 
     runCleanup();
-    const interval = setInterval(runCleanup, 60000);
+    const interval = setInterval(runCleanup, 86400000); // 24 horas
     return () => { cancelled = true; clearInterval(interval); };
   }, [selectedToken, isProcessing]);
 
