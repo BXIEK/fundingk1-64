@@ -249,6 +249,15 @@ serve(async (req) => {
         const deviation = Math.abs(alloc.currentPercent - alloc.targetPercent);
         const deltaValue = Math.abs(alloc.currentValue - alloc.targetValue);
         
+        console.log(`\n🔍 Analisando ${alloc.symbol}:`);
+        console.log(`  Current: ${alloc.currentValue.toFixed(2)} USDT (${alloc.currentPercent.toFixed(1)}%)`);
+        console.log(`  Target: ${alloc.targetValue} USDT (${alloc.targetPercent.toFixed(1)}%)`);
+        console.log(`  Delta: ${deltaValue.toFixed(2)} USDT | Desvio: ${deviation.toFixed(1)}%`);
+        
+        // LÓGICA CORRIGIDA: Se valor atual < valor alvo, precisa COMPRAR
+        const needsToBuy = alloc.currentValue < alloc.targetValue;
+        const needsToSell = alloc.currentValue > alloc.targetValue;
+        
         // Verificar se token está em tendência forte
         const isBullish = marketTrends?.bullish?.some(t => 
           t.symbol === alloc.symbol && t.exchange.toLowerCase() === exchange.toLowerCase()
@@ -261,24 +270,22 @@ serve(async (req) => {
         let shouldProcess = deviation > maxDeviation && deltaValue >= minTradeValue;
         
         // Se token está em alta forte, priorizar compra mesmo com desvio menor
-        if (isBullish && alloc.currentPercent < alloc.targetPercent && deltaValue >= minTradeValue) {
+        if (isBullish && needsToBuy && deltaValue >= minTradeValue) {
           shouldProcess = true;
           console.log(`  🚀 ${alloc.symbol} em forte alta - priorizando compra`);
         }
         
         // Se token está em baixa forte, priorizar venda mesmo com desvio menor
-        if (isBearish && alloc.currentPercent > alloc.targetPercent && deltaValue >= minTradeValue) {
+        if (isBearish && needsToSell && deltaValue >= minTradeValue) {
           shouldProcess = true;
           console.log(`  📉 ${alloc.symbol} em forte baixa - priorizando venda`);
         }
         
         if (shouldProcess) {
-          const needsToSell = alloc.currentPercent > alloc.targetPercent || isBearish;
+          const action = needsToBuy ? 'COMPRAR' : 'VENDER';
           
-          console.log(`\n🔄 USDT → ${alloc.symbol}:`);
-          console.log(`  Desvio: ${deviation.toFixed(1)}% | Delta: $${deltaValue.toFixed(2)}`);
-          console.log(`  💰 USDT restante para distribuir: $${remainingUsdt.toFixed(2)}`);
-          console.log(`  Ação: ${needsToSell ? 'VENDER' : 'COMPRAR'}`);
+          console.log(`  💰 USDT restante: $${remainingUsdt.toFixed(2)}`);
+          console.log(`  ⚡ Ação: ${action}`);
 
           // Validações adicionais - valores mínimos reduzidos
           if (needsToSell) {
@@ -293,7 +300,7 @@ serve(async (req) => {
               console.log(`  ⏭️ Saldo zero para venda`);
               continue;
             }
-          } else {
+          } else if (needsToBuy) {
             // Comprar token com USDT - usar USDT restante
             const minBuyValue = 1;
             
@@ -318,8 +325,8 @@ serve(async (req) => {
               console.log(`  🧪 MODO SIMULAÇÃO - Conversão não executada`);
               executionResults.push({
                 exchange,
-                from: needsToSell ? alloc.symbol : 'USDT',
-                to: needsToSell ? 'USDT' : alloc.symbol,
+                from: needsToBuy ? 'USDT' : alloc.symbol,
+                to: needsToBuy ? alloc.symbol : 'USDT',
                 value: deltaValue,
                 status: 'simulated',
                 message: 'Modo simulação ativo'
@@ -334,8 +341,8 @@ serve(async (req) => {
             
             const result = await executeConversion(
               exchange,
-              needsToSell ? alloc.symbol : 'USDT',
-              needsToSell ? 'USDT' : alloc.symbol,
+              needsToBuy ? 'USDT' : alloc.symbol,
+              needsToBuy ? alloc.symbol : 'USDT',
               conversionValue,
               binanceCred,
               okxCred
@@ -345,15 +352,15 @@ serve(async (req) => {
               totalConversions++;
               
               // Atualizar USDT restante após conversão bem-sucedida
-              if (!needsToSell) {
+              if (needsToBuy) {
                 remainingUsdt -= conversionValue;
                 console.log(`  ✅ Conversão realizada! USDT restante: $${remainingUsdt.toFixed(2)}`);
               }
               
               executionResults.push({
                 exchange,
-                from: needsToSell ? alloc.symbol : 'USDT',
-                to: needsToSell ? 'USDT' : alloc.symbol,
+                from: needsToBuy ? 'USDT' : alloc.symbol,
+                to: needsToBuy ? alloc.symbol : 'USDT',
                 value: conversionValue,
                 status: 'success'
               });
@@ -361,8 +368,8 @@ serve(async (req) => {
               console.log(`  ⚠️ Conversão não executada: ${result.error}`);
               executionResults.push({
                 exchange,
-                from: needsToSell ? alloc.symbol : 'USDT',
-                to: needsToSell ? 'USDT' : alloc.symbol,
+                from: needsToBuy ? 'USDT' : alloc.symbol,
+                to: needsToBuy ? alloc.symbol : 'USDT',
                 value: deltaValue,
                 error: result.error,
                 status: 'skipped'
