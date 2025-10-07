@@ -6,6 +6,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useCachedPrice } from '@/hooks/useCachedPrice';
 import { TokenFilter } from './TokenFilter';
 import { TokenSwapDialog } from './TokenSwapDialog';
 import { 
@@ -460,48 +461,20 @@ export const ExchangeBalanceCard = ({
     });
   };
 
-  // Buscar preço usando a edge function binance-market-data (evita CORS)
-  const fetchRealtimePrice = async () => {
-    if (!selectedToken) return;
-    
-    try {
-      const symbol = `${selectedToken}USDT`;
-      
-      // Usar edge function ao invés de chamadas diretas (evita CORS)
-      const { data, error } = await supabase.functions.invoke('binance-market-data', {
-        body: { 
-          action: 'tickers',
-          symbols: [symbol]
-        }
-      });
+  // Usar hook de cache para preços (evita sobrecarga de requisições)
+  const { price: cachedPrice, change24h: cachedChange } = useCachedPrice(selectedToken, exchange);
 
-      if (error) {
-        console.error('Erro ao buscar preço:', error);
-        return;
-      }
-
-      if (data?.success && data.data?.length > 0) {
-        const ticker = data.data[0];
-        const price = parseFloat(ticker.lastPrice);
-        const change24h = parseFloat(ticker.priceChangePercent);
-        setRealtimePrice(price);
-        setPriceChange24h(change24h);
-        
-        console.log(`✅ Preço ${exchangeNames[exchange]} ${symbol}: $${ticker.lastPrice} (${ticker.priceChangePercent}%)`);
-      }
-    } catch (error) {
-      console.error('Erro ao buscar preço em tempo real:', error);
-    }
-  };
-
-  // Atualizar preço em tempo real - reduzido para 30 segundos para evitar sobrecarga
+  // Sincronizar preços do cache com o estado local
   useEffect(() => {
-    if (selectedToken) {
-      fetchRealtimePrice();
-      const interval = setInterval(fetchRealtimePrice, 30000); // 30s ao invés de 5s
-      return () => clearInterval(interval);
+    if (cachedPrice !== null) {
+      setRealtimePrice(cachedPrice);
     }
-  }, [selectedToken, exchange]);
+    if (cachedChange !== null) {
+      setPriceChange24h(cachedChange);
+    }
+  }, [cachedPrice, cachedChange]);
+
+  // Não precisa mais de intervalo - o hook useCachedPrice já gerencia isso
 
   // Notificar preço atualizado ao componente pai
   useEffect(() => {
