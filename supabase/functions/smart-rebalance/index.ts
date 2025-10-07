@@ -466,6 +466,9 @@ async function executeConversion(
         console.log(`  💰 Valor USDT a gastar: $${valueUsd.toFixed(2)}`);
       }
       
+      console.log(`  🌐 Chamando okx-swap-token...`);
+      console.log(`  📦 Body:`, JSON.stringify(requestBody, null, 2));
+      
       const response = await fetch(`${supabaseUrl}/functions/v1/okx-swap-token`, {
         method: 'POST',
         headers: {
@@ -475,7 +478,16 @@ async function executeConversion(
         body: JSON.stringify(requestBody)
       });
 
+      console.log(`  📊 Response status: ${response.status} ${response.statusText}`);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.log(`  ❌ Response não-OK: ${errorText}`);
+        return { success: false, error: `HTTP ${response.status}: ${errorText}` };
+      }
+
       const result = await response.json();
+      console.log(`  📋 Result:`, JSON.stringify(result, null, 2));
       
       if (!result.success) {
         console.log(`  ❌ OKX swap falhou: ${result.error}`);
