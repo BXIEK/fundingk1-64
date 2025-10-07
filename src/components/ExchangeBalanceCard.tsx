@@ -501,6 +501,8 @@ export const ExchangeBalanceCard = ({
 
       const exchangeName = exchange === 'binance' ? 'Binance' : 'OKX';
 
+      console.log(`🔄 Iniciando rebalanceamento manual na ${exchangeName}...`);
+      
       toast({
         title: "🔄 Rebalanceando Carteira",
         description: `Iniciando rebalanceamento na ${exchangeName}...`,
@@ -521,11 +523,20 @@ export const ExchangeBalanceCard = ({
         }
       });
 
-      if (error) throw error;
+      console.log('📊 Resultado do rebalanceamento:', data);
+
+      if (error) {
+        console.error('❌ Erro no rebalanceamento:', error);
+        throw error;
+      }
+
+      if (!data?.success) {
+        throw new Error(data?.message || 'Falha no rebalanceamento');
+      }
 
       toast({
         title: "✅ Rebalanceamento Concluído",
-        description: `${data.conversions} conversões executadas na ${exchangeName}!`,
+        description: `${data.conversions || 0} conversões executadas na ${exchangeName}!`,
       });
 
       // Aguardar e atualizar saldos
@@ -533,10 +544,10 @@ export const ExchangeBalanceCard = ({
       await fetchBalances(true);
 
     } catch (error: any) {
-      console.error('Erro no rebalanceamento:', error);
+      console.error('❌ Erro no rebalanceamento:', error);
       toast({
-        title: "Erro",
-        description: error.message || "Falha no rebalanceamento",
+        title: "❌ Erro no Rebalanceamento",
+        description: error.message || "Falha ao rebalancear portfólio",
         variant: "destructive"
       });
     } finally {
@@ -593,12 +604,12 @@ export const ExchangeBalanceCard = ({
       
       <CardContent className="space-y-4">
         {/* Preço em Tempo Real do Token Selecionado */}
-        <div className="p-3 border rounded-lg bg-muted/20 relative min-h-[60px]">
+        <div className="p-3 border rounded-lg bg-muted/20 relative gpu-accelerated" style={{ minHeight: '60px' }}>
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 min-w-[120px]">
+            <div className="flex items-center gap-2 price-stable" style={{ minWidth: '120px' }}>
               <span className="text-sm font-medium text-muted-foreground">{selectedToken}</span>
               {priceChange24h !== null && (
-                <Badge className={priceChange24h >= 0 ? "bg-green-500 text-white" : "bg-red-500 text-white"}>
+                <Badge className={priceChange24h >= 0 ? "bg-green-500 text-white" : "bg-red-500 text-white"} style={{ willChange: 'auto' }}>
                   {priceChange24h >= 0 ? (
                     <TrendingUp className="h-3 w-3 mr-1" />
                   ) : (
@@ -608,11 +619,11 @@ export const ExchangeBalanceCard = ({
                 </Badge>
               )}
             </div>
-            <div className="text-right flex items-center gap-2 min-w-[140px] justify-end">
+            <div className="text-right flex items-center gap-2 justify-end price-stable" style={{ minWidth: '140px' }}>
               {realtimePrice ? (
                 <>
                   {/* Indicador de preço comparativo */}
-                  {otherExchangePrice && realtimePrice !== otherExchangePrice && (
+                  {otherExchangePrice && Math.abs(realtimePrice - otherExchangePrice) > 0.01 && (
                     <Circle 
                       className={`h-4 w-4 flex-shrink-0 ${
                         realtimePrice < otherExchangePrice 
@@ -621,7 +632,10 @@ export const ExchangeBalanceCard = ({
                       }`}
                     />
                   )}
-                  <p className="text-lg font-bold tabular-nums">
+                  <p className="text-lg font-bold tabular-nums price-transition gpu-accelerated" style={{ 
+                    willChange: 'auto',
+                    fontVariantNumeric: 'tabular-nums'
+                  }}>
                     ${formatBRL(realtimePrice, selectedToken === 'BTC' || selectedToken === 'ETH' ? 2 : 6)}
                   </p>
                 </>
@@ -683,16 +697,19 @@ export const ExchangeBalanceCard = ({
             </div>
             
             {/* Preço em Tempo Real */}
-            <div className="p-3 border rounded-lg bg-background min-h-[80px]">
+            <div className="p-3 border rounded-lg bg-background gpu-accelerated" style={{ minHeight: '80px' }}>
               <p className="text-xs text-muted-foreground mb-1">💹 Preço em Tempo Real ({exchangeNames[exchange]})</p>
               <div className="flex items-center gap-2">
                 {realtimePrice ? (
                   <>
-                    <p className="text-2xl font-bold tabular-nums">
+                    <p className="text-2xl font-bold tabular-nums price-transition gpu-accelerated price-stable" style={{ 
+                      willChange: 'auto',
+                      fontVariantNumeric: 'tabular-nums'
+                    }}>
                       ${formatBRL(realtimePrice, selectedToken === 'BTC' || selectedToken === 'ETH' ? 2 : 6)}
                     </p>
                     {priceChange24h !== null && (
-                      <Badge variant={priceChange24h >= 0 ? "default" : "destructive"} className="text-xs">
+                      <Badge variant={priceChange24h >= 0 ? "default" : "destructive"} className="text-xs" style={{ willChange: 'auto' }}>
                         24h: {`${priceChange24h >= 0 ? '+' : ''}${priceChange24h.toFixed(2)}%`}
                       </Badge>
                     )}
@@ -800,9 +817,14 @@ export const ExchangeBalanceCard = ({
             onClick={handleRebalance}
             disabled={rebalancing || loading}
             className="bg-primary/10 hover:bg-primary/20 border-primary/30"
+            title={`Rebalancear portfólio na ${exchangeNames[exchange]}`}
           >
-            <Scale className={`h-4 w-4 mr-2 ${rebalancing ? 'animate-spin' : ''}`} />
-            Rebalancear
+            {rebalancing ? (
+              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Scale className="h-4 w-4 mr-2" />
+            )}
+            {rebalancing ? 'Rebalanceando...' : 'Rebalancear'}
           </Button>
         </div>
       </CardContent>

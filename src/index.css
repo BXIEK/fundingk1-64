@@ -67,6 +67,37 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
   }
 
+  /* Otimização para números e preços - previne flickering */
+  .tabular-nums,
+  [class*="font-bold"].tabular-nums {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+  }
+  
+  /* Prevenir flickering em animações */
+  .will-change-auto {
+    will-change: auto;
+  }
+  
+  /* Otimização GPU para elementos que mudam frequentemente */
+  .gpu-accelerated {
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+  
+  /* Transições suaves para mudanças de preço */
+  .price-transition {
+    transition: color 0.3s ease-in-out;
+  }
+  
+  /* Estabilizar layout de preços */
+  .price-stable {
+    min-width: fit-content;
+    display: inline-block;
+  }
+
   /* Chat improvements */
   .chat-message {
     font-feature-settings: "liga" 1, "calt" 1;
