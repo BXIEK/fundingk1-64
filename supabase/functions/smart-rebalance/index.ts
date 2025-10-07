@@ -18,6 +18,7 @@ interface RebalanceRequest {
   targetAllocations: Record<string, number>;
   maxDeviation: number;
   minTradeValue: number;
+  specificExchange?: string; // Opcional: rebalancear apenas uma exchange específica
   marketTrends?: {
     bullish: TrendingToken[];
     bearish: TrendingToken[];
@@ -35,6 +36,7 @@ serve(async (req) => {
       targetAllocations,
       maxDeviation = 10,
       minTradeValue = 10,
+      specificExchange,
       marketTrends
     }: RebalanceRequest = await req.json();
 
@@ -43,7 +45,11 @@ serve(async (req) => {
       bearish: marketTrends?.bearish?.length || 0
     });
 
-    console.log(`🔄 REBALANCEAMENTO INICIADO - User: ${userId}`);
+    if (specificExchange) {
+      console.log(`🔄 REBALANCEAMENTO INICIADO - User: ${userId} - Exchange: ${specificExchange}`);
+    } else {
+      console.log(`🔄 REBALANCEAMENTO INICIADO - User: ${userId} - Todas exchanges`);
+    }
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -116,11 +122,32 @@ serve(async (req) => {
       return acc;
     }, {});
 
+    // Filtrar por exchange específica se solicitado
+    let exchangesToProcess = Object.entries(byExchange);
+    if (specificExchange) {
+      exchangesToProcess = exchangesToProcess.filter(([exchange]) => 
+        exchange.toLowerCase() === specificExchange.toLowerCase()
+      );
+      
+      if (exchangesToProcess.length === 0) {
+        console.log(`⚠️ Exchange "${specificExchange}" não encontrada ou sem saldos`);
+        return new Response(
+          JSON.stringify({
+            success: false,
+            conversions: 0,
+            message: `Exchange "${specificExchange}" não encontrada ou sem saldos`,
+            details: []
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
     let totalConversions = 0;
     const executionResults: any[] = [];
 
     // Processar cada exchange
-    for (const [exchange, tokens] of Object.entries(byExchange)) {
+    for (const [exchange, tokens] of exchangesToProcess) {
       console.log(`\n📊 Processando ${exchange}...`);
       
       const tokenArray = tokens as any[];

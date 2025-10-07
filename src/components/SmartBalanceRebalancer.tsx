@@ -66,6 +66,29 @@ export const SmartBalanceRebalancer = () => {
     loadBalances();
     loadConfig();
     loadMarketTrends();
+    
+    // Executar rebalanceamento automático ao carregar
+    const autoExecute = async () => {
+      const userId = await getUserId();
+      const { data } = await supabase
+        .from('smart_rebalance_configs')
+        .select('is_enabled, last_rebalance_at')
+        .eq('user_id', userId)
+        .maybeSingle();
+      
+      if (data?.is_enabled) {
+        // Executar se nunca foi executado ou se passou mais de 4 horas
+        const lastRebalance = data.last_rebalance_at ? new Date(data.last_rebalance_at) : null;
+        const hoursSinceLastRebalance = lastRebalance 
+          ? (Date.now() - lastRebalance.getTime()) / (1000 * 60 * 60)
+          : 999;
+        
+        if (hoursSinceLastRebalance >= 4) {
+          setTimeout(() => executeRebalance(), 2000); // Executar após 2s
+        }
+      }
+    };
+    autoExecute();
   }, []);
 
   const loadMarketTrends = async () => {
@@ -236,15 +259,16 @@ export const SmartBalanceRebalancer = () => {
     setShowPreview(true);
   };
 
-  const executeRebalance = async () => {
+  const executeRebalance = async (specificExchange?: string) => {
     setShowPreview(false);
     setIsRebalancing(true);
     try {
       const userId = await getUserId();
 
+      const exchangeText = specificExchange ? ` na ${specificExchange}` : " em todas exchanges";
       toast({
         title: "🔄 Iniciando Rebalanceamento",
-        description: "Analisando desvios e executando conversões internas...",
+        description: `Analisando desvios e executando conversões internas${exchangeText}...`,
       });
 
       const { data, error } = await supabase.functions.invoke('smart-rebalance', {
@@ -261,7 +285,8 @@ export const SmartBalanceRebalancer = () => {
           marketTrends: {
             bullish: bullishTokens,
             bearish: bearishTokens
-          }
+          },
+          specificExchange: specificExchange // Filtrar por exchange específica se fornecido
         }
       });
 
@@ -269,7 +294,7 @@ export const SmartBalanceRebalancer = () => {
 
       toast({
         title: "✅ Rebalanceamento Concluído",
-        description: `${data.conversions} conversões executadas. Portfólio rebalanceado!`,
+        description: `${data.conversions} conversões executadas${exchangeText}!`,
       });
 
       setLastRebalance(new Date());
@@ -469,9 +494,27 @@ export const SmartBalanceRebalancer = () => {
                 <Wallet className="h-4 w-4 text-primary" />
                 <span className="font-medium">{balance.exchange}</span>
               </div>
-              <div className="text-sm text-muted-foreground">
-                <DollarSign className="h-3 w-3 inline" />
-                {balance.totalValue.toFixed(2)}
+              <div className="flex items-center gap-2">
+                <div className="text-sm text-muted-foreground">
+                  <DollarSign className="h-3 w-3 inline" />
+                  {balance.totalValue.toFixed(2)}
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => executeRebalance(balance.exchange)}
+                  disabled={isRebalancing}
+                  className="h-8"
+                >
+                  {isRebalancing ? (
+                    <RefreshCw className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <>
+                      <RefreshCw className="h-3 w-3 mr-1" />
+                      Rebalancear
+                    </>
+                  )}
+                </Button>
               </div>
             </div>
 
@@ -612,7 +655,7 @@ export const SmartBalanceRebalancer = () => {
                 Cancelar
               </Button>
               {conversionsPreview.length > 0 && (
-                <Button onClick={executeRebalance} disabled={isRebalancing}>
+                <Button onClick={() => executeRebalance()} disabled={isRebalancing}>
                   {isRebalancing ? (
                     <>
                       <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
