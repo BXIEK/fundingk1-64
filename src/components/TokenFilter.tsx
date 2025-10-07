@@ -55,22 +55,22 @@ export const TokenFilter = ({
   return (
     <div className="space-y-2">
       <Select value={selectedToken} onValueChange={onTokenChange}>
-        <SelectTrigger className="w-full bg-background">
+        <SelectTrigger className="w-full bg-background border-input">
           <SelectValue placeholder="Selecionar token" />
         </SelectTrigger>
-        <SelectContent className="bg-background border z-50">
+        <SelectContent className="z-[100] max-h-[400px] bg-popover">
           {tokens.map((token) => (
             <SelectItem 
               key={token.symbol} 
               value={token.symbol}
-              className="cursor-pointer hover:bg-muted"
+              className="cursor-pointer hover:bg-accent focus:bg-accent"
             >
-              <div className="flex items-center justify-between w-full gap-2">
+              <div className="flex items-center justify-between w-full gap-3">
                 <div className="flex items-center gap-2">
                   <span className="font-semibold">{token.symbol}</span>
                   <span className="text-xs text-muted-foreground">{token.name}</span>
                 </div>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1 shrink-0">
                   {token.trend === 'up' && (
                     <>
                       <TrendingUp className="h-3 w-3 text-green-500" />
