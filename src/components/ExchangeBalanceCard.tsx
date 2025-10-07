@@ -79,6 +79,14 @@ export const ExchangeBalanceCard = ({
     }
   }, [externalSelectedToken]);
 
+  // Forçar refresh dos balances quando o dialog de swap é aberto
+  useEffect(() => {
+    if (showSwapDialog) {
+      console.log(`🔄 Dialog de swap aberto - Forçando refresh dos saldos da ${exchangeNames[exchange]}`);
+      fetchBalances(true);
+    }
+  }, [showSwapDialog]);
+
   // Função para formatar números no padrão brasileiro
   const formatBRL = (value: number, decimals: number = 2): string => {
     return value.toLocaleString('pt-BR', {
