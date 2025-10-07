@@ -92,6 +92,19 @@ export const ExchangeBalanceCard = ({
     }
   }, [showSwapDialog]);
 
+  // Auto-refresh dos saldos a cada 10 segundos
+  useEffect(() => {
+    fetchBalances();
+    fetchOperationLogs();
+    
+    const interval = setInterval(() => {
+      fetchBalances(true);
+      fetchOperationLogs();
+    }, 10000); // 10 segundos
+
+    return () => clearInterval(interval);
+  }, [exchange]);
+
   // Função para formatar números no padrão brasileiro
   const formatBRL = (value: number, decimals: number = 2): string => {
     return value.toLocaleString('pt-BR', {
