@@ -9,6 +9,7 @@ import { ExchangeBalanceCard } from "@/components/ExchangeBalanceCard"
 import { TotalBalanceCard } from "@/components/TotalBalanceCard"
 import { AutoTokenConverter } from "@/components/AutoTokenConverter"
 import { SmartBalanceRebalancer } from "@/components/SmartBalanceRebalancer"
+import { UnlockBalances } from "@/components/UnlockBalances"
 
 export default function BalanceDashboard() {
   const navigate = useNavigate()
@@ -84,6 +85,11 @@ export default function BalanceDashboard() {
             totalBaseline={200}
           />
         </div>
+      </section>
+
+      {/* Desbloquear Saldos Travados */}
+      <section>
+        <UnlockBalances />
       </section>
 
       {/* Conversão Automatizada de Tokens */}
