@@ -471,7 +471,7 @@ async function executeConversion(
           secretKey: binanceCred.secret_key,
           symbol: symbol,
           direction: direction,
-          orderType: 'market'
+          orderType: 'limit' // Usar limit para taxas menores (~0.02%)
         })
       });
 
@@ -498,7 +498,7 @@ async function executeConversion(
         passphrase: okxCred.passphrase,
         symbol: symbol,
         direction: direction,
-        orderType: 'market'
+        orderType: 'limit' // Usar limit para taxas menores (~0.02%)
       };
       
       // Passar valor em USDT como 'amount' para compras
