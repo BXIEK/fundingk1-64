@@ -275,18 +275,18 @@ export const SmartBalanceRebalancer = () => {
         body: { 
           userId,
           targetAllocations: {
-            'USDT': 25,
             'BTC': 25,
             'ETH': 25,
-            'SOL': 25
+            'SOL': 25,
+            'BNB': 25
           },
           maxDeviation: 10,
-          minTradeValue: 1, // Reduzido de 10 para 1 para permitir trades menores
+          minTradeValue: 1,
           marketTrends: {
             bullish: bullishTokens,
             bearish: bearishTokens
           },
-          specificExchange: specificExchange // Filtrar por exchange específica se fornecido
+          specificExchange: specificExchange
         }
       });
 
@@ -339,10 +339,10 @@ export const SmartBalanceRebalancer = () => {
           is_enabled: newState,
           rebalance_frequency_hours: 4, // Executar a cada 4 horas
           target_allocations: {
-            'USDT': 25,
             'BTC': 25,
             'ETH': 25,
-            'SOL': 25
+            'SOL': 25,
+            'BNB': 25
           },
           max_deviation_percent: 10,
           min_trade_value: 10

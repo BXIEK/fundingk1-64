@@ -81,9 +81,12 @@ serve(async (req) => {
       throw new Error('Sem saldos encontrados');
     }
 
-    // Lista de tokens válidos para rebalanceamento
-    const VALID_TOKENS = ['USDT', 'BTC', 'ETH', 'SOL', 'USDC', 'BNB', 'ATOM', 'NFT'];
-    const MIN_TOKEN_VALUE = 0.1; // Mínimo $0.10 USD por token (reduzido para permitir trades menores)
+    // Lista de tokens para rebalanceamento (sem USDT, pois é a reserva)
+    const REBALANCE_TOKENS = ['BTC', 'ETH', 'SOL', 'BNB'];
+    const VALID_TOKENS = ['USDT', ...REBALANCE_TOKENS, 'USDC', 'ATOM', 'NFT'];
+    const MIN_TOKEN_VALUE = 0.1; // Mínimo $0.10 USD por token
+    const TRADING_BASE = 80; // Valor base para trading
+    const FEE_RESERVE_PERCENT = 20; // Percentual a reservar para fees
 
     // Filtrar tokens válidos e com valor mínimo
     const validPortfolioData = portfolioData.filter((item: any) => {
@@ -155,39 +158,62 @@ serve(async (req) => {
       
       console.log(`💰 Valor total: $${totalValue.toFixed(2)}`);
       
-      // Reduzir mínimo para $5 (antes era $20)
-      if (totalValue < 5) {
-        console.log(`⏭️ Valor total muito baixo para rebalancear ($${totalValue.toFixed(2)} < $5)`);
+      // Verificar se há valor mínimo para rebalancear
+      if (totalValue < TRADING_BASE) {
+        console.log(`⏭️ Valor total muito baixo para rebalancear ($${totalValue.toFixed(2)} < $${TRADING_BASE})`);
         continue;
       }
 
-      // Obter apenas os tokens que existem no portfolio
-      const availableTokens = tokenArray.map((t: any) => t.symbol);
-      console.log(`📋 Tokens disponíveis: ${availableTokens.join(', ')}`);
+      // Calcular USDT disponível e reserva para fees
+      const usdtToken = tokenArray.find((t: any) => t.symbol === 'USDT');
+      const currentUsdt = usdtToken?.value_usd_calculated || 0;
       
-      // Verificar se há pelo menos 2 tokens diferentes para rebalancear
-      if (availableTokens.length < 2) {
-        console.log(`⏭️ Necessita pelo menos 2 tokens para rebalancear (encontrado: ${availableTokens.length})`);
-        executionResults.push({
-          exchange,
-          status: 'skipped',
-          reason: 'Apenas 1 token disponível - não é possível rebalancear'
-        });
+      // Calcular quanto USDT deve ser reservado para fees
+      let usdtReserve = 0;
+      if (currentUsdt > TRADING_BASE) {
+        usdtReserve = currentUsdt - TRADING_BASE;
+        console.log(`💵 USDT total: $${currentUsdt.toFixed(2)} | Reserva fees: $${usdtReserve.toFixed(2)} | Trading: $${TRADING_BASE}`);
+      } else {
+        console.log(`💵 USDT disponível: $${currentUsdt.toFixed(2)} (sem reserva, abaixo de $${TRADING_BASE})`);
+      }
+
+      // Valor disponível para distribuir entre tokens (excluindo USDT)
+      const tradingValue = Math.min(currentUsdt, TRADING_BASE);
+      
+      // Filtrar apenas tokens de rebalanceamento (BTC, ETH, SOL, BNB)
+      const rebalanceTokens = tokenArray.filter((t: any) => REBALANCE_TOKENS.includes(t.symbol));
+      const currentRebalanceValue = rebalanceTokens.reduce((sum: number, t: any) => sum + (t.value_usd_calculated || 0), 0);
+      
+      // Valor total para distribuir entre os tokens de rebalanceamento
+      const totalRebalanceValue = tradingValue + currentRebalanceValue;
+      
+      console.log(`📊 Valor para rebalancear: $${totalRebalanceValue.toFixed(2)} (USDT: $${tradingValue.toFixed(2)} + Tokens: $${currentRebalanceValue.toFixed(2)})`);
+      
+      if (totalRebalanceValue < 5) {
+        console.log(`⏭️ Valor insuficiente para rebalancear`);
         continue;
       }
 
-      const allocations = tokenArray.map((token: any) => ({
-        symbol: token.symbol,
-        currentValue: token.value_usd_calculated || 0,
-        currentPercent: (token.value_usd_calculated / totalValue) * 100,
-        targetPercent: targetAllocations[token.symbol] || 0,
-        targetValue: (totalValue * (targetAllocations[token.symbol] || 0)) / 100,
-        balance: token.balance,
-        price_usd: token.price_usd || 0
-      }));
+      // Calcular alocações ideais: 25% para cada token (BTC, ETH, SOL, BNB)
+      const targetPercentPerToken = 100 / REBALANCE_TOKENS.length;
+      
+      const allocations = REBALANCE_TOKENS.map((symbol: string) => {
+        const token = tokenArray.find((t: any) => t.symbol === symbol);
+        const currentValue = token?.value_usd_calculated || 0;
+        
+        return {
+          symbol,
+          currentValue,
+          currentPercent: (currentValue / totalRebalanceValue) * 100,
+          targetPercent: targetPercentPerToken,
+          targetValue: (totalRebalanceValue * targetPercentPerToken) / 100,
+          balance: token?.balance || 0,
+          price_usd: token?.price_usd || 0
+        };
+      });
 
       console.log('📈 Alocações atuais:', allocations.map((a: any) =>
-        `${a.symbol}: ${a.currentPercent.toFixed(1)}% (alvo ${a.targetPercent}%)`
+        `${a.symbol}: ${a.currentPercent.toFixed(1)}% ($${a.currentValue.toFixed(2)}) → alvo ${a.targetPercent.toFixed(1)}% ($${a.targetValue.toFixed(2)})`
       ).join(' | '));
 
       for (const alloc of allocations) {
