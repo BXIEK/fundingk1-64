@@ -242,6 +242,9 @@ serve(async (req) => {
       ).join(' | '));
 
       // Processar conversões na ordem sequencial definida
+      // IMPORTANTE: Recalcular USDT disponível após cada conversão
+      let remainingUsdt = tradingValue; // USDT disponível para distribuir
+      
       for (const alloc of allocations) {
         const deviation = Math.abs(alloc.currentPercent - alloc.targetPercent);
         const deltaValue = Math.abs(alloc.currentValue - alloc.targetValue);
@@ -274,12 +277,13 @@ serve(async (req) => {
           
           console.log(`\n🔄 USDT → ${alloc.symbol}:`);
           console.log(`  Desvio: ${deviation.toFixed(1)}% | Delta: $${deltaValue.toFixed(2)}`);
+          console.log(`  💰 USDT restante para distribuir: $${remainingUsdt.toFixed(2)}`);
           console.log(`  Ação: ${needsToSell ? 'VENDER' : 'COMPRAR'}`);
 
           // Validações adicionais - valores mínimos reduzidos
           if (needsToSell) {
             // Vender token → USDT (conversão reversa)
-            const minSellValue = 1; // Reduzido de $5 para $1
+            const minSellValue = 1;
             if (deltaValue < minSellValue) {
               console.log(`  ⏭️ Valor de venda muito baixo: $${deltaValue.toFixed(2)} < $${minSellValue}`);
               continue;
@@ -290,20 +294,23 @@ serve(async (req) => {
               continue;
             }
           } else {
-            // Comprar token com USDT (conversão sequencial USDT → Token)
-            const usdtAlloc = tokenArray.find((t: any) => t.symbol === 'USDT');
-            const availableUsdt = usdtAlloc?.value_usd_calculated || 0;
-            const minBuyValue = 1; // Reduzido de $5 para $1
+            // Comprar token com USDT - usar USDT restante
+            const minBuyValue = 1;
             
-            if (availableUsdt < minBuyValue) {
-              console.log(`  ⏭️ USDT insuficiente: $${availableUsdt.toFixed(2)} < $${minBuyValue}`);
+            if (remainingUsdt < minBuyValue) {
+              console.log(`  ⏭️ USDT restante insuficiente: $${remainingUsdt.toFixed(2)} < $${minBuyValue}`);
               continue;
             }
             
-            if (deltaValue < minBuyValue) {
-              console.log(`  ⏭️ Valor de compra muito baixo: $${deltaValue.toFixed(2)} < $${minBuyValue}`);
+            // Usar o menor valor entre o delta calculado e o USDT restante
+            const actualBuyValue = Math.min(deltaValue, remainingUsdt);
+            
+            if (actualBuyValue < minBuyValue) {
+              console.log(`  ⏭️ Valor de compra muito baixo: $${actualBuyValue.toFixed(2)} < $${minBuyValue}`);
               continue;
             }
+            
+            console.log(`  📊 Valor ajustado para compra: $${actualBuyValue.toFixed(2)}`);
           }
 
           try {
@@ -322,22 +329,32 @@ serve(async (req) => {
 
             console.log(`  ⚡ EXECUTANDO CONVERSÃO REAL...`);
             
+            // Usar valor ajustado para compras
+            const conversionValue = needsToSell ? deltaValue : Math.min(deltaValue, remainingUsdt);
+            
             const result = await executeConversion(
               exchange,
               needsToSell ? alloc.symbol : 'USDT',
               needsToSell ? 'USDT' : alloc.symbol,
-              deltaValue,
+              conversionValue,
               binanceCred,
               okxCred
             );
 
             if (result.success) {
               totalConversions++;
+              
+              // Atualizar USDT restante após conversão bem-sucedida
+              if (!needsToSell) {
+                remainingUsdt -= conversionValue;
+                console.log(`  ✅ Conversão realizada! USDT restante: $${remainingUsdt.toFixed(2)}`);
+              }
+              
               executionResults.push({
                 exchange,
                 from: needsToSell ? alloc.symbol : 'USDT',
                 to: needsToSell ? 'USDT' : alloc.symbol,
-                value: deltaValue,
+                value: conversionValue,
                 status: 'success'
               });
             } else {
