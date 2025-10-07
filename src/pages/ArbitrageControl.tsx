@@ -53,6 +53,7 @@ import { SmartBalanceRebalancer } from '@/components/SmartBalanceRebalancer';
 
 import { type ArbitrageOpportunity } from '@/types/arbitrage';
 
+// Force rebuild after TotalBalanceCard changes
 interface TradingSettings {
   auto_trading: boolean;
   min_spread: number;
