@@ -85,8 +85,8 @@ serve(async (req) => {
     const REBALANCE_TOKENS = ['BTC', 'ETH', 'SOL', 'BNB'];
     const VALID_TOKENS = ['USDT', ...REBALANCE_TOKENS, 'USDC', 'ATOM', 'NFT'];
     const MIN_TOKEN_VALUE = 0.1; // Mínimo $0.10 USD por token
-    const TRADING_BASE_UNIT = 40; // Unidade base para trading ($40, $80, $120...)
-    const MIN_TRADING_VALUE = 40; // Valor mínimo para rebalancear
+    const TRADING_BASE_UNIT = 10; // Múltiplos de 10 ($10, $20, $30...)
+    const MIN_TRADING_VALUE = 10; // Valor mínimo para rebalancear
 
     // Filtrar tokens válidos e com valor mínimo
     const validPortfolioData = portfolioData.filter((item: any) => {
