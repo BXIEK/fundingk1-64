@@ -161,11 +161,23 @@ export const TotalBalanceCard = ({
     }
   };
 
-  // Atualizar tokens periodicamente
+  // Atualizar tokens periodicamente e ao receber evento de sincronização
   useEffect(() => {
     fetchAllTokens();
     const interval = setInterval(fetchAllTokens, 60000); // A cada 60s
-    return () => clearInterval(interval);
+    
+    // Listener para sincronização forçada via evento global
+    const handleBalanceSync = () => {
+      console.log('🔄 Evento de sincronização recebido - Atualizando Total Balance');
+      fetchAllTokens();
+    };
+
+    window.addEventListener('balances-synced', handleBalanceSync);
+    
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('balances-synced', handleBalanceSync);
+    };
   }, []);
 
   return (

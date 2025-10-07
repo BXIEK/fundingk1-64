@@ -102,7 +102,19 @@ export const ExchangeBalanceCard = ({
       fetchOperationLogs();
     }, 10000); // 10 segundos
 
-    return () => clearInterval(interval);
+    // Listener para sincronização forçada via evento global
+    const handleBalanceSync = () => {
+      console.log(`🔄 Evento de sincronização recebido - Atualizando ${exchangeNames[exchange]}`);
+      fetchBalances(true);
+      fetchOperationLogs();
+    };
+
+    window.addEventListener('balances-synced', handleBalanceSync);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('balances-synced', handleBalanceSync);
+    };
   }, [exchange]);
 
   // Função para formatar números no padrão brasileiro
