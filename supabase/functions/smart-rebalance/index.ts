@@ -226,20 +226,22 @@ serve(async (req) => {
       let remainingUsdt = tradingValue; // USDT disponível para distribuir
       
       for (const alloc of allocations) {
-        console.log(`\n🔍 Analisando ${alloc.symbol}:`);
-        console.log(`  Saldo atual: $${alloc.currentValue.toFixed(2)}`);
-        console.log(`  Alvo: $${alloc.targetValue}`);
-        console.log(`  USDT disponível: $${remainingUsdt.toFixed(2)}`);
+        console.log(`\n🔍 Analisando ${alloc.symbol} em ${exchange}:`);
+        console.log(`  💰 Saldo atual: $${alloc.currentValue.toFixed(2)}`);
+        console.log(`  🎯 Alvo: $${alloc.targetValue}`);
+        console.log(`  💵 USDT disponível: $${remainingUsdt.toFixed(2)}`);
         
         // Verificar se precisa comprar (saldo atual < $10)
         const needsToBuy = alloc.currentValue < alloc.targetValue;
         const deltaValue = alloc.targetValue - alloc.currentValue;
         
+        console.log(`  📊 Precisa comprar? ${needsToBuy ? 'SIM' : 'NÃO'} (delta: $${deltaValue.toFixed(2)})`);
+        
         // Verificar se há USDT suficiente para converter $10
         const shouldProcess = needsToBuy && remainingUsdt >= minTradeValue;
         
         if (shouldProcess) {
-          console.log(`  ⚡ COMPRANDO: $${alloc.targetValue} de ${alloc.symbol}`);
+          console.log(`  ⚡ COMPRANDO: $${alloc.targetValue} de ${alloc.symbol} em ${exchange}`);
 
           try {
             if (!isRealMode) {
@@ -252,10 +254,11 @@ serve(async (req) => {
                 status: 'simulated',
                 message: 'Modo simulação ativo'
               });
+              remainingUsdt -= alloc.targetValue; // Atualizar mesmo em simulação
               continue;
             }
 
-            console.log(`  ⚡ EXECUTANDO CONVERSÃO REAL...`);
+            console.log(`  ⚡ EXECUTANDO CONVERSÃO REAL em ${exchange}...`);
             
             const result = await executeConversion(
               exchange,
@@ -270,7 +273,7 @@ serve(async (req) => {
             if (result.success) {
               totalConversions++;
               remainingUsdt -= alloc.targetValue;
-              console.log(`  ✅ Conversão realizada! USDT restante: $${remainingUsdt.toFixed(2)}`);
+              console.log(`  ✅ ${exchange} - ${alloc.symbol} convertido! USDT restante: $${remainingUsdt.toFixed(2)}`);
               
               executionResults.push({
                 exchange,
@@ -280,7 +283,7 @@ serve(async (req) => {
                 status: 'success'
               });
             } else {
-              console.log(`  ⚠️ Conversão falhou: ${result.error}`);
+              console.log(`  ⚠️ ${exchange} - Conversão de ${alloc.symbol} falhou: ${result.error}`);
               executionResults.push({
                 exchange,
                 from: 'USDT',
@@ -289,12 +292,12 @@ serve(async (req) => {
                 error: result.error,
                 status: 'failed'
               });
-              // Parar conversões se houver erro
+              console.log(`  ⚠️ ${exchange} - Parando conversões devido a erro`);
               break;
             }
 
           } catch (error) {
-            console.error(`❌ Erro na conversão:`, error);
+            console.error(`  ❌ ${exchange} - Erro na conversão de ${alloc.symbol}:`, error);
             executionResults.push({
               exchange,
               from: 'USDT',
@@ -302,12 +305,17 @@ serve(async (req) => {
               error: error instanceof Error ? error.message : String(error),
               status: 'failed'
             });
-            // Parar conversões se houver erro
+            console.log(`  ⚠️ ${exchange} - Parando conversões devido a exceção`);
             break;
           }
         } else {
-          console.log(`  ⏭️ Pulando: USDT insuficiente ($${remainingUsdt.toFixed(2)} < $${minTradeValue})`);
-          break; // Parar se não há mais saldo
+          if (!needsToBuy) {
+            console.log(`  ✅ ${alloc.symbol} já tem saldo suficiente ($${alloc.currentValue.toFixed(2)} >= $${alloc.targetValue})`);
+          } else {
+            console.log(`  ⏭️ ${alloc.symbol} - USDT insuficiente ($${remainingUsdt.toFixed(2)} < $${minTradeValue})`);
+            console.log(`  🛑 ${exchange} - Encerrando rebalanceamento (saldo esgotado)`);
+            break; // Parar se não há mais saldo
+          }
         }
       }
     }
