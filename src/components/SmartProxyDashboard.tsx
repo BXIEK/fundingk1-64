@@ -64,12 +64,17 @@ export const SmartProxyDashboard = () => {
     setTestResults([]);
     
     const endpoints = [
-      { name: 'Spot Account', url: 'https://api.binance.com/api/v3/account' },
-      { name: 'Futures Account', url: 'https://fapi.binance.com/fapi/v2/account' },
-      { name: 'Margin Account', url: 'https://api.binance.com/sapi/v1/margin/account' },
-      { name: 'Spot Tickers', url: 'https://api.binance.com/api/v3/ticker/24hr' },
-      { name: 'Capital Config', url: 'https://api.binance.com/sapi/v1/capital/config/getall' }
+      { name: 'Server Time', url: 'https://api.binance.com/api/v3/time' },
+      { name: 'Exchange Info', url: 'https://api.binance.com/api/v3/exchangeInfo' },
+      { name: 'Ticker Price (BTCUSDT)', url: 'https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT' },
+      { name: '24h Ticker (ETHUSDT)', url: 'https://api.binance.com/api/v3/ticker/24hr?symbol=ETHUSDT' },
+      { name: 'Klines (BNBUSDT)', url: 'https://api.binance.com/api/v3/klines?symbol=BNBUSDT&interval=1h&limit=1' }
     ];
+
+    toast({
+      title: "🚀 Iniciando Teste",
+      description: "Testando Bright Data Web Unlocker API..."
+    });
 
     const results = [];
 
@@ -80,7 +85,7 @@ export const SmartProxyDashboard = () => {
         console.log(`🧪 Testando ${endpoint.name}...`);
         
         const result = await executeRequest({
-          targetUrl: endpoint.url + '?timestamp=' + Date.now(),
+          targetUrl: endpoint.url,
           method: 'GET',
           strategy: selectedStrategy as any,
           country: selectedCountry as any,
@@ -91,12 +96,14 @@ export const SmartProxyDashboard = () => {
 
         const endTime = Date.now();
         
+        console.log(`✅ Resultado ${endpoint.name}:`, result);
+        
         results.push({
           name: endpoint.name,
           url: endpoint.url,
           success: result.success,
           responseTime: endTime - startTime,
-          source: result.source,
+          source: result.source || 'bright-data-web-unlocker',
           country: result.country,
           ip: result.ip,
           proxy: result.proxy,
@@ -108,14 +115,16 @@ export const SmartProxyDashboard = () => {
         setTestResults([...results]);
         
       } catch (error: any) {
+        console.error(`❌ Erro em ${endpoint.name}:`, error);
         results.push({
           name: endpoint.name,
           url: endpoint.url,
           success: false,
           responseTime: 0,
-          error: error.message,
+          error: error.message || 'Erro desconhecido',
           timestamp: new Date()
         });
+        setTestResults([...results]);
       }
     }
 
@@ -126,9 +135,9 @@ export const SmartProxyDashboard = () => {
     const successRate = (successCount / results.length) * 100;
 
     toast({
-      title: `Teste Concluído`,
-      description: `${successCount}/${results.length} endpoints acessíveis (${successRate.toFixed(1)}%)`,
-      variant: successRate > 50 ? "default" : "destructive"
+      title: successCount === results.length ? "✅ Teste Concluído com Sucesso!" : "⚠️ Teste Concluído com Erros",
+      description: `${successCount}/${results.length} endpoints acessíveis (${successRate.toFixed(1)}%) via Bright Data Web Unlocker`,
+      variant: successRate >= 80 ? "default" : "destructive"
     });
   };
 
@@ -141,7 +150,8 @@ export const SmartProxyDashboard = () => {
       'direct': 'default',
       'proxy': 'secondary', 
       'anti-fingerprint': 'outline',
-      'bright-data-proxy': 'secondary'
+      'bright-data-proxy': 'secondary',
+      'bright-data-web-unlocker': 'secondary'
     };
     
     return (
@@ -149,6 +159,7 @@ export const SmartProxyDashboard = () => {
         {source === 'direct' ? 'Direto' : 
          source === 'proxy' ? 'Proxy' : 
          source === 'bright-data-proxy' ? 'Bright Data' :
+         source === 'bright-data-web-unlocker' ? 'Web Unlocker' :
          'Anti-Fingerprint'}
       </Badge>
     );
@@ -161,10 +172,10 @@ export const SmartProxyDashboard = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Globe className="h-5 w-5" />
-            Bright Data Proxy - Teste Binance API
+            Bright Data Web Unlocker - Teste Binance API
           </CardTitle>
           <CardDescription>
-            Teste de conectividade com APIs da Binance através do proxy dedicado Bright Data (ISP Brasil)
+            Teste de conectividade com APIs públicas da Binance através do Web Unlocker da Bright Data
           </CardDescription>
         </CardHeader>
         <CardContent>
