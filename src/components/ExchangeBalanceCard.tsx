@@ -30,20 +30,20 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface Balance {
-  symbol: string;
-  balance: number;
-  valueUsd: number;
-  priceUsd: number;
+  symbol;
+  balance;
+  valueUsd;
+  priceUsd;
 }
 
 interface ExchangeBalanceCardProps {
-  exchange: 'binance' | 'okx';
-  baseline?: number; // Valor inicial esperado (padrão 100 USD)
-  onBalanceChange?: (totalValue: number) => void;
-  otherExchangePrice?: number; // Preço do token na outra exchange para comparação
-  onPriceUpdate?: (price: number) => void; // Callback para enviar preço atualizado
-  selectedToken?: string; // Token selecionado externamente
-  onTokenChange?: (token: string) => void; // Callback quando token muda
+  exchange;
+  baseline?;
+  onBalanceChange?;
+  otherExchangePrice?;
+  onPriceUpdate?;
+  selectedToken?;
+  onTokenChange?;
 }
 
 export const ExchangeBalanceCard = ({ 
@@ -94,15 +94,10 @@ export const ExchangeBalanceCard = ({
     }
   }, [showSwapDialog]);
 
-  // Auto-refresh dos saldos a cada 60 segundos
+  // Inicialização
   useEffect(() => {
     fetchBalances();
     fetchOperationLogs();
-    
-    const interval = setInterval(() => {
-      fetchBalances(true);
-      fetchOperationLogs();
-    }, 60000); // 60 segundos
 
     // Listener para sincronização forçada via evento global
     const handleBalanceSync = () => {
@@ -114,7 +109,6 @@ export const ExchangeBalanceCard = ({
     window.addEventListener('balances-synced', handleBalanceSync);
 
     return () => {
-      clearInterval(interval);
       window.removeEventListener('balances-synced', handleBalanceSync);
     };
   }, [exchange]);

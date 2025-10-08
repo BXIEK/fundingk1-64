@@ -18,32 +18,32 @@ import {
 } from 'lucide-react';
 
 interface TotalBalanceCardProps {
-  binanceBalance: number;
-  okxBalance: number;
-  totalBaseline?: number;
-  selectedToken?: string;
+  binanceBalance;
+  okxBalance;
+  totalBaseline?;
+  selectedToken?;
 }
 
 interface PriceData {
-  binance: number;
-  okx: number;
-  spread: number;
+  binance;
+  okx;
+  spread;
 }
 
 interface TokenSpreadData {
-  symbol: string;
-  binancePrice: number;
-  okxPrice: number;
-  spread: number;
-  absSpread: number;
+  symbol;
+  binancePrice;
+  okxPrice;
+  spread;
+  absSpread;
 }
 
 interface TokenBalance {
-  symbol: string;
-  balance: number;
-  valueUsd: number;
-  priceUsd: number;
-  exchange: string;
+  symbol;
+  balance;
+  valueUsd;
+  priceUsd;
+  exchange;
 }
 
 export const TotalBalanceCard = ({ 
@@ -168,10 +168,9 @@ export const TotalBalanceCard = ({
     }
   };
 
-  // Atualizar tokens periodicamente e ao receber evento de sincronização
+  // Inicialização e listener para sincronização
   useEffect(() => {
     fetchAllTokens();
-    const interval = setInterval(fetchAllTokens, 60000); // A cada 60s
     
     // Listener para sincronização forçada via evento global
     const handleBalanceSync = () => {
@@ -182,7 +181,6 @@ export const TotalBalanceCard = ({
     window.addEventListener('balances-synced', handleBalanceSync);
     
     return () => {
-      clearInterval(interval);
       window.removeEventListener('balances-synced', handleBalanceSync);
     };
   }, []);
