@@ -140,13 +140,15 @@ export const SmartProxyDashboard = () => {
     const variants = {
       'direct': 'default',
       'proxy': 'secondary', 
-      'anti-fingerprint': 'outline'
+      'anti-fingerprint': 'outline',
+      'bright-data-proxy': 'secondary'
     };
     
     return (
       <Badge variant={variants[source as keyof typeof variants] as any}>
         {source === 'direct' ? 'Direto' : 
          source === 'proxy' ? 'Proxy' : 
+         source === 'bright-data-proxy' ? 'Bright Data' :
          'Anti-Fingerprint'}
       </Badge>
     );
@@ -159,10 +161,10 @@ export const SmartProxyDashboard = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Globe className="h-5 w-5" />
-            Smart Proxy Dashboard
+            Bright Data Proxy - Teste Binance API
           </CardTitle>
           <CardDescription>
-            Sistema inteligente para contornar restrições geográficas
+            Teste de conectividade com APIs da Binance através do proxy dedicado Bright Data (ISP Brasil)
           </CardDescription>
         </CardHeader>
         <CardContent>

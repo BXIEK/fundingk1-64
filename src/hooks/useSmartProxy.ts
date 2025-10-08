@@ -16,32 +16,56 @@ interface ProxyResponse {
   success: boolean;
   data?: any;
   error?: string;
-  source?: 'direct' | 'proxy' | 'anti-fingerprint';
+  source?: 'direct' | 'proxy' | 'anti-fingerprint' | 'bright-data-proxy';
   country?: string;
   ip?: string;
   proxy?: string;
   fallback_available?: boolean;
+  responseTime?: number;
 }
 
 export const useSmartProxy = () => {
   
   const executeRequest = async (options: SmartProxyOptions): Promise<ProxyResponse> => {
     try {
-      console.log(`🌐 Smart Proxy: ${options.targetUrl} [${options.strategy || 'auto'}]`);
+      console.log(`🌐 Bright Data Proxy: ${options.targetUrl}`);
       
-      const { data, error } = await supabase.functions.invoke('smart-proxy-service', {
-        body: options
+      // Usar Bright Data Proxy
+      const { data, error } = await supabase.functions.invoke('bright-data-proxy', {
+        body: {
+          targetUrl: options.targetUrl,
+          method: options.method || 'GET',
+          headers: options.headers,
+          body: options.body
+        }
       });
 
       if (error) {
-        console.error('Erro no Smart Proxy:', error);
+        console.error('❌ Erro no Bright Data Proxy:', error);
         throw new Error(error.message);
       }
 
-      return data;
+      if (!data.success) {
+        console.warn('⚠️ Requisição via proxy falhou:', data.error);
+        return {
+          success: false,
+          error: data.error,
+          source: 'bright-data-proxy'
+        };
+      }
+
+      console.log(`✅ Bright Data Proxy sucesso (${data.responseTime}ms)`);
+      
+      return {
+        success: true,
+        data: data.data,
+        source: 'bright-data-proxy',
+        country: data.proxy?.country,
+        proxy: `${data.proxy?.host}:${data.proxy?.port}`
+      };
       
     } catch (error) {
-      console.error('❌ Erro crítico no Smart Proxy:', error);
+      console.error('❌ Erro crítico no Bright Data Proxy:', error);
       throw error;
     }
   };
