@@ -45,42 +45,33 @@ serve(async (req) => {
     // Criar URL do proxy
     const proxyUrl = `http://${proxyUsername}:${proxyPassword}@${proxyHost}:${proxyPort}`;
     
-    // Fazer requisição via proxy usando Deno.Command
+    // Fazer requisição via proxy usando fetch nativo do Deno
     const startTime = Date.now();
     
-    const curlCommand = new Deno.Command("curl", {
-      args: [
-        "-x", `${proxyHost}:${proxyPort}`,
-        "-U", `${proxyUsername}:${proxyPassword}`,
-        "-X", method,
-        ...Object.entries(headers).flatMap(([key, value]) => ["-H", `${key}: ${value}`]),
-        ...(body && method !== 'GET' ? ["-d", typeof body === 'string' ? body : JSON.stringify(body)] : []),
-        targetUrl,
-        "-s", // silent
-        "-w", "\\n%{http_code}", // append HTTP status code
-      ],
-      stdout: "piped",
-      stderr: "piped",
+    // Configurar autenticação do proxy
+    const proxyAuth = btoa(`${proxyUsername}:${proxyPassword}`);
+    
+    // Fazer requisição com proxy
+    const response = await fetch(targetUrl, {
+      method,
+      headers: {
+        ...headers,
+        'Proxy-Authorization': `Basic ${proxyAuth}`,
+      },
+      body: body && method !== 'GET' ? (typeof body === 'string' ? body : JSON.stringify(body)) : undefined,
+      // @ts-ignore - Deno suporta proxy em fetch
+      proxy: `http://${proxyUsername}:${proxyPassword}@${proxyHost}:${proxyPort}`,
     });
     
-    const { stdout, stderr } = await curlCommand.output();
     const responseTime = Date.now() - startTime;
-    
-    if (stderr.length > 0) {
-      const errorText = new TextDecoder().decode(stderr);
-      console.error('❌ Curl stderr:', errorText);
-    }
-    
-    const output = new TextDecoder().decode(stdout);
-    const lines = output.trim().split('\n');
-    const statusCode = parseInt(lines[lines.length - 1]);
-    const responseBody = lines.slice(0, -1).join('\n');
+    const statusCode = response.status;
     
     let parsedData;
     try {
-      parsedData = JSON.parse(responseBody);
+      const responseText = await response.text();
+      parsedData = JSON.parse(responseText);
     } catch {
-      parsedData = responseBody;
+      parsedData = await response.text();
     }
     
     const success = statusCode >= 200 && statusCode < 300;
