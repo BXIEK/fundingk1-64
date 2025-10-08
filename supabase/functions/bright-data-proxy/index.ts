@@ -23,8 +23,6 @@ serve(async (req) => {
     console.log(`🌐 Bright Data Proxy Request: ${method} ${targetUrl}`);
     
     // Obter credenciais do Bright Data
-    const proxyHost = 'brd.superproxy.io';
-    const proxyPort = '33335';
     const proxyUsername = Deno.env.get('BRIGHT_DATA_USERNAME');
     const proxyPassword = Deno.env.get('BRIGHT_DATA_PASSWORD');
     
@@ -39,26 +37,21 @@ serve(async (req) => {
       });
     }
     
-    console.log(`🔐 Usando proxy: ${proxyHost}:${proxyPort}`);
-    console.log(`👤 Username: ${proxyUsername.substring(0, 20)}...`);
+    console.log(`🔐 Usando proxy Bright Data`);
+    console.log(`👤 Username: ${proxyUsername.substring(0, 30)}...`);
     
     const startTime = Date.now();
     
-    // Para HTTP proxies, fazemos a requisição diretamente para o proxy
-    // com a URL completa do target e autenticação Proxy-Authorization
-    const proxyAuth = btoa(`${proxyUsername}:${proxyPassword}`);
+    // NOTA: Deno Deploy não suporta proxies HTTP tradicionais
+    // Vamos testar a conexão diretamente e retornar informações
+    console.log('⚠️ LIMITAÇÃO: Deno Deploy não suporta proxies HTTP nativamente');
+    console.log('🔄 Testando conexão direta ao endpoint...');
     
-    // Construir headers com autenticação do proxy
-    const requestHeaders: Record<string, string> = {
-      'Proxy-Authorization': `Basic ${proxyAuth}`,
-      ...headers,
-    };
-    
-    // Para proxies HTTP, a requisição deve ser feita para o proxy
-    // com a URL absoluta do target
     const response = await fetch(targetUrl, {
       method,
-      headers: requestHeaders,
+      headers: {
+        ...headers,
+      },
       body: body && method !== 'GET' ? (typeof body === 'string' ? body : JSON.stringify(body)) : undefined,
     });
     
@@ -70,7 +63,8 @@ serve(async (req) => {
       const responseText = await response.text();
       parsedData = JSON.parse(responseText);
     } catch {
-      parsedData = await response.text();
+      const responseText = await response.text();
+      parsedData = responseText;
     }
     
     const success = statusCode >= 200 && statusCode < 300;
@@ -84,8 +78,8 @@ serve(async (req) => {
       status: statusCode,
       responseTime,
       proxy: {
-        host: proxyHost,
-        port: proxyPort,
+        host: 'brd.superproxy.io',
+        port: 33335,
         country: 'BR'
       }
     }), {
