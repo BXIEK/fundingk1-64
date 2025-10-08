@@ -64,3 +64,6 @@ verify_jwt = false
 
 [functions.market-trends-analyzer]
 verify_jwt = false
+
+[functions.bright-data-proxy]
+verify_jwt = false
