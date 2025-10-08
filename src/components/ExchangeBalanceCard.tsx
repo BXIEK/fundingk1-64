@@ -94,7 +94,7 @@ export const ExchangeBalanceCard = ({
     }
   }, [showSwapDialog]);
 
-  // Auto-refresh dos saldos a cada 10 segundos
+  // Auto-refresh dos saldos a cada 60 segundos
   useEffect(() => {
     fetchBalances();
     fetchOperationLogs();
@@ -102,7 +102,7 @@ export const ExchangeBalanceCard = ({
     const interval = setInterval(() => {
       fetchBalances(true);
       fetchOperationLogs();
-    }, 10000); // 10 segundos
+    }, 60000); // 60 segundos
 
     // Listener para sincronização forçada via evento global
     const handleBalanceSync = () => {
@@ -401,16 +401,6 @@ export const ExchangeBalanceCard = ({
     }
   };
 
-  useEffect(() => {
-    fetchBalances();
-    fetchOperationLogs();
-    const balanceInterval = setInterval(fetchBalances, 60000); // Atualiza a cada 60s
-    const logsInterval = setInterval(fetchOperationLogs, 30000); // Atualiza logs a cada 30s
-    return () => {
-      clearInterval(balanceInterval);
-      clearInterval(logsInterval);
-    };
-  }, [exchange]);
 
   // Notificar mudança de token selecionado para o pai
   useEffect(() => {
