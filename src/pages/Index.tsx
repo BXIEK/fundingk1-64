@@ -220,7 +220,7 @@ const Index = () => {
         </div>
 
         <Tabs defaultValue="hybrid-strategy" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 mb-4 sm:mb-8 h-auto">
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-8 mb-4 sm:mb-8 h-auto">
             <TabsTrigger value="hybrid-strategy" className="flex items-center gap-1 sm:gap-2 p-2 sm:p-3 text-xs sm:text-sm">
               <Zap className="h-3 w-3 sm:h-4 sm:w-4" />
               <span className="hidden sm:inline">Sistema & Validação</span>
@@ -245,6 +245,11 @@ const Index = () => {
               <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4" />
               <span className="hidden sm:inline">Análise Spot/Futures</span>
               <span className="sm:hidden">Análise</span>
+            </TabsTrigger>
+            <TabsTrigger value="proxy" className="flex items-center gap-1 sm:gap-2 p-2 sm:p-3 text-xs sm:text-sm">
+              <Shield className="h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">Bright Data Proxy</span>
+              <span className="sm:hidden">Proxy</span>
             </TabsTrigger>
             <TabsTrigger value="api-config" className="flex items-center gap-1 sm:gap-2 p-2 sm:p-3 text-xs sm:text-sm">
               <Settings className="h-3 w-3 sm:h-4 sm:w-4" />
@@ -292,6 +297,10 @@ const Index = () => {
 
           <TabsContent value="spot-futures-chart">
             <SpotFuturesChart />
+          </TabsContent>
+
+          <TabsContent value="proxy">
+            <SmartProxyDashboard />
           </TabsContent>
 
           <TabsContent value="api-config">
