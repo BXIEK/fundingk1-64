@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useCachedPrice } from '@/hooks/useCachedPrice';
+import { useBalanceSync } from '@/hooks/useBalanceSync';
 import { TokenFilter } from './TokenFilter';
 import { TokenSwapDialog } from './TokenSwapDialog';
 import { 
@@ -55,6 +56,7 @@ export const ExchangeBalanceCard = ({
   onTokenChange
 }: ExchangeBalanceCardProps) => {
   const { toast } = useToast();
+  const { syncExchangeBalance } = useBalanceSync();
   const [balances, setBalances] = useState<Balance[]>([]);
   const [loading, setLoading] = useState(false);
   const [converting, setConverting] = useState(false);
@@ -151,6 +153,11 @@ export const ExchangeBalanceCard = ({
   const fetchBalances = async (forceRefresh = false) => {
     setLoading(true);
     try {
+      // Se forceRefresh, sincronizar com a exchange primeiro
+      if (forceRefresh) {
+        console.log(`🔄 Sincronizando saldos reais da ${exchangeNames[exchange]}...`);
+        await syncExchangeBalance(exchange);
+      }
       // Buscar sessão ativa primeiro
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) {

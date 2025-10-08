@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useBalanceSync } from '@/hooks/useBalanceSync';
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -53,6 +54,7 @@ export const TotalBalanceCard = ({
 }: TotalBalanceCardProps) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [internalSelectedToken, setInternalSelectedToken] = useState<string>('SOL');
+  const { syncAllBalances } = useBalanceSync();
   
   // Usar token externo se fornecido, senão usar interno
   const selectedToken = externalSelectedToken || internalSelectedToken;
@@ -111,9 +113,14 @@ export const TotalBalanceCard = ({
   const isLoss = profitLoss < 0;
 
   // Buscar tokens de ambas as exchanges
-  const fetchAllTokens = async () => {
+  const fetchAllTokens = async (forceSync = false) => {
     setLoadingTokens(true);
     try {
+      // Se forceSync, sincronizar com as exchanges primeiro
+      if (forceSync) {
+        console.log('🔄 Sincronizando saldos reais de todas as exchanges...');
+        await syncAllBalances();
+      }
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
@@ -357,7 +364,7 @@ export const TotalBalanceCard = ({
             <Button
               variant="outline"
               size="sm"
-              onClick={fetchAllTokens}
+              onClick={() => fetchAllTokens(true)}
               disabled={loadingTokens}
               className="flex-1"
             >
