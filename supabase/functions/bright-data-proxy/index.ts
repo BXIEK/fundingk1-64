@@ -42,25 +42,24 @@ serve(async (req) => {
     console.log(`🔐 Usando proxy: ${proxyHost}:${proxyPort}`);
     console.log(`👤 Username: ${proxyUsername.substring(0, 20)}...`);
     
-    // Criar URL do proxy
-    const proxyUrl = `http://${proxyUsername}:${proxyPassword}@${proxyHost}:${proxyPort}`;
-    
-    // Fazer requisição via proxy usando fetch nativo do Deno
     const startTime = Date.now();
     
-    // Configurar autenticação do proxy
+    // Para HTTP proxies, fazemos a requisição diretamente para o proxy
+    // com a URL completa do target e autenticação Proxy-Authorization
     const proxyAuth = btoa(`${proxyUsername}:${proxyPassword}`);
     
-    // Fazer requisição com proxy
+    // Construir headers com autenticação do proxy
+    const requestHeaders: Record<string, string> = {
+      'Proxy-Authorization': `Basic ${proxyAuth}`,
+      ...headers,
+    };
+    
+    // Para proxies HTTP, a requisição deve ser feita para o proxy
+    // com a URL absoluta do target
     const response = await fetch(targetUrl, {
       method,
-      headers: {
-        ...headers,
-        'Proxy-Authorization': `Basic ${proxyAuth}`,
-      },
+      headers: requestHeaders,
       body: body && method !== 'GET' ? (typeof body === 'string' ? body : JSON.stringify(body)) : undefined,
-      // @ts-ignore - Deno suporta proxy em fetch
-      proxy: `http://${proxyUsername}:${proxyPassword}@${proxyHost}:${proxyPort}`,
     });
     
     const responseTime = Date.now() - startTime;
