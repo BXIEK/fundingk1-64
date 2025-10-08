@@ -49,6 +49,7 @@ import { ExchangeBalanceCard } from '@/components/ExchangeBalanceCard';
 import { TotalBalanceCard } from '@/components/TotalBalanceCard';
 import { ConversionHistory } from '@/components/ConversionHistory';
 import { SmartBalanceRebalancer } from '@/components/SmartBalanceRebalancer';
+import { UnlockBalances } from '@/components/UnlockBalances';
 
 import { type ArbitrageOpportunity } from '@/types/arbitrage';
 
@@ -750,6 +751,12 @@ export default function ArbitrageControl() {
               selectedToken={selectedToken}
             />
           </div>
+
+          {/* Cancelar Ordens Abertas */}
+          <UnlockBalances />
+
+          {/* Rebalanceamento Inteligente */}
+          <SmartBalanceRebalancer />
         </TabsContent>
 
         <TabsContent value="dashboard" className="space-y-6">
