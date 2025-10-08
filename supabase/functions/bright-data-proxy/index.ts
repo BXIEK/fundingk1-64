@@ -20,39 +20,46 @@ serve(async (req) => {
   try {
     const { targetUrl, method = 'GET', headers = {}, body }: ProxyRequest = await req.json();
     
-    console.log(`🌐 Bright Data Proxy Request: ${method} ${targetUrl}`);
+    console.log(`🌐 Bright Data Web Unlocker Request: ${method} ${targetUrl}`);
     
-    // Obter credenciais do Bright Data
-    const proxyUsername = Deno.env.get('BRIGHT_DATA_USERNAME');
-    const proxyPassword = Deno.env.get('BRIGHT_DATA_PASSWORD');
+    // Obter API Key do Bright Data Web Unlocker
+    const brightDataApiKey = Deno.env.get('BRIGHT_DATA_API_KEY');
     
-    if (!proxyUsername || !proxyPassword) {
-      console.error('❌ Credenciais Bright Data não configuradas');
+    if (!brightDataApiKey) {
+      console.error('❌ BRIGHT_DATA_API_KEY não configurada');
       return new Response(JSON.stringify({
         success: false,
-        error: 'Credenciais do proxy não configuradas'
+        error: 'API Key do Bright Data não configurada'
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500
       });
     }
     
-    console.log(`🔐 Usando proxy Bright Data`);
-    console.log(`👤 Username: ${proxyUsername.substring(0, 30)}...`);
+    console.log(`🔐 Usando Bright Data Web Unlocker API`);
+    console.log(`🔑 API Key: ${brightDataApiKey.substring(0, 20)}...`);
     
     const startTime = Date.now();
     
-    // NOTA: Deno Deploy não suporta proxies HTTP tradicionais
-    // Vamos testar a conexão diretamente e retornar informações
-    console.log('⚠️ LIMITAÇÃO: Deno Deploy não suporta proxies HTTP nativamente');
-    console.log('🔄 Testando conexão direta ao endpoint...');
+    // Usar Bright Data Web Unlocker API
+    console.log('🚀 Chamando Bright Data Web Unlocker API...');
     
-    const response = await fetch(targetUrl, {
-      method,
+    const unlockerPayload = {
+      zone: 'web_unlocker1',
+      url: targetUrl,
+      format: 'raw',
+      method: method,
+      headers: headers,
+      body: body && method !== 'GET' ? (typeof body === 'string' ? body : JSON.stringify(body)) : undefined
+    };
+    
+    const response = await fetch('https://api.brightdata.com/request', {
+      method: 'POST',
       headers: {
-        ...headers,
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${brightDataApiKey}`
       },
-      body: body && method !== 'GET' ? (typeof body === 'string' ? body : JSON.stringify(body)) : undefined,
+      body: JSON.stringify(unlockerPayload)
     });
     
     const responseTime = Date.now() - startTime;
