@@ -160,12 +160,33 @@ export default function Portfolio() {
       if (response.success) {
         setPortfolio(response.data.portfolio || []);
         setTrades(response.data.recent_trades || []);
-        setStats(response.data.statistics || null);
+
+        // Corrigir total para evitar duplicações da OKX (ignorar registros antigos com exchange='OKX')
+        const allItems: PortfolioAsset[] = response.data.portfolio || [];
+        const correctedTotal = allItems.reduce((sum, item) => {
+          const exch = (item.exchange || '').toUpperCase();
+          if ((item.balance || 0) <= 0) return sum;
+          // Considerar apenas Binance e os novos registros da OKX (Trading/Funding)
+          if (exch === 'OKX') return sum; // ignora legados para evitar duplicação
+          return sum + (((item as any).value_usd_calculated ?? item.value_usd ?? 0) as number);
+        }, 0);
+
+        const statsFromApi = response.data.statistics || null;
+        setStats(statsFromApi 
+          ? { ...statsFromApi, total_value_usd: correctedTotal }
+          : { total_value_usd: correctedTotal, total_trades: 0, successful_trades: 0, total_profit_usd: 0, success_rate_percent: 0 }
+        );
         setDataSource(response.data.data_source || 'unknown');
         
         // Check which exchanges have data
         const hasExchangeData = (exchange: string) => {
-          return (response.data.portfolio || []).some((asset: PortfolioAsset) => 
+          const items = (response.data.portfolio || []);
+          if (exchange.toLowerCase() === 'okx') {
+            return items.some((asset: PortfolioAsset) => 
+              (asset.exchange === 'OKX-Trading' || asset.exchange === 'OKX-Funding') && asset.balance > 0
+            );
+          }
+          return items.some((asset: PortfolioAsset) => 
             asset.exchange?.toLowerCase() === exchange.toLowerCase() && asset.balance > 0
           );
         };
@@ -474,10 +495,40 @@ export default function Portfolio() {
         {Object.entries(exchangeStatuses)
           .filter(([_, hasData]) => hasData)
           .map(([exchange]) => {
-            const exchangeAssets = portfolio.filter(
-              asset => asset.exchange?.toLowerCase() === exchange.toLowerCase() && asset.balance > 0
-            );
-            const totalValue = exchangeAssets.reduce((sum, asset) => sum + (asset.value_usd || 0), 0);
+            let exchangeAssets: PortfolioAsset[] = [];
+            if (exchange.toLowerCase() === 'okx') {
+              // Usar apenas os novos registros (Trading + Funding)
+              const okxRaw = portfolio.filter(
+                asset => (asset.exchange === 'OKX-Trading' || asset.exchange === 'OKX-Funding') && asset.balance > 0
+              );
+              // Agrupar por símbolo para evitar duplicações (somar Trading + Funding)
+              const grouped = new Map<string, PortfolioAsset & { value_usd: number }>();
+              for (const item of okxRaw) {
+                const key = item.symbol;
+                const valueUsd = (item as any).value_usd_calculated ?? item.value_usd ?? 0;
+                if (!grouped.has(key)) {
+                  grouped.set(key, {
+                    symbol: item.symbol,
+                    balance: item.balance,
+                    locked_balance: item.locked_balance,
+                    updated_at: item.updated_at,
+                    exchange: 'OKX',
+                    value_usd: valueUsd,
+                    price_usd: item.price_usd,
+                  } as any);
+                } else {
+                  const g = grouped.get(key)!;
+                  g.balance += item.balance;
+                  g.value_usd = (g.value_usd || 0) + valueUsd;
+                }
+              }
+              exchangeAssets = Array.from(grouped.values());
+            } else {
+              exchangeAssets = portfolio.filter(
+                asset => asset.exchange?.toLowerCase() === exchange.toLowerCase() && asset.balance > 0
+              );
+            }
+            const totalValue = exchangeAssets.reduce((sum, asset) => sum + ((asset as any).value_usd ?? 0), 0);
             
             return (
               <Card key={exchange}>
