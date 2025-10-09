@@ -43,10 +43,10 @@ export default function OKXPortfolioCard() {
       if (error) throw error
 
       if (data.success && data.data.portfolio) {
-        // Filtrar saldos da OKX (todas as variações: OKX, OKX-Trading, OKX-Funding)
+        // Filtrar saldos da OKX (apenas registros novos: OKX-Trading e OKX-Funding)
+        // Isso evita duplicação com registros antigos que tinham exchange='OKX'
         const okxItems = data.data.portfolio.filter((balance: any) => 
-          (balance.exchange === 'OKX' || 
-           balance.exchange === 'OKX-Trading' || 
+          (balance.exchange === 'OKX-Trading' || 
            balance.exchange === 'OKX-Funding') && 
           balance.balance > 0
         );

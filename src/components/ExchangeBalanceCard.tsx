@@ -185,9 +185,9 @@ export const ExchangeBalanceCard = ({
       const portfolioItems = portfolioData.data.portfolio.filter(
         (item: any) => {
           if (exchange === 'okx') {
-            // Para OKX, aceitar OKX, OKX-Trading e OKX-Funding
-            return (item.exchange === 'OKX' || 
-                    item.exchange === 'OKX-Trading' || 
+            // Para OKX, aceitar APENAS OKX-Trading e OKX-Funding (novos registros separados)
+            // Isso evita duplicação com registros antigos que tinham exchange='OKX'
+            return (item.exchange === 'OKX-Trading' || 
                     item.exchange === 'OKX-Funding') && 
                    item.balance > 0;
           } else {
