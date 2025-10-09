@@ -197,13 +197,37 @@ export const ExchangeBalanceCard = ({
         }
       );
 
-      // Processar balances
-      const processedBalances: Balance[] = portfolioItems.map((item: any) => ({
-        symbol: item.symbol,
-        balance: parseFloat(item.balance),
-        valueUsd: parseFloat(item.value_usd_calculated || item.value_usd || 0),
-        priceUsd: parseFloat(item.price_usd || 0)
-      }));
+      console.log(`📊 [${exchangeNames[exchange]}] Items filtrados do portfolio:`, portfolioItems.length);
+      if (exchange === 'okx') {
+        portfolioItems.forEach((item: any) => {
+          console.log(`  - ${item.symbol}: ${item.balance} (${item.exchange}) = $${item.value_usd_calculated || item.value_usd || 0}`);
+        });
+      }
+
+      // Agrupar balances por símbolo (somando Trading + Funding para OKX)
+      const balanceMap = new Map<string, Balance>();
+      
+      for (const item of portfolioItems) {
+        const symbol = item.symbol;
+        const balance = parseFloat(item.balance);
+        const valueUsd = parseFloat(item.value_usd_calculated || item.value_usd || 0);
+        const priceUsd = parseFloat(item.price_usd || 0);
+        
+        if (balanceMap.has(symbol)) {
+          const existing = balanceMap.get(symbol)!;
+          existing.balance += balance;
+          existing.valueUsd += valueUsd;
+        } else {
+          balanceMap.set(symbol, {
+            symbol,
+            balance,
+            valueUsd,
+            priceUsd
+          });
+        }
+      }
+      
+      const processedBalances: Balance[] = Array.from(balanceMap.values());
 
       const total = processedBalances.reduce((sum, b) => sum + b.valueUsd, 0);
       
