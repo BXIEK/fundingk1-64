@@ -15,6 +15,9 @@ interface OKXBalance {
   price_usd: number
   value_usd: number
   updated_at: string
+  accounts?: string[]
+  trading_balance?: number
+  funding_balance?: number
 }
 
 export default function OKXPortfolioCard() {
@@ -40,20 +43,49 @@ export default function OKXPortfolioCard() {
       if (error) throw error
 
       if (data.success && data.data.portfolio) {
-        // Filtrar apenas saldos da OKX
-        const okxBalances = data.data.portfolio
-          .filter((balance: any) => balance.exchange === 'OKX')
-          .map((balance: any) => ({
-            symbol: balance.symbol,
-            balance: balance.balance,
-            locked_balance: balance.locked_balance || 0,
-            exchange: balance.exchange,
-            price_usd: balance.price_usd,
-            value_usd: balance.value_usd,
-            updated_at: balance.updated_at
-          }))
+        // Filtrar apenas saldos da OKX e agrupar por símbolo (somando Trading + Funding)
+        const okxItems = data.data.portfolio.filter((balance: any) => balance.exchange === 'OKX');
+        
+        // Agrupar por símbolo
+        const balanceMap = new Map<string, any>();
+        
+        for (const item of okxItems) {
+          const symbol = item.symbol;
+          const account = item.application_title?.includes('Trading') ? 'Trading' : 
+                         item.application_title?.includes('Funding') ? 'Funding' : 'Unknown';
+          
+          if (!balanceMap.has(symbol)) {
+            balanceMap.set(symbol, {
+              symbol,
+              balance: 0,
+              locked_balance: 0,
+              exchange: 'OKX',
+              price_usd: item.price_usd || 0,
+              value_usd: 0,
+              updated_at: item.updated_at,
+              accounts: [],
+              trading_balance: 0,
+              funding_balance: 0
+            });
+          }
+          
+          const existing = balanceMap.get(symbol);
+          existing.balance += item.balance;
+          existing.locked_balance += item.locked_balance || 0;
+          existing.value_usd += item.value_usd || (item.balance * item.price_usd);
+          
+          if (!existing.accounts.includes(account)) {
+            existing.accounts.push(account);
+          }
+          
+          if (account === 'Trading') {
+            existing.trading_balance = item.balance;
+          } else if (account === 'Funding') {
+            existing.funding_balance = item.balance;
+          }
+        }
 
-        setBalances(okxBalances)
+        setBalances(Array.from(balanceMap.values()))
       } else {
         throw new Error('Falha ao obter dados do portfólio')
       }
@@ -155,12 +187,37 @@ export default function OKXPortfolioCard() {
               {getVisibleBalances().map((balance, index) => (
                 <TableRow key={`${balance.symbol}-${index}`}>
                   <TableCell>
-                    <Badge variant="secondary">
-                      {balance.symbol}
-                    </Badge>
+                    <div className="flex flex-col gap-1">
+                      <Badge variant="secondary">
+                        {balance.symbol}
+                      </Badge>
+                      {balance.accounts && balance.accounts.length > 0 && (
+                        <div className="flex gap-1">
+                          {balance.accounts.includes('Trading') && (
+                            <Badge variant="outline" className="text-[10px] px-1 py-0">
+                              Trading
+                            </Badge>
+                          )}
+                          {balance.accounts.includes('Funding') && (
+                            <Badge variant="outline" className="text-[10px] px-1 py-0">
+                              Funding
+                            </Badge>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </TableCell>
-                  <TableCell className="text-right font-medium">
-                    {balance.balance.toFixed(balance.symbol === 'BTC' ? 8 : 6)}
+                  <TableCell className="text-right">
+                    <div className="font-medium">
+                      {balance.balance.toFixed(balance.symbol === 'BTC' ? 8 : 6)}
+                    </div>
+                    {balance.trading_balance > 0 && balance.funding_balance > 0 && (
+                      <div className="text-xs text-muted-foreground">
+                        T: {balance.trading_balance.toFixed(balance.symbol === 'BTC' ? 8 : 6)}
+                        <br />
+                        F: {balance.funding_balance.toFixed(balance.symbol === 'BTC' ? 8 : 6)}
+                      </div>
+                    )}
                   </TableCell>
                   <TableCell className="text-right">
                     {formatCurrency(balance.value_usd)}

@@ -39,32 +39,110 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
+    // Limpar saldos antigos da OKX para este usuário
+    console.log('🧹 Limpando registros antigos da OKX...');
+    await supabase
+      .from('portfolios')
+      .delete()
+      .eq('user_id', userId)
+      .eq('exchange', 'OKX');
+
+    // Inserir saldos separados por conta (Trading e Funding)
+    const recordsToInsert: any[] = [];
+
     for (const balance of combinedBalances) {
-      await supabase
-        .from('portfolios')
-        .upsert({
+      // Se está apenas na Trading
+      if (balance.accounts.includes('Trading') && !balance.accounts.includes('Funding')) {
+        recordsToInsert.push({
           user_id: userId,
           symbol: balance.symbol,
           exchange: 'OKX',
-          balance: balance.total,
+          balance: balance.trading,
           locked_balance: 0,
-          price_usd: 0, // Será atualizado depois
+          price_usd: 0,
           value_usd: 0,
-          application_title: `Real Balance - OKX (${balance.accounts.join(' + ')})`,
+          application_title: 'Real Balance - OKX Trading',
           updated_at: new Date().toISOString()
-        }, {
-          onConflict: 'user_id,symbol,exchange'
         });
+      }
+      // Se está apenas na Funding
+      else if (balance.accounts.includes('Funding') && !balance.accounts.includes('Trading')) {
+        recordsToInsert.push({
+          user_id: userId,
+          symbol: balance.symbol,
+          exchange: 'OKX',
+          balance: balance.funding,
+          locked_balance: 0,
+          price_usd: 0,
+          value_usd: 0,
+          application_title: 'Real Balance - OKX Funding',
+          updated_at: new Date().toISOString()
+        });
+      }
+      // Se está em ambas, inserir DOIS registros separados
+      else if (balance.accounts.includes('Trading') && balance.accounts.includes('Funding')) {
+        // Trading
+        if (balance.trading > 0) {
+          recordsToInsert.push({
+            user_id: userId,
+            symbol: balance.symbol,
+            exchange: 'OKX',
+            balance: balance.trading,
+            locked_balance: 0,
+            price_usd: 0,
+            value_usd: 0,
+            application_title: 'Real Balance - OKX Trading',
+            updated_at: new Date().toISOString()
+          });
+        }
+        // Funding
+        if (balance.funding > 0) {
+          recordsToInsert.push({
+            user_id: userId,
+            symbol: balance.symbol,
+            exchange: 'OKX',
+            balance: balance.funding,
+            locked_balance: 0,
+            price_usd: 0,
+            value_usd: 0,
+            application_title: 'Real Balance - OKX Funding',
+            updated_at: new Date().toISOString()
+          });
+        }
+      }
+    }
+
+    console.log(`💾 Inserindo ${recordsToInsert.length} registros separados no banco...`);
+    
+    if (recordsToInsert.length > 0) {
+      const { error: insertError } = await supabase
+        .from('portfolios')
+        .insert(recordsToInsert);
+
+      if (insertError) {
+        console.error('❌ Erro ao inserir saldos:', insertError);
+        throw insertError;
+      }
     }
 
     console.log('✅ Sincronização completa realizada com sucesso');
+
+    // Calcular resumo para retorno
+    const summary = {
+      trading_only: combinedBalances.filter(b => b.accounts.includes('Trading') && !b.accounts.includes('Funding')).length,
+      funding_only: combinedBalances.filter(b => b.accounts.includes('Funding') && !b.accounts.includes('Trading')).length,
+      both_accounts: combinedBalances.filter(b => b.accounts.includes('Trading') && b.accounts.includes('Funding')).length,
+      total_unique: combinedBalances.length,
+      total_records: recordsToInsert.length
+    };
 
     return new Response(JSON.stringify({
       success: true,
       trading: tradingBalances,
       funding: fundingBalances,
       combined: combinedBalances,
-      message: `${combinedBalances.length} ativos sincronizados`
+      summary,
+      message: `${summary.total_records} registros sincronizados (${summary.trading_only} Trading, ${summary.funding_only} Funding, ${summary.both_accounts} em ambas)`
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
