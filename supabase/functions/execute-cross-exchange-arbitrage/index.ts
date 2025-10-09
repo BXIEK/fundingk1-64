@@ -262,28 +262,38 @@ serve(async (req) => {
           cryptoAmount = buyResult.executedQty || (finalUsdtInvestment / buyPrice);
           console.log(`💎 Quantidade comprada: ${cryptoAmount} ${symbol.replace('USDT', '')}`);
           
-          // Aguardar o saldo aparecer na Trading Account (polling com timeout)
+          // Aguardar o saldo aparecer (verificando Trading E Funding)
           if (buyExchange === 'OKX') {
-            console.log('⏳ Aguardando saldo aparecer na Trading Account da OKX...');
-            const maxAttempts = 15; // 15 tentativas = 45 segundos
+            console.log('⏳ Aguardando saldo aparecer na OKX (Trading ou Funding)...');
+            const maxAttempts = 10; // 10 tentativas = 30 segundos
             let balanceFound = false;
+            let foundInFunding = false;
             
             for (let attempt = 1; attempt <= maxAttempts; attempt++) {
               await new Promise(resolve => setTimeout(resolve, 3000)); // 3s entre tentativas
               
               try {
-                const currentBalance = await getExchangeBalance('OKX', symbol.replace('USDT', ''), { 
+                const balanceInfo = await getOKXTotalBalance(symbol.replace('USDT', ''), { 
                   okxApiKey: finalOkxApiKey, 
                   okxSecretKey: finalOkxSecretKey, 
                   okxPassphrase: finalOkxPassphrase 
                 });
                 
-                console.log(`   Tentativa ${attempt}/${maxAttempts}: Trading Account = ${currentBalance} ${symbol.replace('USDT', '')}`);
+                console.log(`   Tentativa ${attempt}/${maxAttempts}:`);
+                console.log(`      Trading: ${balanceInfo.trading} ${symbol.replace('USDT', '')}`);
+                console.log(`      Funding: ${balanceInfo.funding} ${symbol.replace('USDT', '')}`);
+                console.log(`      Total: ${balanceInfo.total} ${symbol.replace('USDT', '')} (${balanceInfo.location})`);
                 
-                if (currentBalance >= cryptoAmount * 0.95) { // Aceitar 95% da quantidade (tolerância para taxas)
-                  console.log(`✅ Saldo confirmado na Trading Account: ${currentBalance} ${symbol.replace('USDT', '')}`);
-                  cryptoAmount = currentBalance; // Usar o saldo real confirmado
+                if (balanceInfo.total >= cryptoAmount * 0.95) { // Aceitar 95% da quantidade (tolerância para taxas)
+                  console.log(`✅ Saldo confirmado: ${balanceInfo.total} ${symbol.replace('USDT', '')} em ${balanceInfo.location}`);
+                  cryptoAmount = balanceInfo.total; // Usar o saldo real confirmado
+                  foundInFunding = balanceInfo.location === 'funding' || balanceInfo.location === 'both';
                   balanceFound = true;
+                  
+                  // Se o saldo está na Funding, informar que não precisa transferência interna
+                  if (foundInFunding && balanceInfo.location === 'funding') {
+                    console.log('🎯 Saldo já está na Funding Account - transferência interna será PULADA');
+                  }
                   break;
                 }
               } catch (checkError) {
@@ -293,8 +303,11 @@ serve(async (req) => {
             
             if (!balanceFound) {
               throw new Error(
-                `❌ TIMEOUT: Saldo de ${symbol.replace('USDT', '')} não apareceu na Trading Account após ${maxAttempts * 3}s. ` +
-                `Verifique manualmente na OKX se a ordem foi executada.`
+                `❌ TIMEOUT: Saldo de ${symbol.replace('USDT', '')} não apareceu em nenhuma conta da OKX após ${maxAttempts * 3}s. ` +
+                `Possíveis causas:\n` +
+                `• Ordem não foi executada pela OKX\n` +
+                `• Liquidez insuficiente no par ${symbol}\n` +
+                `• Verifique manualmente o status da ordem na OKX`
               );
             }
           } else {
@@ -902,12 +915,70 @@ async function getOKXCryptoBalance(
   });
   
   if (!response.ok) {
-    throw new Error('Erro ao obter saldo OKX');
+    throw new Error('Erro ao obter saldo OKX Trading Account');
   }
   
   const data = await response.json();
   const cryptoBalance = data.data[0].details.find((d: any) => d.ccy === asset);
   return cryptoBalance ? parseFloat(cryptoBalance.availBal) : 0;
+}
+
+async function getOKXFundingBalance(
+  asset: string,
+  credentials: { okxApiKey?: string; okxSecretKey?: string; okxPassphrase?: string }
+): Promise<number> {
+  const timestamp = new Date().toISOString();
+  const method = 'GET';
+  const requestPath = '/api/v5/asset/balances';
+  
+  const prehash = timestamp + method + requestPath;
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(credentials.okxSecretKey!),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  
+  const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(prehash));
+  const signatureBase64 = btoa(String.fromCharCode(...new Uint8Array(signature)));
+  
+  const response = await fetch(`https://www.okx.com${requestPath}`, {
+    method: 'GET',
+    headers: {
+      'OK-ACCESS-KEY': credentials.okxApiKey!,
+      'OK-ACCESS-SIGN': signatureBase64,
+      'OK-ACCESS-TIMESTAMP': timestamp,
+      'OK-ACCESS-PASSPHRASE': credentials.okxPassphrase!,
+      'Content-Type': 'application/json'
+    }
+  });
+  
+  if (!response.ok) {
+    throw new Error('Erro ao obter saldo OKX Funding Account');
+  }
+  
+  const data = await response.json();
+  const cryptoBalance = data.data?.find((d: any) => d.ccy === asset);
+  return cryptoBalance ? parseFloat(cryptoBalance.availBal) : 0;
+}
+
+async function getOKXTotalBalance(
+  asset: string,
+  credentials: { okxApiKey?: string; okxSecretKey?: string; okxPassphrase?: string }
+): Promise<{ trading: number; funding: number; total: number; location: 'trading' | 'funding' | 'both' | 'none' }> {
+  const [trading, funding] = await Promise.all([
+    getOKXCryptoBalance(asset, credentials),
+    getOKXFundingBalance(asset, credentials)
+  ]);
+  
+  let location: 'trading' | 'funding' | 'both' | 'none' = 'none';
+  if (trading > 0 && funding > 0) location = 'both';
+  else if (trading > 0) location = 'trading';
+  else if (funding > 0) location = 'funding';
+  
+  return { trading, funding, total: trading + funding, location };
 }
 
 async function getExchangeBalance(
