@@ -14,6 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Wallet, RefreshCw, Settings, Shield, AlertTriangle, Plus, AlertCircle } from 'lucide-react';
 import APIConfiguration from '@/components/APIConfiguration';
 import { BinanceAutoConverter } from '@/components/BinanceAutoConverter';
+import { ManualBalanceSync } from '@/components/ManualBalanceSync';
 import { useTradingMode } from '@/contexts/TradingModeContext';
 import { getUserId } from '@/lib/userUtils';
 
@@ -463,6 +464,10 @@ export default function Portfolio() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {isRealMode && exchangeStatuses.binance && (
           <BinanceAutoConverter />
+        )}
+        
+        {isRealMode && exchangeStatuses.okx && (
+          <ManualBalanceSync />
         )}
         
         {/* Cards de Saldos por Exchange */}
