@@ -783,10 +783,19 @@ serve(async (req) => {
           updated_at: new Date().toISOString()
         }));
       
-      // Usar apenas dados reais se existirem
+      // Mesclar: priorizar dados reais quando existirem, mantendo ativos do banco não retornados pela API
       if (realPortfolio.length > 0) {
-        portfolio = realPortfolio;
-        console.log("📈 Usando dados reais das exchanges");
+        const portfolioMap = new Map<string, any>();
+        // Primeiro, dados atuais do banco
+        for (const item of portfolio) {
+          portfolioMap.set(`${item.exchange}:${item.symbol}`, item);
+        }
+        // Depois, sobrescrever/ adicionar com dados reais
+        for (const item of realPortfolio) {
+          portfolioMap.set(`${item.exchange}:${item.symbol}`, item);
+        }
+        portfolio = Array.from(portfolioMap.values());
+        console.log("📈 Mesclando dados reais com banco de dados (mantendo ativos não retornados pela API)");
       }
     }
 
