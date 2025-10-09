@@ -390,29 +390,76 @@ function getDefaultOKXRules(symbol: string): { minSz: number; lotSz: number; tic
 
 async function getOKXBalances(creds?: { apiKey?: string; secretKey?: string; passphrase?: string }): Promise<any> {
   try {
-    console.log('🔍 Obtendo saldos da conta de trading OKX...');
-    const resp = await makeOKXRequest('/api/v5/account/balance', 'GET', undefined, creds);
-    if (resp.code !== '0') {
-      const errorMsg = `OKX API Error: ${resp.msg}`;
-      console.error('❌ Erro na resposta da OKX:', errorMsg);
-      throw new Error(errorMsg);
-    }
-
-    const balances: Array<{ asset: string; free: number; locked: number } | any> = [];
-    const details = resp?.data?.[0]?.details || [];
-    console.log(`📊 Processando ${details.length} detalhes de saldo da OKX`);
+    console.log('🔍 Obtendo saldos de TODAS as subcontas da OKX (Trading + Funding)...');
     
-    for (const d of details) {
-      const ccy = d.ccy;
-      const avail = Number(d.availBal || d.cashBal || '0');
-      const frozen = Number(d.frozenBal || '0');
-      if (avail > 0 || frozen > 0) {
-        balances.push({ asset: ccy, free: avail, locked: frozen, balance: avail + frozen });
+    const allBalances: Array<{ asset: string; free: number; locked: number; account: string }> = [];
+    
+    // 1. Buscar saldos da Trading Account
+    console.log('📊 Buscando Trading Account...');
+    const tradingResp = await makeOKXRequest('/api/v5/account/balance', 'GET', undefined, creds);
+    if (tradingResp.code === '0') {
+      const tradingDetails = tradingResp?.data?.[0]?.details || [];
+      console.log(`  ✅ ${tradingDetails.length} ativos encontrados na Trading Account`);
+      
+      for (const d of tradingDetails) {
+        const ccy = d.ccy;
+        const avail = Number(d.availBal || d.cashBal || '0');
+        const frozen = Number(d.frozenBal || '0');
+        const total = avail + frozen;
+        
+        if (total > 0) {
+          allBalances.push({ 
+            asset: ccy, 
+            free: avail, 
+            locked: frozen, 
+            balance: total,
+            account: 'Trading'
+          });
+          console.log(`  💰 Trading: ${ccy} = ${total} (disponível: ${avail}, bloqueado: ${frozen})`);
+        }
       }
+    } else {
+      console.warn(`⚠️ Erro ao buscar Trading Account: ${tradingResp.msg}`);
     }
 
-    console.log(`✅ ${balances.length} saldos obtidos da conta de trading OKX`);
-    return { success: true, balances };
+    // 2. Buscar saldos da Funding Account
+    try {
+      console.log('📊 Buscando Funding Account...');
+      const fundingResp = await makeOKXRequest('/api/v5/asset/balances', 'GET', undefined, creds);
+      if (fundingResp.code === '0') {
+        const fundingDetails = fundingResp?.data || [];
+        console.log(`  ✅ ${fundingDetails.length} ativos encontrados na Funding Account`);
+        
+        for (const d of fundingDetails) {
+          const ccy = d.ccy;
+          const avail = Number(d.availBal || '0');
+          const frozen = Number(d.frozenBal || '0');
+          const total = avail + frozen;
+          
+          if (total > 0) {
+            allBalances.push({ 
+              asset: ccy, 
+              free: avail, 
+              locked: frozen, 
+              balance: total,
+              account: 'Funding'
+            });
+            console.log(`  💰 Funding: ${ccy} = ${total} (disponível: ${avail}, bloqueado: ${frozen})`);
+          }
+        }
+      } else {
+        console.warn(`⚠️ Erro ao buscar Funding Account: ${fundingResp.msg}`);
+      }
+    } catch (fundingError) {
+      console.warn('⚠️ Não foi possível buscar Funding Account:', fundingError);
+    }
+
+    console.log(`\n📋 RESUMO FINAL:`);
+    console.log(`  🔹 Trading Account: ${allBalances.filter(b => b.account === 'Trading').length} ativos`);
+    console.log(`  🔹 Funding Account: ${allBalances.filter(b => b.account === 'Funding').length} ativos`);
+    console.log(`  📊 Total: ${allBalances.length} saldos encontrados\n`);
+    
+    return { success: true, balances: allBalances };
   } catch (error) {
     console.error('❌ Erro ao obter saldos da OKX:', error);
     
