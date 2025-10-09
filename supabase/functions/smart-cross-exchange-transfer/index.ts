@@ -517,17 +517,29 @@ async function executeOKXWithdrawal(
   } catch (transferError) {
     console.error('❌ ERRO CRÍTICO na transferência interna OKX:', transferError);
     
-    // Verificar se é erro de saldo insuficiente na Trading Account
-    const errorMsg = transferError instanceof Error ? transferError.message : String(transferError);
-    if (errorMsg.includes('Insufficient balance')) {
-      throw new Error(
-        `Saldo insuficiente na conta de Trading da OKX para transferir ${amount} ${asset}. ` +
-        `Verifique se a ordem de compra foi processada corretamente. ` +
-        `Erro original: ${errorMsg}`
-      );
+    // Se a transferência interna falhar, verificar se JÁ há saldo suficiente na Funding
+    try {
+      const fallbackFunding = await getOKXAvailableBalance(asset, credentials);
+      console.log(`🛟 Fallback: Funding já possui ${fallbackFunding} ${asset}`);
+      if (fallbackFunding >= amount) {
+        console.log('✅ Fallback aprovado: saldo suficiente na Funding. Prosseguindo sem transferência interna.');
+      } else {
+        // Verificar se é erro de saldo insuficiente na Trading Account
+        const errorMsg = transferError instanceof Error ? transferError.message : String(transferError);
+        if (errorMsg.includes('Insufficient balance')) {
+          throw new Error(
+            `Saldo insuficiente na conta de Trading da OKX para transferir ${amount} ${asset}. ` +
+            `Verifique se a ordem de compra foi processada corretamente. ` +
+            `Erro original: ${errorMsg}`
+          );
+        }
+        throw new Error(`Falha na transferência interna Trading → Funding: ${errorMsg}`);
+      }
+    } catch (fbErr) {
+      // Se o fallback também falhar, propagar erro
+      const errorMsg = transferError instanceof Error ? transferError.message : String(transferError);
+      throw new Error(`Falha na transferência interna Trading → Funding: ${errorMsg}`);
     }
-    
-    throw new Error(`Falha na transferência interna Trading → Funding: ${errorMsg}`);
   }
   
   // PASSO 2: Verificar saldo disponível na conta de Funding

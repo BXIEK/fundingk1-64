@@ -392,7 +392,7 @@ async function getOKXBalances(creds?: { apiKey?: string; secretKey?: string; pas
   try {
     console.log('🔍 Obtendo saldos de TODAS as subcontas da OKX (Trading + Funding)...');
     
-    const allBalances: Array<{ asset: string; free: number; locked: number; account: string }> = [];
+    const allBalances: Array<{ asset: string; free: number; locked: number; balance: number; account: string }> = [];
     
     // 1. Buscar saldos da Trading Account
     console.log('📊 Buscando Trading Account...');
