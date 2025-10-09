@@ -147,19 +147,33 @@ async function getOKXTradingBalances(apiKey: string, secretKey: string, passphra
   });
   
   if (!response.ok) {
+    const errorText = await response.text();
+    console.error('❌ Erro ao buscar Trading Account:', errorText);
     throw new Error('Erro ao buscar Trading Account');
   }
   
   const data = await response.json();
-  const details = data.data?.[0]?.details || [];
+  console.log('📊 Trading Account response:', JSON.stringify(data, null, 2));
   
-  return details
-    .filter((d: any) => parseFloat(d.availBal || '0') > 0 || parseFloat(d.frozenBal || '0') > 0)
-    .map((d: any) => ({
-      symbol: d.ccy,
-      balance: parseFloat(d.availBal || '0') + parseFloat(d.frozenBal || '0'),
-      account: 'Trading'
-    }));
+  const details = data.data?.[0]?.details || [];
+  console.log(`✅ Trading Account: ${details.length} ativos brutos encontrados`);
+  
+  const filtered = details.filter((d: any) => {
+    const avail = parseFloat(d.availBal || '0');
+    const frozen = parseFloat(d.frozenBal || '0');
+    const cash = parseFloat(d.cashBal || '0');
+    const total = avail + frozen;
+    
+    console.log(`  - ${d.ccy}: availBal=${avail}, frozenBal=${frozen}, cashBal=${cash}, total=${total}`);
+    
+    return total > 0;
+  });
+  
+  return filtered.map((d: any) => ({
+    symbol: d.ccy,
+    balance: parseFloat(d.availBal || '0') + parseFloat(d.frozenBal || '0'),
+    account: 'Trading'
+  }));
 }
 
 async function getOKXFundingBalances(apiKey: string, secretKey: string, passphrase: string) {
@@ -192,19 +206,32 @@ async function getOKXFundingBalances(apiKey: string, secretKey: string, passphra
   });
   
   if (!response.ok) {
+    const errorText = await response.text();
+    console.error('❌ Erro ao buscar Funding Account:', errorText);
     throw new Error('Erro ao buscar Funding Account');
   }
   
   const data = await response.json();
-  const details = data.data || [];
+  console.log('📊 Funding Account response:', JSON.stringify(data, null, 2));
   
-  return details
-    .filter((d: any) => parseFloat(d.availBal || '0') > 0 || parseFloat(d.frozenBal || '0') > 0)
-    .map((d: any) => ({
-      symbol: d.ccy,
-      balance: parseFloat(d.availBal || '0') + parseFloat(d.frozenBal || '0'),
-      account: 'Funding'
-    }));
+  const details = data.data || [];
+  console.log(`✅ Funding Account: ${details.length} ativos brutos encontrados`);
+  
+  const filtered = details.filter((d: any) => {
+    const avail = parseFloat(d.availBal || '0');
+    const frozen = parseFloat(d.frozenBal || '0');
+    const total = avail + frozen;
+    
+    console.log(`  - ${d.ccy}: availBal=${avail}, frozenBal=${frozen}, total=${total}`);
+    
+    return total > 0;
+  });
+  
+  return filtered.map((d: any) => ({
+    symbol: d.ccy,
+    balance: parseFloat(d.availBal || '0') + parseFloat(d.frozenBal || '0'),
+    account: 'Funding'
+  }));
 }
 
 function combineBalances(trading: any[], funding: any[]) {
