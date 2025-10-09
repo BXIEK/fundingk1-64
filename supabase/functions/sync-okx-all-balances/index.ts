@@ -39,22 +39,48 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
+    // Deletar registros antigos do usuário na OKX antes de inserir novos
+    await supabase
+      .from('portfolios')
+      .delete()
+      .eq('user_id', userId)
+      .eq('exchange', 'OKX');
+
+    // Inserir registros separados para Trading e Funding
     for (const balance of combinedBalances) {
-      await supabase
-        .from('portfolios')
-        .upsert({
-          user_id: userId,
-          symbol: balance.symbol,
-          exchange: 'OKX',
-          balance: balance.total,
-          locked_balance: 0,
-          price_usd: 0, // Será atualizado depois
-          value_usd: 0,
-          application_title: `Real Balance - OKX (${balance.accounts.join(' + ')})`,
-          updated_at: new Date().toISOString()
-        }, {
-          onConflict: 'user_id,symbol,exchange'
-        });
+      // Se tem saldo em Trading, inserir registro de Trading
+      if (balance.trading > 0) {
+        await supabase
+          .from('portfolios')
+          .insert({
+            user_id: userId,
+            symbol: balance.symbol,
+            exchange: 'OKX',
+            balance: balance.trading,
+            locked_balance: 0,
+            price_usd: 0,
+            value_usd: 0,
+            application_title: 'OKX (Trading)',
+            updated_at: new Date().toISOString()
+          });
+      }
+      
+      // Se tem saldo em Funding, inserir registro de Funding
+      if (balance.funding > 0) {
+        await supabase
+          .from('portfolios')
+          .insert({
+            user_id: userId,
+            symbol: balance.symbol,
+            exchange: 'OKX',
+            balance: balance.funding,
+            locked_balance: 0,
+            price_usd: 0,
+            value_usd: 0,
+            application_title: 'OKX (Funding)',
+            updated_at: new Date().toISOString()
+          });
+      }
     }
 
     console.log('✅ Sincronização completa realizada com sucesso');

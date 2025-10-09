@@ -43,16 +43,19 @@ export default function OKXPortfolioCard() {
       if (error) throw error
 
       if (data.success && data.data.portfolio) {
-        // Filtrar apenas saldos da OKX e agrupar por símbolo (somando Trading + Funding)
-        const okxItems = data.data.portfolio.filter((balance: any) => balance.exchange === 'OKX');
+        // Filtrar apenas saldos da OKX
+        const okxItems = data.data.portfolio.filter((balance: any) => 
+          balance.exchange === 'OKX' && balance.balance > 0
+        );
         
-        // Agrupar por símbolo
+        // Agrupar por símbolo (somando Trading + Funding)
         const balanceMap = new Map<string, any>();
         
         for (const item of okxItems) {
           const symbol = item.symbol;
-          const account = item.application_title?.includes('Trading') ? 'Trading' : 
-                         item.application_title?.includes('Funding') ? 'Funding' : 'Unknown';
+          const isTrading = item.application_title?.includes('Trading');
+          const isFunding = item.application_title?.includes('Funding');
+          const account = isTrading ? 'Trading' : isFunding ? 'Funding' : 'Unknown';
           
           if (!balanceMap.has(symbol)) {
             balanceMap.set(symbol, {
@@ -79,9 +82,9 @@ export default function OKXPortfolioCard() {
           }
           
           if (account === 'Trading') {
-            existing.trading_balance = item.balance;
+            existing.trading_balance += item.balance;
           } else if (account === 'Funding') {
-            existing.funding_balance = item.balance;
+            existing.funding_balance += item.balance;
           }
         }
 
