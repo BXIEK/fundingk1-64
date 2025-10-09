@@ -180,10 +180,21 @@ export const ExchangeBalanceCard = ({
         throw new Error('Dados do portfolio não encontrados');
       }
 
-      // Filtrar por exchange
+      // Filtrar por exchange (incluindo subcontas OKX-Trading e OKX-Funding)
       const exchangeFilter = exchange === 'binance' ? 'Binance' : 'OKX';
       const portfolioItems = portfolioData.data.portfolio.filter(
-        (item: any) => item.exchange === exchangeFilter && item.balance > 0
+        (item: any) => {
+          if (exchange === 'okx') {
+            // Para OKX, aceitar OKX, OKX-Trading e OKX-Funding
+            return (item.exchange === 'OKX' || 
+                    item.exchange === 'OKX-Trading' || 
+                    item.exchange === 'OKX-Funding') && 
+                   item.balance > 0;
+          } else {
+            // Para Binance, manter o filtro normal
+            return item.exchange === exchangeFilter && item.balance > 0;
+          }
+        }
       );
 
       // Processar balances

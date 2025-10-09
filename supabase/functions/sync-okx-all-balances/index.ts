@@ -39,49 +39,83 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    // Deletar registros antigos do usuário na OKX antes de inserir novos
-    await supabase
+    // Deletar registros antigos do usuário na OKX (todas as variações) antes de inserir novos
+    const { error: deleteError } = await supabase
       .from('portfolios')
       .delete()
       .eq('user_id', userId)
-      .eq('exchange', 'OKX');
+      .in('exchange', ['OKX', 'OKX-Trading', 'OKX-Funding']);
+    
+    if (deleteError) {
+      console.error('❌ Erro ao limpar registros antigos:', deleteError);
+    } else {
+      console.log('✅ Registros antigos da OKX removidos');
+    }
 
-    // Inserir registros separados para Trading e Funding
+    // Buscar preços atuais da Binance para cálculo do value_usd
+    const priceResponse = await fetch('https://api.binance.com/api/v3/ticker/price');
+    const prices = await priceResponse.json();
+    const priceMap = new Map();
+    for (const p of prices) {
+      const symbol = p.symbol.replace('USDT', '');
+      priceMap.set(symbol, parseFloat(p.price));
+    }
+    console.log(`💰 Preços carregados para ${priceMap.size} símbolos`);
+
+    // Inserir registros separados para Trading e Funding COM PREÇOS ATUALIZADOS
+    // IMPORTANTE: Usar exchange diferente para evitar constraint violation
+    const insertPromises = [];
     for (const balance of combinedBalances) {
+      const priceUsd = priceMap.get(balance.symbol) || 0;
+      
       // Se tem saldo em Trading, inserir registro de Trading
       if (balance.trading > 0) {
-        await supabase
-          .from('portfolios')
-          .insert({
-            user_id: userId,
-            symbol: balance.symbol,
-            exchange: 'OKX',
-            balance: balance.trading,
-            locked_balance: 0,
-            price_usd: 0,
-            value_usd: 0,
-            application_title: 'OKX (Trading)',
-            updated_at: new Date().toISOString()
-          });
+        const valueUsd = balance.trading * priceUsd;
+        console.log(`  💰 ${balance.symbol} Trading: ${balance.trading} × $${priceUsd} = $${valueUsd.toFixed(2)}`);
+        
+        insertPromises.push(
+          supabase
+            .from('portfolios')
+            .insert({
+              user_id: userId,
+              symbol: balance.symbol,
+              exchange: 'OKX-Trading',  // Evita constraint violation
+              balance: balance.trading,
+              locked_balance: 0,
+              price_usd: priceUsd,
+              value_usd: valueUsd,
+              application_title: 'OKX (Trading)',
+              updated_at: new Date().toISOString()
+            })
+        );
       }
       
       // Se tem saldo em Funding, inserir registro de Funding
       if (balance.funding > 0) {
-        await supabase
-          .from('portfolios')
-          .insert({
-            user_id: userId,
-            symbol: balance.symbol,
-            exchange: 'OKX',
-            balance: balance.funding,
-            locked_balance: 0,
-            price_usd: 0,
-            value_usd: 0,
-            application_title: 'OKX (Funding)',
-            updated_at: new Date().toISOString()
-          });
+        const valueUsd = balance.funding * priceUsd;
+        console.log(`  💰 ${balance.symbol} Funding: ${balance.funding} × $${priceUsd} = $${valueUsd.toFixed(2)}`);
+        
+        insertPromises.push(
+          supabase
+            .from('portfolios')
+            .insert({
+              user_id: userId,
+              symbol: balance.symbol,
+              exchange: 'OKX-Funding',  // Evita constraint violation
+              balance: balance.funding,
+              locked_balance: 0,
+              price_usd: priceUsd,
+              value_usd: valueUsd,
+              application_title: 'OKX (Funding)',
+              updated_at: new Date().toISOString()
+            })
+        );
       }
     }
+    
+    // Executar todas as inserções em paralelo
+    await Promise.all(insertPromises);
+    console.log(`✅ ${insertPromises.length} registros inseridos no banco de dados`);
 
     console.log('✅ Sincronização completa realizada com sucesso');
 
