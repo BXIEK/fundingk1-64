@@ -510,6 +510,7 @@ serve(async (req) => {
                 const assetSymbol = b.asset;
                 const priceUsd = tokenPrices[assetSymbol] || tokenPrices[`${assetSymbol}USDT`] || (assetSymbol === 'USDT' ? 1 : 0);
                 const balance = parseFloat(b.free || b.balance || 0);
+                const account = b.account || 'Unknown';
                 return {
                   symbol: assetSymbol,
                   balance,
@@ -517,6 +518,8 @@ serve(async (req) => {
                   exchange: 'OKX',
                   price_usd: priceUsd,
                   value_usd: priceUsd * balance,
+                  application_title: `Real Balance - OKX ${account}`,
+                  type: 'spot',
                   updated_at: new Date().toISOString()
                 };
               });
@@ -788,11 +791,11 @@ serve(async (req) => {
         const portfolioMap = new Map<string, any>();
         // Primeiro, dados atuais do banco
         for (const item of portfolio) {
-          portfolioMap.set(`${item.exchange}:${item.symbol}`, item);
+          portfolioMap.set(`${item.exchange}:${item.symbol}:${item.application_title || ''}`, item);
         }
         // Depois, sobrescrever/ adicionar com dados reais
         for (const item of realPortfolio) {
-          portfolioMap.set(`${item.exchange}:${item.symbol}`, item);
+          portfolioMap.set(`${item.exchange}:${item.symbol}:${item.application_title || ''}`, item);
         }
         portfolio = Array.from(portfolioMap.values());
         console.log("📈 Mesclando dados reais com banco de dados (mantendo ativos não retornados pela API)");
