@@ -511,14 +511,15 @@ serve(async (req) => {
                 const priceUsd = tokenPrices[assetSymbol] || tokenPrices[`${assetSymbol}USDT`] || (assetSymbol === 'USDT' ? 1 : 0);
                 const balance = parseFloat(b.free || b.balance || 0);
                 const account = b.account || 'Unknown';
+                const exchangeName = account === 'Trading' ? 'OKX-Trading' : account === 'Funding' ? 'OKX-Funding' : 'OKX';
                 return {
                   symbol: assetSymbol,
                   balance,
                   locked_balance: parseFloat(b.locked || 0),
-                  exchange: 'OKX',
+                  exchange: exchangeName,
                   price_usd: priceUsd,
                   value_usd: priceUsd * balance,
-                  application_title: `Real Balance - OKX ${account}`,
+                  application_title: `Real Balance - ${exchangeName}`,
                   type: 'spot',
                   updated_at: new Date().toISOString()
                 };
@@ -670,8 +671,18 @@ serve(async (req) => {
           value_usd: asset.value_usd || 0
         }));
 
-      const okxBalances = realBalances
-        .filter(asset => asset.exchange === 'OKX')
+      const okxTradingBalances = realBalances
+        .filter(asset => asset.exchange === 'OKX-Trading')
+        .filter(asset => asset.balance > 0)
+        .map(asset => ({
+          symbol: asset.symbol,
+          balance: asset.balance,
+          price_usd: asset.price_usd || 0,
+          value_usd: asset.value_usd || 0
+        }));
+
+      const okxFundingBalances = realBalances
+        .filter(asset => asset.exchange === 'OKX-Funding')
         .filter(asset => asset.balance > 0)
         .map(asset => ({
           symbol: asset.symbol,
@@ -710,11 +721,19 @@ serve(async (req) => {
           });
         }
 
-        if (okxBalances.length > 0) {
+        if (okxTradingBalances.length > 0) {
           await supabase.rpc('sync_real_balances', {
             p_user_id: userId,
-            p_exchange: 'OKX',
-            p_balances: okxBalances
+            p_exchange: 'OKX-Trading',
+            p_balances: okxTradingBalances
+          });
+        }
+
+        if (okxFundingBalances.length > 0) {
+          await supabase.rpc('sync_real_balances', {
+            p_user_id: userId,
+            p_exchange: 'OKX-Funding',
+            p_balances: okxFundingBalances
           });
         }
 
