@@ -15,13 +15,18 @@ export function ManualBalanceSync() {
     setResult(null);
 
     try {
-      // Buscar credenciais do localStorage
-      const okxApiKey = localStorage.getItem('okx_api_key');
-      const okxSecretKey = localStorage.getItem('okx_secret_key');
-      const okxPassphrase = localStorage.getItem('okx_passphrase');
+      // Buscar credenciais do localStorage (formato usado pelo TradingModeContext)
+      const okxCredentialsStr = localStorage.getItem('okx_credentials');
+      
+      if (!okxCredentialsStr) {
+        throw new Error('Credenciais da OKX não configuradas. Configure as credenciais primeiro.');
+      }
+
+      const okxCredentials = JSON.parse(okxCredentialsStr);
+      const { apiKey: okxApiKey, secretKey: okxSecretKey, passphrase: okxPassphrase } = okxCredentials;
 
       if (!okxApiKey || !okxSecretKey || !okxPassphrase) {
-        throw new Error('Credenciais da OKX não configuradas');
+        throw new Error('Credenciais da OKX incompletas');
       }
 
       // Buscar user_id
