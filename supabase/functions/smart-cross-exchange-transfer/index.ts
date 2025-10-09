@@ -280,6 +280,42 @@ async function getOKXDepositAddress(
   };
 }
 
+// ⭐ NOVA FUNÇÃO: Verificar saldos em TODAS as contas da OKX (Trading + Funding)
+async function getOKXAllBalances(
+  asset: string,
+  credentials: { okxApiKey?: string; okxSecretKey?: string; okxPassphrase?: string }
+): Promise<{ trading: number; funding: number; total: number; location: string }> {
+  console.log(`🔍 Verificando saldos de ${asset} em todas as contas OKX...`);
+  
+  // Verificar Trading Account
+  let tradingBalance = 0;
+  try {
+    tradingBalance = await getOKXTradingAccountBalance(asset, credentials);
+    console.log(`  📊 Trading Account: ${tradingBalance} ${asset}`);
+  } catch (error) {
+    console.warn('⚠️ Erro ao verificar Trading Account:', error);
+  }
+  
+  // Verificar Funding Account
+  let fundingBalance = 0;
+  try {
+    fundingBalance = await getOKXAvailableBalance(asset, credentials);
+    console.log(`  💰 Funding Account: ${fundingBalance} ${asset}`);
+  } catch (error) {
+    console.warn('⚠️ Erro ao verificar Funding Account:', error);
+  }
+  
+  const total = tradingBalance + fundingBalance;
+  let location = 'none';
+  if (tradingBalance > 0 && fundingBalance > 0) location = 'both';
+  else if (tradingBalance > 0) location = 'trading';
+  else if (fundingBalance > 0) location = 'funding';
+  
+  console.log(`  🎯 Total: ${total} ${asset} (localização: ${location})`);
+  
+  return { trading: tradingBalance, funding: fundingBalance, total, location };
+}
+
 async function getOKXTradingAccountBalance(
   asset: string,
   credentials: { okxApiKey?: string; okxSecretKey?: string; okxPassphrase?: string }
@@ -504,74 +540,114 @@ async function executeOKXWithdrawal(
   network: string,
   credentials: { okxApiKey?: string; okxSecretKey?: string; okxPassphrase?: string }
 ) {
-  // PASSO 1: Transferir da conta de Trading para Funding
-  console.log(`🔄 PASSO 1: Transferindo ${amount} ${asset} de Trading → Funding...`);
+  // ⭐ PASSO 0: VERIFICAR SALDOS EM AMBAS AS CONTAS PRIMEIRO
+  console.log(`🔍 PASSO 0: Verificando saldos em Trading e Funding...`);
   
-  try {
-    await transferOKXTradingToFunding(asset, amount, credentials);
-    console.log('✅ Transferência interna concluída');
-    
-    // Aguardar processamento interno da OKX
-    console.log('⏳ Aguardando processamento interno da OKX (5 segundos)...');
-    await new Promise(resolve => setTimeout(resolve, 5000));
-  } catch (transferError) {
-    console.error('❌ ERRO CRÍTICO na transferência interna OKX:', transferError);
-    
-    // Se a transferência interna falhar, verificar se JÁ há saldo suficiente na Funding
-    try {
-      const fallbackFunding = await getOKXAvailableBalance(asset, credentials);
-      console.log(`🛟 Fallback: Funding já possui ${fallbackFunding} ${asset}`);
-      if (fallbackFunding >= amount) {
-        console.log('✅ Fallback aprovado: saldo suficiente na Funding. Prosseguindo sem transferência interna.');
-      } else {
-        // Verificar se é erro de saldo insuficiente na Trading Account
-        const errorMsg = transferError instanceof Error ? transferError.message : String(transferError);
-        if (errorMsg.includes('Insufficient balance')) {
-          throw new Error(
-            `Saldo insuficiente na conta de Trading da OKX para transferir ${amount} ${asset}. ` +
-            `Verifique se a ordem de compra foi processada corretamente. ` +
-            `Erro original: ${errorMsg}`
-          );
-        }
-        throw new Error(`Falha na transferência interna Trading → Funding: ${errorMsg}`);
-      }
-    } catch (fbErr) {
-      // Se o fallback também falhar, propagar erro
-      const errorMsg = transferError instanceof Error ? transferError.message : String(transferError);
-      throw new Error(`Falha na transferência interna Trading → Funding: ${errorMsg}`);
-    }
+  const balances = await getOKXAllBalances(asset, credentials);
+  
+  // Determinar se precisa fazer transferência interna
+  let needsInternalTransfer = false;
+  let amountToTransfer = 0;
+  
+  if (balances.total < amount) {
+    throw new Error(
+      `❌ SALDO TOTAL INSUFICIENTE NA OKX\n` +
+      `Total disponível: ${balances.total} ${asset}\n` +
+      `Necessário: ${amount} ${asset}\n` +
+      `Trading: ${balances.trading} ${asset}\n` +
+      `Funding: ${balances.funding} ${asset}\n` +
+      `Deposite mais ${asset} ou aguarde ordens pendentes serem liquidadas.`
+    );
   }
   
-  // PASSO 2: Verificar saldo disponível na conta de Funding
-  console.log(`🔍 Verificando saldo disponível de ${asset} na conta Funding...`);
-  const availableBalance = await getOKXAvailableBalance(asset, credentials);
-  console.log(`💰 Saldo disponível na Funding: ${availableBalance} ${asset} (necessário: ${amount})`);
+  // Se tem saldo suficiente na Funding, pular transferência interna
+  if (balances.funding >= amount) {
+    console.log(`✅ Saldo suficiente na Funding (${balances.funding} ${asset}). Pulando transferência interna.`);
+    needsInternalTransfer = false;
+  }
+  // Se tem todo o saldo na Trading, transferir tudo
+  else if (balances.trading >= amount && balances.funding === 0) {
+    console.log(`📊 Saldo está todo na Trading (${balances.trading} ${asset}). Transferência necessária.`);
+    needsInternalTransfer = true;
+    amountToTransfer = amount;
+  }
+  // Se tem saldo parcial em ambas, transferir apenas o que falta
+  else if (balances.trading > 0 && balances.funding > 0) {
+    const missingInFunding = amount - balances.funding;
+    console.log(`📊 Saldo parcial em ambas as contas. Transferindo ${missingInFunding} ${asset} da Trading.`);
+    needsInternalTransfer = true;
+    amountToTransfer = Math.min(missingInFunding, balances.trading);
+  }
+  // Só tem na Trading, mas menos que o necessário - transferir tudo disponível
+  else if (balances.trading > 0) {
+    console.log(`📊 Transferindo todo saldo da Trading: ${balances.trading} ${asset}`);
+    needsInternalTransfer = true;
+    amountToTransfer = balances.trading;
+  }
   
-  if (availableBalance < amount) {
-    // Aguardar mais tempo para transferência interna completar
-    console.log('⏳ Aguardando transferência interna completar (10s)...');
-    await new Promise(resolve => setTimeout(resolve, 10000));
+  // PASSO 1: Transferir APENAS SE NECESSÁRIO
+  if (needsInternalTransfer) {
+    console.log(`🔄 PASSO 1: Transferindo ${amountToTransfer} ${asset} de Trading → Funding...`);
     
-    // Verificar novamente
-    const updatedBalance = await getOKXAvailableBalance(asset, credentials);
-    console.log(`💰 Saldo atualizado na Funding: ${updatedBalance} ${asset}`);
-    
-    if (updatedBalance < amount) {
-      // Terceira verificação após mais 10s
-      console.log('⏳ Aguardando mais 10s para transferência interna...');
-      await new Promise(resolve => setTimeout(resolve, 10000));
+    try {
+      await transferOKXTradingToFunding(asset, amountToTransfer, credentials);
+      console.log('✅ Transferência interna concluída');
       
-      const finalBalance = await getOKXAvailableBalance(asset, credentials);
-      console.log(`💰 Verificação final na Funding: ${finalBalance} ${asset}`);
+      // Aguardar processamento interno da OKX
+      console.log('⏳ Aguardando processamento interno da OKX (5 segundos)...');
+      await new Promise(resolve => setTimeout(resolve, 5000));
+    } catch (transferError) {
+      console.error('❌ ERRO na transferência interna OKX:', transferError);
       
-      if (finalBalance < amount) {
+      // Verificar se o erro é de saldo insuficiente
+      const errorMsg = transferError instanceof Error ? transferError.message : String(transferError);
+      
+      if (errorMsg.includes('Insufficient balance') || errorMsg.includes('FALHA APÓS')) {
         throw new Error(
-          `❌ SALDO INSUFICIENTE NA FUNDING ACCOUNT após 20s de espera\n` +
-          `Disponível: ${finalBalance} ${asset}\n` +
-          `Necessário: ${amount} ${asset}\n` +
-          `A transferência interna Trading → Funding pode ter falado.`
+          `❌ Falha na transferência interna Trading → Funding\n` +
+          `${errorMsg}\n\n` +
+          `Verifique manualmente na OKX:\n` +
+          `1. Se a ordem de compra foi executada\n` +
+          `2. Se o saldo está disponível na Trading Account\n` +
+          `3. Se há ordens pendentes travando o saldo`
         );
       }
+      
+      throw new Error(`Falha na transferência interna: ${errorMsg}`);
+    }
+  } else {
+    console.log(`⚡ PASSO 1 PULADO: Saldo já disponível na Funding Account`);
+  }
+  
+  // PASSO 2: Verificar saldo final disponível na Funding Account
+  console.log(`🔍 PASSO 2: Verificando saldo final de ${asset} na Funding...`);
+  
+  // Fazer várias verificações com esperas progressivas
+  const maxRetries = 4;
+  const retryDelays = [5000, 10000, 15000, 20000]; // Total: até 50s
+  let finalFundingBalance = 0;
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    finalFundingBalance = await getOKXAvailableBalance(asset, credentials);
+    console.log(`💰 [Tentativa ${attempt + 1}/${maxRetries}] Saldo Funding: ${finalFundingBalance} ${asset} (necessário: ${amount})`);
+    
+    if (finalFundingBalance >= amount) {
+      console.log(`✅ Saldo suficiente confirmado na Funding!`);
+      break;
+    }
+    
+    if (attempt < maxRetries - 1) {
+      const waitTime = retryDelays[attempt];
+      console.log(`⏳ Aguardando transferência interna completar (${waitTime/1000}s)...`);
+      await new Promise(resolve => setTimeout(resolve, waitTime));
+    } else {
+      throw new Error(
+        `❌ SALDO INSUFICIENTE NA FUNDING ACCOUNT após ${retryDelays.reduce((a,b) => a+b, 0)/1000}s de espera\n` +
+        `Disponível: ${finalFundingBalance} ${asset}\n` +
+        `Necessário: ${amount} ${asset}\n` +
+        `A transferência interna Trading → Funding pode ter falhado ou ainda está processando.\n` +
+        `Aguarde alguns minutos e tente novamente.`
+      );
     }
   }
   
