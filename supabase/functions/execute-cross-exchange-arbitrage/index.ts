@@ -262,9 +262,46 @@ serve(async (req) => {
           cryptoAmount = buyResult.executedQty || (finalUsdtInvestment / buyPrice);
           console.log(`💎 Quantidade comprada: ${cryptoAmount} ${symbol.replace('USDT', '')}`);
           
-          // Aguardar processamento
-          console.log('⏳ Aguardando processamento da ordem (3s)...');
-          await new Promise(resolve => setTimeout(resolve, 3000));
+          // Aguardar o saldo aparecer na Trading Account (polling com timeout)
+          if (buyExchange === 'OKX') {
+            console.log('⏳ Aguardando saldo aparecer na Trading Account da OKX...');
+            const maxAttempts = 15; // 15 tentativas = 45 segundos
+            let balanceFound = false;
+            
+            for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+              await new Promise(resolve => setTimeout(resolve, 3000)); // 3s entre tentativas
+              
+              try {
+                const currentBalance = await getExchangeBalance('OKX', symbol.replace('USDT', ''), { 
+                  okxApiKey: finalOkxApiKey, 
+                  okxSecretKey: finalOkxSecretKey, 
+                  okxPassphrase: finalOkxPassphrase 
+                });
+                
+                console.log(`   Tentativa ${attempt}/${maxAttempts}: Trading Account = ${currentBalance} ${symbol.replace('USDT', '')}`);
+                
+                if (currentBalance >= cryptoAmount * 0.95) { // Aceitar 95% da quantidade (tolerância para taxas)
+                  console.log(`✅ Saldo confirmado na Trading Account: ${currentBalance} ${symbol.replace('USDT', '')}`);
+                  cryptoAmount = currentBalance; // Usar o saldo real confirmado
+                  balanceFound = true;
+                  break;
+                }
+              } catch (checkError) {
+                console.warn(`⚠️ Erro ao verificar saldo (tentativa ${attempt}):`, checkError);
+              }
+            }
+            
+            if (!balanceFound) {
+              throw new Error(
+                `❌ TIMEOUT: Saldo de ${symbol.replace('USDT', '')} não apareceu na Trading Account após ${maxAttempts * 3}s. ` +
+                `Verifique manualmente na OKX se a ordem foi executada.`
+              );
+            }
+          } else {
+            // Para Binance, aguardar apenas 3s como antes
+            console.log('⏳ Aguardando processamento da ordem (3s)...');
+            await new Promise(resolve => setTimeout(resolve, 3000));
+          }
         } else {
           console.log(`⚡ PULANDO COMPRA - Usando ${cryptoAmount.toFixed(6)} ${symbol.replace('USDT', '')} do saldo existente`);
           // Criar um buyResult simulado
