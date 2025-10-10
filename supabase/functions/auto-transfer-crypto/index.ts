@@ -312,6 +312,82 @@ async function getOKXDepositAddress(
   };
 }
 
+async function getOKXAllBalances(
+  asset: string,
+  credentials: any
+): Promise<{ trading: number; funding: number; total: number; location: string }> {
+  try {
+    console.log(`🔍 Verificando saldo de ${asset} em OKX (Trading + Funding)...`);
+    
+    const timestamp = new Date().toISOString();
+    const method = 'GET';
+    const requestPath = `/api/v5/asset/balances?ccy=${asset}`;
+    
+    const sign = createHmac('sha256', credentials.okxSecretKey)
+      .update(timestamp + method + requestPath)
+      .digest('base64');
+    
+    const response = await fetch(`https://www.okx.com${requestPath}`, {
+      method,
+      headers: {
+        'OK-ACCESS-KEY': credentials.okxApiKey,
+        'OK-ACCESS-SIGN': sign,
+        'OK-ACCESS-TIMESTAMP': timestamp,
+        'OK-ACCESS-PASSPHRASE': credentials.okxPassphrase,
+        'Content-Type': 'application/json',
+      }
+    });
+    
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Erro ao buscar saldo OKX: ${error}`);
+    }
+    
+    const data = await response.json();
+    
+    if (data.code !== '0') {
+      throw new Error(`OKX Error: ${data.msg}`);
+    }
+    
+    let tradingBalance = 0;
+    let fundingBalance = 0;
+    
+    if (data.data && Array.isArray(data.data)) {
+      for (const balance of data.data) {
+        const available = parseFloat(balance.availBal || '0');
+        
+        if (balance.account === 'trading' || balance.account === '18') {
+          tradingBalance += available;
+        } else if (balance.account === 'funding' || balance.account === '6') {
+          fundingBalance += available;
+        }
+      }
+    }
+    
+    const totalBalance = tradingBalance + fundingBalance;
+    
+    let location = 'none';
+    if (tradingBalance > 0 && fundingBalance > 0) {
+      location = 'both';
+    } else if (tradingBalance > 0) {
+      location = 'trading';
+    } else if (fundingBalance > 0) {
+      location = 'funding';
+    }
+    
+    console.log(`💰 Saldos OKX de ${asset}:`);
+    console.log(`   Trading: ${tradingBalance}`);
+    console.log(`   Funding: ${fundingBalance}`);
+    console.log(`   Total: ${totalBalance} (${location})`);
+    
+    return { trading: tradingBalance, funding: fundingBalance, total: totalBalance, location };
+    
+  } catch (error) {
+    console.error(`❌ Erro ao buscar saldo OKX:`, error);
+    throw error;
+  }
+}
+
 async function executeWithdrawal(
   exchange: string,
   asset: string,
@@ -412,7 +488,122 @@ async function executeOKXWithdrawal(
   credentials: any
 ): Promise<{ id: string; fee: number; txUrl?: string }> {
   
-  // Mapeamento de redes: Frontend → OKX API
+  console.log(`🚀 Iniciando withdrawal OKX: ${amount} ${asset}`);
+  
+  // PASSO 0: Verificar saldo total (Trading + Funding)
+  const balanceInfo = await getOKXAllBalances(asset, credentials);
+  
+  if (balanceInfo.total < amount) {
+    throw new Error(
+      `❌ Saldo insuficiente na OKX!\n` +
+      `   Necessário: ${amount} ${asset}\n` +
+      `   Disponível: ${balanceInfo.total} ${asset}\n` +
+      `   Trading: ${balanceInfo.trading} ${asset}\n` +
+      `   Funding: ${balanceInfo.funding} ${asset}`
+    );
+  }
+  
+  // Determinar se precisa de transferência interna
+  const needsInternalTransfer = balanceInfo.funding < amount && balanceInfo.trading > 0;
+  const amountToTransfer = needsInternalTransfer 
+    ? Math.min(amount - balanceInfo.funding, balanceInfo.trading)
+    : 0;
+  
+  console.log(`📊 Análise de saldo OKX:`);
+  console.log(`   Total disponível: ${balanceInfo.total} ${asset} (${balanceInfo.location})`);
+  console.log(`   Necessário: ${amount} ${asset}`);
+  console.log(`   Trading: ${balanceInfo.trading} ${asset}`);
+  console.log(`   Funding: ${balanceInfo.funding} ${asset}`);
+  console.log(`   Precisa transferência interna? ${needsInternalTransfer ? 'SIM' : 'NÃO'}`);
+  if (needsInternalTransfer) {
+    console.log(`   Quantidade a transferir: ${amountToTransfer} ${asset}`);
+  }
+  
+  // PASSO 1: Transferência interna (Trading → Funding) se necessário
+  if (needsInternalTransfer && amountToTransfer > 0) {
+    console.log(`🔄 PASSO 1: Transferindo ${amountToTransfer} ${asset} de Trading → Funding...`);
+    
+    const transferTimestamp = new Date().toISOString();
+    const transferMethod = 'POST';
+    const transferPath = '/api/v5/asset/transfer';
+    const transferBody = {
+      ccy: asset,
+      amt: amountToTransfer.toString(),
+      from: '18', // Trading account
+      to: '6',    // Funding account
+      type: '0'   // Internal transfer
+    };
+    const transferBodyString = JSON.stringify(transferBody);
+    
+    const transferSign = createHmac('sha256', credentials.okxSecretKey)
+      .update(transferTimestamp + transferMethod + transferPath + transferBodyString)
+      .digest('base64');
+    
+    const transferResponse = await fetch(`https://www.okx.com${transferPath}`, {
+      method: transferMethod,
+      headers: {
+        'OK-ACCESS-KEY': credentials.okxApiKey,
+        'OK-ACCESS-SIGN': transferSign,
+        'OK-ACCESS-TIMESTAMP': transferTimestamp,
+        'OK-ACCESS-PASSPHRASE': credentials.okxPassphrase,
+        'Content-Type': 'application/json',
+      },
+      body: transferBodyString
+    });
+    
+    if (!transferResponse.ok) {
+      const error = await transferResponse.text();
+      throw new Error(`Erro na transferência interna OKX: ${error}`);
+    }
+    
+    const transferData = await transferResponse.json();
+    
+    if (transferData.code !== '0') {
+      throw new Error(`OKX Internal Transfer Error: ${transferData.msg}`);
+    }
+    
+    console.log(`✅ Transferência interna concluída: ${amountToTransfer} ${asset} movidos para Funding`);
+    
+    // PASSO 2: Aguardar e verificar saldo na Funding com retry robusto
+    console.log('⏳ Aguardando saldo aparecer na Funding Account...');
+    
+    const maxAttempts = 4;
+    const delays = [5000, 10000, 15000, 20000]; // 5s, 10s, 15s, 20s
+    let balanceConfirmed = false;
+    
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      await new Promise(resolve => setTimeout(resolve, delays[attempt]));
+      
+      try {
+        const currentBalance = await getOKXAllBalances(asset, credentials);
+        console.log(`   Tentativa ${attempt + 1}/${maxAttempts}: Funding = ${currentBalance.funding} ${asset}`);
+        
+        if (currentBalance.funding >= amount * 0.95) { // Tolerância de 5%
+          console.log(`✅ Saldo confirmado na Funding: ${currentBalance.funding} ${asset}`);
+          balanceConfirmed = true;
+          break;
+        }
+      } catch (checkError) {
+        console.warn(`⚠️ Erro ao verificar saldo (tentativa ${attempt + 1}):`, checkError);
+      }
+    }
+    
+    if (!balanceConfirmed) {
+      throw new Error(
+        `❌ Timeout: Saldo não apareceu na Funding Account após ${delays.reduce((a, b) => a + b) / 1000}s.\n` +
+        `Possíveis causas:\n` +
+        `• Transferência interna ainda processando\n` +
+        `• Verifique manualmente o status na OKX\n` +
+        `• Pode haver ordens abertas travando o saldo`
+      );
+    }
+  } else {
+    console.log(`⚡ Saldo já suficiente na Funding (${balanceInfo.funding} ${asset}) - pulando transferência interna`);
+  }
+  
+  // PASSO 3: Executar withdrawal da Funding Account
+  console.log(`🔄 PASSO FINAL: Executando withdrawal de ${amount} ${asset} da Funding Account...`);
+  
   const chainMapping: { [key: string]: string } = {
     'TRC20': `${asset}-TRC20`,
     'ERC20': `${asset}-ERC20`,
@@ -423,7 +614,6 @@ async function executeOKXWithdrawal(
     'OPTIMISM': `${asset}-Optimism`
   };
   
-  // Normalizar entrada (pode vir como TRX, USDT-TRC20, etc.)
   const raw = (chain || '').toUpperCase();
   const part = raw.includes('-') ? raw.split('-').slice(-1)[0] : raw;
   const canonical = ((): string => {
@@ -439,7 +629,7 @@ async function executeOKXWithdrawal(
   })();
   
   const okxChain = chainMapping[canonical] || `${asset}-${canonical}`;
-  console.log(`🔄 Mapeamento de rede OKX: ${chain} → ${canonical} → ${okxChain}`);
+  console.log(`🔄 Mapeamento de rede: ${chain} → ${canonical} → ${okxChain}`);
   
   const timestamp = new Date().toISOString();
   const method = 'POST';
@@ -448,7 +638,7 @@ async function executeOKXWithdrawal(
   const body: any = {
     ccy: asset,
     amt: amount.toString(),
-    dest: '4', // On-chain withdrawal
+    dest: '4',
     toAddr: address,
     fee: 'auto',
     chain: okxChain
@@ -478,7 +668,7 @@ async function executeOKXWithdrawal(
 
   if (!response.ok) {
     const error = await response.text();
-    throw new Error(`Erro na transferência OKX: ${error}`);
+    throw new Error(`Erro no withdrawal OKX: ${error}`);
   }
 
   const data = await response.json();
@@ -486,6 +676,8 @@ async function executeOKXWithdrawal(
   if (data.code !== '0') {
     throw new Error(`OKX Withdrawal Error: ${data.msg}`);
   }
+
+  console.log(`✅ Withdrawal OKX executado com sucesso!`);
 
   return {
     id: data.data[0].wdId,
