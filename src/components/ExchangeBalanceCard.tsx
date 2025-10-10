@@ -99,10 +99,13 @@ export const ExchangeBalanceCard = ({
     fetchBalances();
     fetchOperationLogs();
 
-    // Listener para sincronização forçada via evento global
+    // Listener para sincronização via evento global
+    // ⚠️ IMPORTANTE: Não usar forceRefresh aqui para evitar loop infinito!
+    // O evento 'balances-synced' já foi disparado APÓS a sincronização,
+    // então só precisamos buscar os dados atualizados do banco
     const handleBalanceSync = () => {
       console.log(`🔄 Evento de sincronização recebido - Atualizando ${exchangeNames[exchange]}`);
-      fetchBalances(true);
+      fetchBalances(false); // false = não sincronizar novamente, apenas buscar do DB
       fetchOperationLogs();
     };
 

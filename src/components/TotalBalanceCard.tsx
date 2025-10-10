@@ -172,7 +172,9 @@ export const TotalBalanceCard = ({
   useEffect(() => {
     fetchAllTokens();
     
-    // Listener para sincronização forçada via evento global
+    // Listener para sincronização via evento global
+    // ⚠️ fetchAllTokens apenas busca do DB, não faz nova sincronização
+    // O evento 'balances-synced' já foi disparado APÓS a sincronização
     const handleBalanceSync = () => {
       console.log('🔄 Evento de sincronização recebido - Atualizando Total Balance');
       fetchAllTokens();
