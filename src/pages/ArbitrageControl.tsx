@@ -50,6 +50,7 @@ import { TotalBalanceCard } from '@/components/TotalBalanceCard';
 import { ConversionHistory } from '@/components/ConversionHistory';
 import { SmartBalanceRebalancer } from '@/components/SmartBalanceRebalancer';
 import { UnlockBalances } from '@/components/UnlockBalances';
+import { AutoCrossExchangeConfig } from '@/components/AutoCrossExchangeConfig';
 
 import { type ArbitrageOpportunity } from '@/types/arbitrage';
 
@@ -701,6 +702,10 @@ export default function ArbitrageControl() {
             <Bot className="h-4 w-4 mr-2" />
             Config Auto
           </TabsTrigger>
+          <TabsTrigger value="cross-automation">
+            <Zap className="h-4 w-4 mr-2" />
+            Automação Cross
+          </TabsTrigger>
           <TabsTrigger value="api-config">
             <Settings className="h-4 w-4 mr-2" />
             APIs
@@ -936,6 +941,10 @@ export default function ArbitrageControl() {
 
         <TabsContent value="auto-config" className="space-y-4">
           <AutoArbitrageConfig />
+        </TabsContent>
+
+        <TabsContent value="cross-automation" className="space-y-4">
+          <AutoCrossExchangeConfig />
         </TabsContent>
 
         <TabsContent value="api-config" className="space-y-4">
