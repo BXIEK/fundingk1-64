@@ -98,6 +98,10 @@ serve(async (req) => {
     // ⭐ BUSCAR SALDO DISPONÍVEL AUTOMATICAMENTE
     let usdtInvestment = 0;
     
+    // Valor mínimo NOTIONAL da Binance (10 USDT para maioria dos pares)
+    const MIN_NOTIONAL_BINANCE = 10;
+    const MIN_NOTIONAL_OKX = 5;
+    
     if (mode === 'real') {
       console.log(`🔍 Buscando saldo disponível de ${symbol} e USDT na ${buyExchange}...`);
       try {
@@ -134,9 +138,34 @@ serve(async (req) => {
             throw new Error(errorMsg);
           }
           
+          // Determinar valor mínimo com base na exchange
+          const minNotional = buyExchange === 'Binance' ? MIN_NOTIONAL_BINANCE : MIN_NOTIONAL_OKX;
+          
+          // ⚠️ VALIDAÇÃO CRÍTICA: Verificar se saldo atende o NOTIONAL mínimo
+          if (usdtBalance < minNotional) {
+            const errorMsg = 
+              `❌ SALDO INSUFICIENTE NA ${buyExchange.toUpperCase()}\n\n` +
+              `💰 Seu saldo: $${usdtBalance.toFixed(2)} USDT\n` +
+              `📊 Mínimo exigido: $${minNotional} USDT\n` +
+              `📈 Você precisa depositar: $${(minNotional - usdtBalance).toFixed(2)} USDT\n\n` +
+              `💡 Soluções:\n` +
+              `   1. Deposite mais USDT na ${buyExchange}\n` +
+              `   2. Escolha um par com saldo suficiente em crypto\n` +
+              `   3. Use a exchange ${buyExchange === 'Binance' ? 'OKX' : 'Binance'} (mínimo menor)`;
+            console.error(errorMsg);
+            throw new Error(errorMsg);
+          }
+          
           // Usar 95% do saldo USDT disponível
           usdtInvestment = usdtBalance * 0.95;
-          console.log(`✅ Usando 95% do saldo USDT: $${usdtInvestment.toFixed(2)}`);
+          
+          // Verificar novamente após calcular 95%
+          if (usdtInvestment < minNotional) {
+            usdtInvestment = minNotional;
+            console.log(`⚠️ Ajustando para valor mínimo: $${usdtInvestment.toFixed(2)} (${minNotional} USDT mínimo)`);
+          } else {
+            console.log(`✅ Usando 95% do saldo USDT: $${usdtInvestment.toFixed(2)}`);
+          }
         }
       } catch (balanceError) {
         console.error('❌ Erro ao buscar saldos:', balanceError);
