@@ -77,12 +77,43 @@ serve(async (req) => {
       console.error('❌ Erro da Binance:', response.status, errorText);
       
       let errorMessage = `Erro HTTP ${response.status}`
+      let errorCode = null
+      
       try {
         const errorData = JSON.parse(errorText)
+        errorCode = errorData.code
         errorMessage = errorData.msg || errorMessage
       } catch {}
       
-      throw new Error(errorMessage)
+      // Tratamento específico de erros comuns
+      if (errorCode === -1002) {
+        throw new Error(
+          `❌ ERRO -1002: PERMISSÃO NEGADA\n\n` +
+          `🔑 PROBLEMA: API Key sem permissão de saque (withdrawal)\n\n` +
+          `📋 COMO CORRIGIR:\n` +
+          `   1. Acesse: https://www.binance.com/en/my/settings/api-management\n` +
+          `   2. Edite sua API Key\n` +
+          `   3. Marque "Enable Withdrawals" ✅\n` +
+          `   4. Configure whitelist de IPs (ou desative restrição)\n` +
+          `   5. Salve as mudanças\n\n` +
+          `⚠️ IMPORTANTE: Você também pode estar bloqueado por IP.\n` +
+          `   Adicione os IPs do Supabase na whitelist ou desative a restrição.`
+        )
+      }
+      
+      if (errorCode === -1013) {
+        throw new Error(
+          `❌ ERRO -1013: VALOR MÍNIMO NÃO ATINGIDO (NOTIONAL)\n\n` +
+          `💰 Seu valor está abaixo do mínimo exigido pela Binance\n` +
+          `📊 Mínimo: $10 USDT para a maioria dos pares\n\n` +
+          `💡 SOLUÇÕES:\n` +
+          `   • Aumente o valor da operação\n` +
+          `   • Use um par com valor maior acumulado\n` +
+          `   • Deposite mais USDT na Binance`
+        )
+      }
+      
+      throw new Error(`Erro Binance (${errorCode || response.status}): ${errorMessage}`)
     }
 
     const data = await response.json()

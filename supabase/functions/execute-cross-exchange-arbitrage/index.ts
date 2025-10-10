@@ -144,14 +144,18 @@ serve(async (req) => {
           // ⚠️ VALIDAÇÃO CRÍTICA: Verificar se saldo atende o NOTIONAL mínimo
           if (usdtBalance < minNotional) {
             const errorMsg = 
-              `❌ SALDO INSUFICIENTE NA ${buyExchange.toUpperCase()}\n\n` +
+              `❌ SALDO INSUFICIENTE - ${buyExchange.toUpperCase()}\n\n` +
               `💰 Seu saldo: $${usdtBalance.toFixed(2)} USDT\n` +
-              `📊 Mínimo exigido: $${minNotional} USDT\n` +
-              `📈 Você precisa depositar: $${(minNotional - usdtBalance).toFixed(2)} USDT\n\n` +
-              `💡 Soluções:\n` +
-              `   1. Deposite mais USDT na ${buyExchange}\n` +
-              `   2. Escolha um par com saldo suficiente em crypto\n` +
-              `   3. Use a exchange ${buyExchange === 'Binance' ? 'OKX' : 'Binance'} (mínimo menor)`;
+              `📊 Mínimo da ${buyExchange}: $${minNotional} USDT\n` +
+              `📈 Faltam: $${(minNotional - usdtBalance).toFixed(2)} USDT\n\n` +
+              `🚫 MOTIVO DO ERRO:\n` +
+              `   Exchanges exigem valor mínimo de ordem (NOTIONAL)\n` +
+              `   • Binance: $10 USDT mínimo\n` +
+              `   • OKX: $5 USDT mínimo\n\n` +
+              `💡 SOLUÇÕES:\n` +
+              `   1. Deposite USDT na ${buyExchange}\n` +
+              `   2. Escolha token com saldo existente\n` +
+              `   3. Use ${buyExchange === 'Binance' ? 'OKX' : 'Binance'} (mínimo ${buyExchange === 'Binance' ? '$5' : '$10'})`;
             console.error(errorMsg);
             throw new Error(errorMsg);
           }
@@ -219,15 +223,39 @@ serve(async (req) => {
         console.log('💰 EXECUTANDO OPERAÇÃO REAL COM PADRÃO USDT...');
         console.log(`📊 Credenciais: Binance=${!!finalBinanceApiKey}, OKX=${!!finalOkxApiKey}`);
         
-        // Validar credenciais necessárias
+        // ⚠️ VALIDAÇÃO CRÍTICA DE CREDENCIAIS E PERMISSÕES
         const needsBinance = buyExchange === 'Binance' || sellExchange === 'Binance';
         const needsOKX = buyExchange === 'OKX' || sellExchange === 'OKX';
         
-        if (needsBinance && (!finalBinanceApiKey || !finalBinanceSecretKey)) {
-          throw new Error('❌ Credenciais da Binance não configuradas. Configure em Supabase Secrets.');
+        if (needsBinance) {
+          if (!finalBinanceApiKey || !finalBinanceSecretKey) {
+            throw new Error(
+              '❌ CREDENCIAIS BINANCE AUSENTES\n\n' +
+              '📋 Configure em: Controle de Arbitragem > Configuração de APIs\n' +
+              '🔑 Necessário: API Key + Secret Key'
+            );
+          }
+          
+          // Avisar sobre permissões necessárias
+          console.warn('⚠️ VERIFIQUE PERMISSÕES DA BINANCE:');
+          console.warn('   ✅ Enable Withdrawals deve estar ATIVADO');
+          console.warn('   ✅ Whitelist de IPs configurada OU desabilitada');
+          console.warn('   📍 Gerenciar em: https://www.binance.com/en/my/settings/api-management');
         }
-        if (needsOKX && (!finalOkxApiKey || !finalOkxSecretKey || !finalOkxPassphrase)) {
-          throw new Error('❌ Credenciais da OKX não configuradas. Configure em Supabase Secrets.');
+        
+        if (needsOKX) {
+          if (!finalOkxApiKey || !finalOkxSecretKey || !finalOkxPassphrase) {
+            throw new Error(
+              '❌ CREDENCIAIS OKX INCOMPLETAS\n\n' +
+              '📋 Configure em: Controle de Arbitragem > Configuração de APIs\n' +
+              '🔑 Necessário: API Key + Secret + Passphrase'
+            );
+          }
+          
+          // Avisar sobre whitelist
+          console.warn('⚠️ VERIFIQUE WHITELIST DA OKX:');
+          console.warn('   ✅ Endereços da Binance devem estar na whitelist');
+          console.warn('   📍 Gerenciar em: https://www.okx.com/balance/withdrawal-address');
         }
         
         // Usar o saldo já calculado anteriormente
