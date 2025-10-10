@@ -192,7 +192,8 @@ export const AutoTokenConverter = () => {
           ...credentials,
           symbol: config.symbol,
           direction,
-          customAmount: amount
+          customAmount: amount,
+          userId: user.id
         }
       });
 

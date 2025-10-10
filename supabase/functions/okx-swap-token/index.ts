@@ -1,9 +1,14 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -11,10 +16,21 @@ serve(async (req) => {
   }
 
   try {
-    const { apiKey, secretKey, passphrase, symbol, direction, amount: customAmount, orderType = 'limit' } = await req.json();
+    const { apiKey, secretKey, passphrase, symbol, direction, amount: customAmount, orderType = 'limit', userId } = await req.json();
     // direction: 'toUsdt' ou 'toToken'
     // amount: quantidade específica a converter (opcional)
     // orderType: 'market' (taker fees ~0.08%) ou 'limit' (maker fees ~0.02% ou menos)
+    
+    // Buscar user_id se não fornecido
+    let finalUserId = userId;
+    if (!finalUserId) {
+      const authHeader = req.headers.get('Authorization');
+      if (authHeader) {
+        const token = authHeader.replace('Bearer ', '');
+        const { data: { user } } = await supabase.auth.getUser(token);
+        finalUserId = user?.id;
+      }
+    }
 
     if (!apiKey || !secretKey || !passphrase || !symbol || !direction) {
       throw new Error('Parâmetros incompletos');
@@ -211,8 +227,72 @@ serve(async (req) => {
     let resultMessage = '';
     if (direction === 'toUsdt') {
       resultMessage = `${orderSize.toFixed(6)} ${symbol} → USDT (${orderType})`;
+      
+      // ⭐ Salvar no histórico (Token → USDT)
+      if (finalUserId) {
+        try {
+          // Buscar preço final para calcular USDT recebido
+          const tickerResponse = await callOKXAPI(
+            '/api/v5/market/ticker',
+            'GET',
+            { instId: tradePair },
+            apiKey,
+            secretKey,
+            passphrase
+          );
+          const currentPrice = parseFloat(tickerResponse.data[0]?.last || '0');
+          const usdtReceived = orderSize * currentPrice;
+          
+          await supabase.from('conversion_history').insert({
+            user_id: finalUserId,
+            from_token: symbol,
+            to_token: 'USDT',
+            from_amount: orderSize,
+            to_amount: usdtReceived,
+            exchange: 'OKX',
+            conversion_type: orderType,
+            price: currentPrice,
+            status: 'success'
+          });
+          console.log(`💾 Conversão ${symbol}→USDT salva no histórico`);
+        } catch (dbError) {
+          console.error(`⚠️ Erro ao salvar histórico:`, dbError);
+        }
+      }
     } else {
       resultMessage = `USDT → ${orderSize.toFixed(6)} ${symbol} (${orderType})`;
+      
+      // ⭐ Salvar no histórico (USDT → Token)
+      if (finalUserId) {
+        try {
+          // Buscar preço final para calcular USDT gasto
+          const tickerResponse = await callOKXAPI(
+            '/api/v5/market/ticker',
+            'GET',
+            { instId: tradePair },
+            apiKey,
+            secretKey,
+            passphrase
+          );
+          const currentPrice = parseFloat(tickerResponse.data[0]?.last || '0');
+          const usdtSpent = orderSize * currentPrice;
+          
+          await supabase.from('conversion_history').insert({
+            user_id: finalUserId,
+            from_token: 'USDT',
+            to_token: symbol,
+            from_amount: usdtSpent,
+            to_amount: orderSize,
+            exchange: 'OKX',
+            conversion_type: orderType,
+            price: currentPrice,
+            status: 'success'
+          });
+          console.log(`💾 Conversão USDT→${symbol} salva no histórico`);
+        } catch (dbError) {
+          console.error(`⚠️ Erro ao salvar histórico:`, dbError);
+        }
+      }
     }
 
     return new Response(

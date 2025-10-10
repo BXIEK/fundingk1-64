@@ -1,10 +1,14 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+const supabase = createClient(supabaseUrl, supabaseKey)
 
 interface ConversionResult {
   symbol: string;
@@ -20,7 +24,18 @@ serve(async (req) => {
   }
 
   try {
-    const { apiKey, secretKey, passphrase, minUsdValue = 10 } = await req.json();
+    const { apiKey, secretKey, passphrase, minUsdValue = 10, userId } = await req.json();
+    
+    // Buscar user_id se não fornecido
+    let finalUserId = userId
+    if (!finalUserId) {
+      const authHeader = req.headers.get('Authorization')
+      if (authHeader) {
+        const token = authHeader.replace('Bearer ', '')
+        const { data: { user } } = await supabase.auth.getUser(token)
+        finalUserId = user?.id
+      }
+    }
 
     if (!apiKey || !secretKey || !passphrase) {
       throw new Error('Credenciais OKX incompletas');
@@ -188,6 +203,26 @@ serve(async (req) => {
           });
 
           totalUsdtReceived += usdtReceived;
+
+          // ⭐ Salvar no histórico de conversões
+          if (finalUserId) {
+            try {
+              await supabase.from('conversion_history').insert({
+                user_id: finalUserId,
+                from_token: symbol,
+                to_token: 'USDT',
+                from_amount: orderSize,
+                to_amount: usdtReceived,
+                exchange: 'OKX',
+                conversion_type: 'market',
+                price: price,
+                status: 'success'
+              })
+              console.log(`   💾 Conversão ${symbol}→USDT salva no histórico`)
+            } catch (dbError) {
+              console.error(`   ⚠️ Erro ao salvar histórico:`, dbError)
+            }
+          }
         } else {
           const errorMsg = orderResponse.msg || 'Erro desconhecido na execução da ordem';
           console.log(`   ❌ Falha na ordem: ${errorMsg}`);
@@ -210,6 +245,26 @@ serve(async (req) => {
           success: false,
           error: orderError.message
         });
+        
+        // ⭐ Salvar falha no histórico
+        if (finalUserId) {
+          try {
+            await supabase.from('conversion_history').insert({
+              user_id: finalUserId,
+              from_token: symbol,
+              to_token: 'USDT',
+              from_amount: orderSize,
+              to_amount: 0,
+              exchange: 'OKX',
+              conversion_type: 'market',
+              price: price,
+              status: 'failed',
+              error_message: orderError.message
+            });
+          } catch (dbError) {
+            console.error(`⚠️ Erro ao salvar histórico de falha:`, dbError);
+          }
+        }
       }
     }
 

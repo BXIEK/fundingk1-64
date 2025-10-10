@@ -30,6 +30,12 @@ export const BinanceAutoConverter = () => {
     setTotalReceived(0);
 
     try {
+      // Buscar user ID
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('Usuário não autenticado');
+      }
+
       // Buscar credenciais da Binance
       const binanceCreds = localStorage.getItem('binance_credentials');
       if (!binanceCreds) {
@@ -44,7 +50,7 @@ export const BinanceAutoConverter = () => {
       });
 
       const { data, error } = await supabase.functions.invoke('binance-convert-to-usdt', {
-        body: { apiKey, secretKey, minUsdValue }
+        body: { apiKey, secretKey, minUsdValue, userId: user.id }
       });
 
       if (error) throw error;

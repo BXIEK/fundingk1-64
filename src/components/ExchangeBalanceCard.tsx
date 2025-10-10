@@ -335,7 +335,8 @@ export const ExchangeBalanceCard = ({
           body: { 
             ...credentials, 
             symbol: selectedToken, 
-            direction: 'toUsdt'
+            direction: 'toUsdt',
+            userId: user.id
           }
         });
 
@@ -384,7 +385,7 @@ export const ExchangeBalanceCard = ({
         console.log(`📡 Chamando edge function: ${functionName}`);
 
         const { data, error } = await supabase.functions.invoke(functionName, {
-          body: { ...credentials, minUsdValue: 5 }
+          body: { ...credentials, minUsdValue: 5, userId: user.id }
         });
 
         console.log('📬 Resposta da edge function:', { data, error });

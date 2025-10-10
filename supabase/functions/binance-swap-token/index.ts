@@ -1,9 +1,14 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -11,11 +16,22 @@ serve(async (req) => {
   }
 
   try {
-    const { apiKey, secretKey, symbol, direction, amount, customAmount, orderType = 'limit' } = await req.json();
+    const { apiKey, secretKey, symbol, direction, amount, customAmount, orderType = 'limit', userId } = await req.json();
     // direction: 'toUsdt' ou 'toToken'
     // amount/customAmount: quantidade específica a converter (opcional)
     // orderType: 'market' (taker fees ~0.1%) ou 'limit' (maker fees ~0.02% ou menos)
     const requestedAmount = typeof customAmount !== 'undefined' ? customAmount : amount;
+    
+    // Buscar user_id se não fornecido
+    let finalUserId = userId;
+    if (!finalUserId) {
+      const authHeader = req.headers.get('Authorization');
+      if (authHeader) {
+        const token = authHeader.replace('Bearer ', '');
+        const { data: { user } } = await supabase.auth.getUser(token);
+        finalUserId = user?.id;
+      }
+    }
 
     if (!apiKey || !secretKey || !symbol || !direction) {
       throw new Error('Parâmetros incompletos');
@@ -269,9 +285,50 @@ serve(async (req) => {
       const usdtReceived = totalExecuted * avgPrice;
       resultMessage = `${totalExecuted.toFixed(6)} ${symbol} → ${usdtReceived.toFixed(2)} USDT (${orderType})`;
       console.log(`💵 USDT: ${usdtReceived.toFixed(2)}`);
+      
+      // ⭐ Salvar no histórico
+      if (finalUserId) {
+        try {
+          await supabase.from('conversion_history').insert({
+            user_id: finalUserId,
+            from_token: symbol,
+            to_token: 'USDT',
+            from_amount: totalExecuted,
+            to_amount: usdtReceived,
+            exchange: 'Binance',
+            conversion_type: orderType,
+            price: avgPrice,
+            status: 'success'
+          });
+          console.log(`💾 Conversão ${symbol}→USDT salva no histórico`);
+        } catch (dbError) {
+          console.error(`⚠️ Erro ao salvar histórico:`, dbError);
+        }
+      }
     } else {
       resultMessage = `USDT → ${totalExecuted.toFixed(6)} ${symbol} (${orderType})`;
       console.log(`🪙 ${symbol}: ${totalExecuted.toFixed(6)}`);
+      
+      // ⭐ Salvar no histórico (USDT → Token)
+      if (finalUserId) {
+        try {
+          const usdtSpent = totalExecuted * avgPrice;
+          await supabase.from('conversion_history').insert({
+            user_id: finalUserId,
+            from_token: 'USDT',
+            to_token: symbol,
+            from_amount: usdtSpent,
+            to_amount: totalExecuted,
+            exchange: 'Binance',
+            conversion_type: orderType,
+            price: avgPrice,
+            status: 'success'
+          });
+          console.log(`💾 Conversão USDT→${symbol} salva no histórico`);
+        } catch (dbError) {
+          console.error(`⚠️ Erro ao salvar histórico:`, dbError);
+        }
+      }
     }
 
     return new Response(

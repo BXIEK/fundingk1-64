@@ -1,9 +1,14 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
+
+const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+const supabase = createClient(supabaseUrl, supabaseKey)
 
 interface ConversionResult {
   symbol: string;
@@ -21,7 +26,18 @@ serve(async (req) => {
   try {
     console.log('🔄 Edge Function binance-convert-to-usdt iniciada');
     
-    const { apiKey, secretKey, minUsdValue = 10 } = await req.json()
+    const { apiKey, secretKey, minUsdValue = 10, userId } = await req.json()
+    
+    // Buscar user_id se não fornecido
+    let finalUserId = userId
+    if (!finalUserId) {
+      const authHeader = req.headers.get('Authorization')
+      if (authHeader) {
+        const token = authHeader.replace('Bearer ', '')
+        const { data: { user } } = await supabase.auth.getUser(token)
+        finalUserId = user?.id
+      }
+    }
 
     if (!apiKey || !secretKey) {
       console.log('❌ Credenciais ausentes');
@@ -175,6 +191,7 @@ serve(async (req) => {
 
         const orderData = await orderResponse.json()
         const usdtReceived = parseFloat(orderData.cummulativeQuoteQty || '0')
+        const avgPrice = parseFloat(orderData.fills?.[0]?.price || price.toString())
 
         console.log(`✅ ${token.asset} convertido: ${usdtReceived.toFixed(2)} USDT recebidos`)
 
@@ -184,6 +201,26 @@ serve(async (req) => {
           success: true,
           usdtReceived
         })
+
+        // ⭐ Salvar no histórico de conversões
+        if (finalUserId) {
+          try {
+            await supabase.from('conversion_history').insert({
+              user_id: finalUserId,
+              from_token: token.asset,
+              to_token: 'USDT',
+              from_amount: quantity,
+              to_amount: usdtReceived,
+              exchange: 'Binance',
+              conversion_type: 'market',
+              price: avgPrice,
+              status: 'success'
+            })
+            console.log(`💾 Conversão ${token.asset}→USDT salva no histórico`)
+          } catch (dbError) {
+            console.error(`⚠️ Erro ao salvar histórico:`, dbError)
+          }
+        }
 
         // Delay entre ordens para evitar rate limit
         await new Promise(resolve => setTimeout(resolve, 500))
@@ -196,6 +233,26 @@ serve(async (req) => {
           success: false,
           error: error.message
         })
+        
+        // ⭐ Salvar falha no histórico
+        if (finalUserId) {
+          try {
+            await supabase.from('conversion_history').insert({
+              user_id: finalUserId,
+              from_token: token.asset,
+              to_token: 'USDT',
+              from_amount: token.balance,
+              to_amount: 0,
+              exchange: 'Binance',
+              conversion_type: 'market',
+              price: 0,
+              status: 'failed',
+              error_message: error.message
+            });
+          } catch (dbError) {
+            console.error(`⚠️ Erro ao salvar histórico de falha:`, dbError);
+          }
+        }
       }
     }
 
