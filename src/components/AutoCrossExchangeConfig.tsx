@@ -201,25 +201,41 @@ export const AutoCrossExchangeConfig = () => {
       const { data: { user } } = await supabase.auth.getUser();
       
       if (user?.id) {
-        // Upsert via RLS quando autenticado
-        const { error } = await supabase
+        // Verificar se já existe configuração
+        const { data: existing } = await supabase
           .from('auto_cross_exchange_configs')
-          .upsert({
-            user_id: user.id,
-            is_enabled: config.is_enabled,
-            min_spread_percentage: config.min_spread_percentage,
-            max_investment_amount: config.max_investment_amount,
-            min_profit_threshold: config.min_profit_threshold,
-            max_concurrent_operations: config.max_concurrent_operations,
-            auto_rebalance_enabled: config.auto_rebalance_enabled,
-            stop_loss_percentage: config.stop_loss_percentage,
-            exchanges_enabled: config.exchanges_enabled,
-            risk_management_level: config.risk_management_level,
-            symbols_filter: config.symbols_filter
-          }, {
-            onConflict: 'user_id'
-          });
-        if (error) throw error;
+          .select('id')
+          .eq('user_id', user.id)
+          .single();
+
+        const configData = {
+          user_id: user.id,
+          is_enabled: config.is_enabled,
+          min_spread_percentage: config.min_spread_percentage,
+          max_investment_amount: config.max_investment_amount,
+          min_profit_threshold: config.min_profit_threshold,
+          max_concurrent_operations: config.max_concurrent_operations,
+          auto_rebalance_enabled: config.auto_rebalance_enabled,
+          stop_loss_percentage: config.stop_loss_percentage,
+          exchanges_enabled: config.exchanges_enabled,
+          risk_management_level: config.risk_management_level,
+          symbols_filter: config.symbols_filter
+        };
+
+        if (existing?.id) {
+          // Atualizar registro existente
+          const { error } = await supabase
+            .from('auto_cross_exchange_configs')
+            .update(configData)
+            .eq('id', existing.id);
+          if (error) throw error;
+        } else {
+          // Criar novo registro
+          const { error } = await supabase
+            .from('auto_cross_exchange_configs')
+            .insert(configData);
+          if (error) throw error;
+        }
       } else {
         // Fallback sem login: usar função edge (service role)
         const fallbackId = await getUserId();
