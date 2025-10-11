@@ -44,7 +44,64 @@ serve(async (req) => {
     console.log('🔄 Iniciando conversão automática OKX para USDT');
     console.log(`💰 Valor mínimo por token: $${minUsdValue}`);
 
-    // Buscar saldos da conta
+    // ⭐ ETAPA 1: Transferir todos os tokens da Funding para Trading
+    console.log(`\n📤 ETAPA 1: Transferindo tokens de Funding → Trading...`);
+    try {
+      const fundingResponse = await callOKXAPI('/api/v5/asset/balances', 'GET', {}, apiKey, secretKey, passphrase);
+      
+      if (fundingResponse.data && Array.isArray(fundingResponse.data)) {
+        const fundingTokens = fundingResponse.data.filter((b: any) => {
+          const bal = parseFloat(b.availBal || '0');
+          return bal > 0 && b.ccy !== 'USDT' && b.ccy !== 'USDC';
+        });
+        
+        console.log(`💰 Encontrados ${fundingTokens.length} tokens na Funding Account`);
+        
+        for (const token of fundingTokens) {
+          const balance = parseFloat(token.availBal);
+          console.log(`  📤 Transferindo ${balance} ${token.ccy}...`);
+          
+          try {
+            const transferResponse = await callOKXAPI(
+              '/api/v5/asset/transfer',
+              'POST',
+              {
+                ccy: token.ccy,
+                amt: balance.toString(),
+                from: '6', // Funding
+                to: '18',  // Trading
+                type: '0'
+              },
+              apiKey,
+              secretKey,
+              passphrase
+            );
+            
+            if (transferResponse.code === '0') {
+              console.log(`  ✅ ${token.ccy} transferido com sucesso`);
+            } else {
+              console.warn(`  ⚠️ Falha ao transferir ${token.ccy}: ${transferResponse.msg}`);
+            }
+            
+            await new Promise(resolve => setTimeout(resolve, 300));
+          } catch (transferError: any) {
+            console.warn(`  ⚠️ Erro ao transferir ${token.ccy}: ${transferError.message}`);
+          }
+        }
+        
+        // Aguardar 2 segundos para todas as transferências processarem
+        if (fundingTokens.length > 0) {
+          console.log(`⏳ Aguardando processamento das transferências...`);
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+      }
+    } catch (fundingError: any) {
+      console.warn(`⚠️ Erro ao processar Funding Account: ${fundingError.message}`);
+      console.log(`ℹ️ Continuando com tokens da Trading Account...`);
+    }
+
+    // ⭐ ETAPA 2: Buscar saldos da Trading Account
+    console.log(`\n🔍 ETAPA 2: Buscando saldos na Trading Account...`);
     const balancesResponse = await callOKXAPI('/api/v5/account/balance', 'GET', {}, apiKey, secretKey, passphrase);
     
     if (!balancesResponse.data || balancesResponse.data.length === 0) {

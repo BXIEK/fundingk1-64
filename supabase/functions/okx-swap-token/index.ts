@@ -42,11 +42,62 @@ serve(async (req) => {
       console.log(`💰 Valor personalizado: ${customAmount}`);
     }
 
-    // Buscar saldo atual
+    // ⭐ ETAPA 1: Verificar saldo na Funding Account e transferir se necessário
+    if (direction === 'toUsdt') {
+      console.log(`\n🔍 ETAPA 1: Verificando saldo de ${symbol} na Funding Account...`);
+      
+      try {
+        const fundingResponse = await callOKXAPI('/api/v5/asset/balances', 'GET', {}, apiKey, secretKey, passphrase);
+        
+        if (fundingResponse.data && Array.isArray(fundingResponse.data)) {
+          const fundingToken = fundingResponse.data.find((b: any) => b.ccy === symbol);
+          const fundingBalance = parseFloat(fundingToken?.availBal || '0');
+          
+          console.log(`💰 Saldo na Funding: ${fundingBalance} ${symbol}`);
+          
+          if (fundingBalance > 0) {
+            console.log(`📤 Transferindo ${fundingBalance} ${symbol} de Funding → Trading...`);
+            
+            const transferResponse = await callOKXAPI(
+              '/api/v5/asset/transfer',
+              'POST',
+              {
+                ccy: symbol,
+                amt: fundingBalance.toString(),
+                from: '6', // 6 = Funding Account
+                to: '18',  // 18 = Trading Account
+                type: '0'  // Internal transfer
+              },
+              apiKey,
+              secretKey,
+              passphrase
+            );
+            
+            if (transferResponse.code === '0') {
+              console.log(`✅ Transferência interna concluída com sucesso!`);
+              console.log(`🆔 Transfer ID: ${transferResponse.data?.[0]?.transId}`);
+              
+              // Aguardar 2 segundos para processar
+              await new Promise(resolve => setTimeout(resolve, 2000));
+            } else {
+              console.warn(`⚠️ Falha na transferência interna: ${transferResponse.msg}`);
+            }
+          } else {
+            console.log(`ℹ️ Sem saldo na Funding Account`);
+          }
+        }
+      } catch (fundingError: any) {
+        console.warn(`⚠️ Erro ao verificar/transferir Funding: ${fundingError.message}`);
+        console.log(`ℹ️ Continuando com saldo da Trading Account...`);
+      }
+    }
+
+    // ⭐ ETAPA 2: Buscar saldo atual da Trading Account
+    console.log(`\n🔍 ETAPA 2: Buscando saldo na Trading Account...`);
     const balancesResponse = await callOKXAPI('/api/v5/account/balance', 'GET', {}, apiKey, secretKey, passphrase);
     
     if (!balancesResponse.data || balancesResponse.data.length === 0) {
-      throw new Error('Não foi possível obter saldos');
+      throw new Error('Não foi possível obter saldos da Trading Account');
     }
 
     const balances = balancesResponse.data[0].details || [];
