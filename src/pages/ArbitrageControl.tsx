@@ -51,6 +51,7 @@ import { ConversionHistory } from '@/components/ConversionHistory';
 import { SmartBalanceRebalancer } from '@/components/SmartBalanceRebalancer';
 import { UnlockBalances } from '@/components/UnlockBalances';
 import { AutoCrossExchangeConfig } from '@/components/AutoCrossExchangeConfig';
+import { SystemHealthCheck } from '@/components/SystemHealthCheck';
 
 import { type ArbitrageOpportunity } from '@/types/arbitrage';
 
@@ -680,10 +681,14 @@ export default function ArbitrageControl() {
 
 
       <Tabs defaultValue="status" className="w-full">
-        <TabsList className="grid w-full grid-cols-11">
+        <TabsList className="grid w-full grid-cols-12">
           <TabsTrigger value="status">
             <CheckCircle className="h-4 w-4 mr-2" />
             Status APIs
+          </TabsTrigger>
+          <TabsTrigger value="diagnostic">
+            <Play className="h-4 w-4 mr-2" />
+            Diagnóstico
           </TabsTrigger>
           <TabsTrigger value="balances">
             <Wallet className="h-4 w-4 mr-2" />
@@ -721,6 +726,10 @@ export default function ArbitrageControl() {
         
         <TabsContent value="status" className="space-y-4">
           <CredentialsValidator />
+        </TabsContent>
+
+        <TabsContent value="diagnostic" className="space-y-4">
+          <SystemHealthCheck />
         </TabsContent>
 
         <TabsContent value="balances" className="space-y-6">
