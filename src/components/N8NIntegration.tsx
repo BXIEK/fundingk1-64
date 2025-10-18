@@ -5,8 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, ExternalLink, CheckCircle, AlertCircle } from "lucide-react";
+import { Loader2, ExternalLink, CheckCircle, AlertCircle, Copy } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export const N8NIntegration = () => {
   const { toast } = useToast();
@@ -113,15 +114,113 @@ export const N8NIntegration = () => {
     }
   };
 
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    toast({
+      title: "✅ Copiado",
+      description: `${label} copiado para a área de transferência`
+    });
+  };
+
+  const SUPABASE_URL = "https://uxhcsjlfwkhwkvhfacho.supabase.co";
+
   return (
     <div className="space-y-6">
+      {/* Card com informações de configuração do Supabase para n8n */}
+      <Card className="border-primary/20 bg-primary/5">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            ⚙️ Credenciais do Supabase para n8n
+          </CardTitle>
+          <CardDescription>
+            Use estas informações ao configurar a conexão Supabase no n8n
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Alert>
+            <AlertDescription>
+              Ao adicionar o nó "Supabase" no n8n, preencha os campos com as informações abaixo:
+            </AlertDescription>
+          </Alert>
+
+          <div className="space-y-3">
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold">Host</Label>
+              <div className="flex gap-2">
+                <Input 
+                  value={SUPABASE_URL}
+                  readOnly
+                  className="font-mono text-sm"
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => copyToClipboard(SUPABASE_URL, "Host")}
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold">Service Role Secret</Label>
+              <div className="flex gap-2">
+                <Input 
+                  value="••••••••••••••••••••••••••••••••••••"
+                  readOnly
+                  className="font-mono text-sm"
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    toast({
+                      title: "🔐 Acesse o Supabase Dashboard",
+                      description: "Copie o Service Role Key em: Settings > API > service_role (secret)",
+                      duration: 5000
+                    });
+                    window.open('https://supabase.com/dashboard/project/uxhcsjlfwkhwkvhfacho/settings/api', '_blank');
+                  }}
+                >
+                  <ExternalLink className="h-4 w-4" />
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Clique no botão ao lado para acessar o Supabase Dashboard e copiar sua Service Role Key
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold">Allowed HTTP Request Domains</Label>
+              <div className="flex gap-2">
+                <Input 
+                  value="All"
+                  readOnly
+                  className="font-mono text-sm"
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => copyToClipboard("All", "Domínios permitidos")}
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Selecione "All" no dropdown do n8n
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            🔗 Integração n8n.io
+            🔗 Configuração de Webhooks n8n
           </CardTitle>
           <CardDescription>
-            Configure webhooks n8n para automatizar transferências blockchain e arbitragens, contornando limitações das APIs das exchanges
+            Configure webhooks n8n para automatizar transferências blockchain e arbitragens
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
