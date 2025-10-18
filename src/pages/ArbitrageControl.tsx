@@ -52,6 +52,8 @@ import { SmartBalanceRebalancer } from '@/components/SmartBalanceRebalancer';
 import { UnlockBalances } from '@/components/UnlockBalances';
 import { AutoCrossExchangeConfig } from '@/components/AutoCrossExchangeConfig';
 import { SystemHealthCheck } from '@/components/SystemHealthCheck';
+import { N8NIntegration } from '@/components/N8NIntegration';
+import { BlockchainTransferHub } from '@/components/BlockchainTransferHub';
 
 import { type ArbitrageOpportunity } from '@/types/arbitrage';
 
@@ -681,7 +683,7 @@ export default function ArbitrageControl() {
 
 
       <Tabs defaultValue="status" className="w-full">
-        <TabsList className="grid w-full grid-cols-12">
+        <TabsList className="grid w-full grid-cols-14">
           <TabsTrigger value="status">
             <CheckCircle className="h-4 w-4 mr-2" />
             Status APIs
@@ -721,7 +723,8 @@ export default function ArbitrageControl() {
             <ArrowLeft className="h-4 w-4 mr-2" />
             Conversões
           </TabsTrigger>
-          <TabsTrigger value="history">Histórico</TabsTrigger>
+          <TabsTrigger value="n8n">🔗 n8n</TabsTrigger>
+          <TabsTrigger value="blockchain">⛓️ Blockchain</TabsTrigger>
         </TabsList>
         
         <TabsContent value="status" className="space-y-4">
@@ -1016,6 +1019,14 @@ export default function ArbitrageControl() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="n8n" className="space-y-4">
+          <N8NIntegration />
+        </TabsContent>
+
+        <TabsContent value="blockchain" className="space-y-4">
+          <BlockchainTransferHub />
         </TabsContent>
       </Tabs>
 

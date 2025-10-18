@@ -797,6 +797,60 @@ export type Database = {
         }
         Relationships: []
       }
+      blockchain_transfers: {
+        Row: {
+          amount: number
+          block_number: number | null
+          created_at: string
+          error_message: string | null
+          from_address: string
+          gas_used: string | null
+          id: string
+          n8n_execution_id: string | null
+          network: string
+          status: string
+          to_address: string
+          token: string
+          tx_hash: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          block_number?: number | null
+          created_at?: string
+          error_message?: string | null
+          from_address: string
+          gas_used?: string | null
+          id?: string
+          n8n_execution_id?: string | null
+          network: string
+          status?: string
+          to_address: string
+          token: string
+          tx_hash?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          block_number?: number | null
+          created_at?: string
+          error_message?: string | null
+          from_address?: string
+          gas_used?: string | null
+          id?: string
+          n8n_execution_id?: string | null
+          network?: string
+          status?: string
+          to_address?: string
+          token?: string
+          tx_hash?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       bot_execution_logs: {
         Row: {
           created_at: string
@@ -2795,6 +2849,75 @@ export type Database = {
           ma_90?: number | null
           symbol?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      n8n_executions: {
+        Row: {
+          completed_at: string | null
+          executed_at: string
+          id: string
+          opportunity_id: string
+          payload: Json
+          response: Json | null
+          status: string
+          user_id: string
+          webhook_url: string
+        }
+        Insert: {
+          completed_at?: string | null
+          executed_at?: string
+          id?: string
+          opportunity_id: string
+          payload: Json
+          response?: Json | null
+          status?: string
+          user_id: string
+          webhook_url: string
+        }
+        Update: {
+          completed_at?: string | null
+          executed_at?: string
+          id?: string
+          opportunity_id?: string
+          payload?: Json
+          response?: Json | null
+          status?: string
+          user_id?: string
+          webhook_url?: string
+        }
+        Relationships: []
+      }
+      n8n_webhooks: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          last_tested_at: string | null
+          updated_at: string
+          user_id: string
+          webhook_type: string
+          webhook_url: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          last_tested_at?: string | null
+          updated_at?: string
+          user_id: string
+          webhook_type: string
+          webhook_url: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          last_tested_at?: string | null
+          updated_at?: string
+          user_id?: string
+          webhook_type?: string
+          webhook_url?: string
         }
         Relationships: []
       }
@@ -4804,6 +4927,33 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_settings: {
+        Row: {
+          created_at: string
+          id: string
+          setting_key: string
+          setting_value: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          setting_key: string
+          setting_value: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          setting_key?: string
+          setting_value?: string
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
