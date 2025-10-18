@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { ArbitrageSidebar } from "@/components/ArbitrageSidebar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -90,6 +92,7 @@ export default function ArbitrageControl() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { isRealMode, setIsRealMode, hasCredentials } = useTradingMode();
+  const [activeTab, setActiveTab] = useState('status');
   
   const [opportunities, setOpportunities] = useState<ArbitrageOpportunity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -147,19 +150,16 @@ export default function ArbitrageControl() {
     try {
       setIsLoading(true);
       
-      // Medir latência da requisição
       const startTime = performance.now();
       
-      // Prioridade 1: Buscar SEMPRE do banco primeiro (dados mais confiáveis)
       console.log('🔍 Buscando oportunidades do banco...');
       const { data: dbData, error: dbError } = await supabase
         .from('realtime_arbitrage_opportunities')
         .select('*')
         .eq('is_active', true)
-        .order('spread', { ascending: false }) // Ordenar por spread (maiores primeiro)
+        .order('spread', { ascending: false })
         .limit(50);
       
-      // Calcular latência em ms
       const endTime = performance.now();
       const requestLatency = Math.round(endTime - startTime);
       setLatency(requestLatency);
@@ -183,7 +183,6 @@ export default function ArbitrageControl() {
             net_profit: opp.net_profit ?? opp.potential ?? 0,
             risk_level: opp.risk_level || 'MEDIUM',
             last_updated: opp.last_updated || new Date().toISOString(),
-            // Campos de compatibilidade
             buyExchange: opp.buy_exchange,
             sellExchange: opp.sell_exchange,
             buyPrice: opp.buy_price,
@@ -197,39 +196,9 @@ export default function ArbitrageControl() {
             gasFeeEstimate: opp.transfer_fee ?? 0.0005,
             executionTimeEstimate: (opp.transfer_time ?? 1) * 1000
           }));
-        console.log(`📊 Oportunidades formatadas: ${formattedOpportunities.length}`);
-        
-        // Logs detalhados por exchange
-        const binanceOpps = formattedOpportunities.filter(o => 
-          o.buy_exchange === 'Binance' || o.sell_exchange === 'Binance'
-        );
-        const okxOpps = formattedOpportunities.filter(o => 
-          o.buy_exchange === 'OKX' || o.sell_exchange === 'OKX'
-        );
-        
-        console.log(`📊 EXCHANGES DETECTADAS:`);
-        console.log(`  🟢 Binance: ${binanceOpps.length} oportunidades`);
-        console.log(`  🔵 OKX: ${okxOpps.length} oportunidades`);
-        
-        // Mostrar exemplos de oportunidades OKX
-        if (okxOpps.length > 0) {
-          console.log(`\n🔵 EXEMPLOS OKX (primeiras 3):`);
-          okxOpps.slice(0, 3).forEach((opp, idx) => {
-            console.log(`  ${idx + 1}. ${opp.symbol}: ${opp.buy_exchange} ($${opp.buy_price}) → ${opp.sell_exchange} ($${opp.sell_price}) | Spread: ${opp.spread.toFixed(3)}%`);
-          });
-        }
-        
-        // Mostrar exemplos de oportunidades Binance
-        if (binanceOpps.length > 0) {
-          console.log(`\n🟢 EXEMPLOS BINANCE (primeiras 3):`);
-          binanceOpps.slice(0, 3).forEach((opp, idx) => {
-            console.log(`  ${idx + 1}. ${opp.symbol}: ${opp.buy_exchange} ($${opp.buy_price}) → ${opp.sell_exchange} ($${opp.sell_price}) | Spread: ${opp.spread.toFixed(3)}%`);
-          });
-        }
       } else {
         console.log('⚠️ Nenhuma oportunidade no banco, tentando API...');
         
-        // Prioridade 2: Tentar a API se o banco estiver vazio
         const { data: result, error } = await supabase.functions.invoke('detect-arbitrage-opportunities', {
           body: { 
             type: 'cross_exchange',
@@ -268,20 +237,6 @@ export default function ArbitrageControl() {
       }
 
       console.log(`🎯 Total de oportunidades a exibir: ${formattedOpportunities.length}`);
-      
-      // Estatísticas finais por exchange
-      const finalBinanceCount = formattedOpportunities.filter(o => 
-        o.buy_exchange === 'Binance' || o.sell_exchange === 'Binance'
-      ).length;
-      const finalOkxCount = formattedOpportunities.filter(o => 
-        o.buy_exchange === 'OKX' || o.sell_exchange === 'OKX'
-      ).length;
-      
-      console.log(`📈 RESUMO FINAL DAS EXCHANGES:`);
-      console.log(`  🟢 Binance: ${finalBinanceCount} oportunidades ativas`);
-      console.log(`  🔵 OKX: ${finalOkxCount} oportunidades ativas`);
-      console.log(`  📊 Total combinado: ${formattedOpportunities.length}`);
-      
       setOpportunities(formattedOpportunities);
     } catch (error) {
       console.error('❌ Erro ao carregar oportunidades:', error);
@@ -386,7 +341,6 @@ export default function ArbitrageControl() {
       console.log('🚀 Iniciando execução de arbitragem:', { opportunity, config });
       setIsExecuting(true);
 
-      // Obter credenciais
       const binanceCredentials = localStorage.getItem('binance_credentials');
       const okxCredentials = localStorage.getItem('okx_credentials');
       
@@ -405,7 +359,6 @@ export default function ArbitrageControl() {
 
       console.log('📡 Chamando edge function execute-cross-exchange-arbitrage...');
 
-      // Chamar edge function de execução
       const { data, error } = await supabase.functions.invoke('execute-cross-exchange-arbitrage', {
         body: {
           opportunityId: opportunity.id || 'manual',
@@ -444,12 +397,10 @@ export default function ArbitrageControl() {
           description: `Trade ${opportunity.symbol} executado com sucesso. Lucro: $${data.result?.net_profit?.toFixed(2) || '0.00'}`,
         });
         
-        // Recarregar dados
         await loadOpportunities();
         await loadRecentTrades();
         await loadPortfolioData();
       } else {
-        // Verificar se é erro de whitelist
         const errorMsg = data.error || data.errorMessage || "Falha ao executar arbitragem";
         
         if (errorMsg.includes('verified address list') || 
@@ -457,7 +408,6 @@ export default function ArbitrageControl() {
             errorMsg.includes('AÇÃO NECESSÁRIA') ||
             errorMsg.includes('address not in whitelist')) {
           
-          // Determinar qual exchange tem o problema
           const isOKX = errorMsg.includes('OKX') || errorMsg.toLowerCase().includes('okx');
           const isBinance = errorMsg.includes('Binance') || errorMsg.toLowerCase().includes('binance');
           
@@ -497,538 +447,387 @@ export default function ArbitrageControl() {
     }
   };
 
-  // Remaining functions and logic (executeAutomaticArbitrage, toggleAutoTrading, loadTradingConfig, etc.) would be here
-  // For brevity, they are omitted as the user requested only the replacement of the comments with actual code for the portfolio display including Hyperliquid
-
   useEffect(() => {
-    const loadData = async () => {
-      await Promise.all([
-        loadOpportunities(),
-        loadRecentTrades()
-      ]);
-    };
-    
-    loadData();
+    loadOpportunities();
+    loadRecentTrades();
     loadPortfolioData();
-    
+
     const interval = setInterval(() => {
       loadOpportunities();
-      loadRecentTrades();
-      loadPortfolioData();
     }, 30000);
-    
-    return () => {
-      clearInterval(interval);
-    };
-  }, []);
 
-  // Hook para chamar o bot a cada intervalo configurado (se ativo)
-  useEffect(() => {
-    let botInterval: any;
-    
-    const checkAndExecuteBot = async () => {
-      try {
-        const userId = await getUserId();
-        const { data } = await supabase.functions.invoke('auto-arbitrage-bot', {
-          body: { action: 'status', config: { userId } }
-        });
-
-        if (data?.config?.is_enabled) {
-          // Bot está ativo - executar ciclo (passar apenas userId)
-          await supabase.functions.invoke('auto-arbitrage-bot', {
-            body: { 
-              action: 'execute-cycle',
-              config: { userId } 
-            }
-          });
-        }
-      } catch (error) {
-        console.error('Erro no bot automático:', error);
-      }
-    };
-
-    // Verificar a cada 30 segundos se o bot está ativo
-    botInterval = setInterval(checkAndExecuteBot, 30000);
-    
-    return () => {
-      if (botInterval) clearInterval(botInterval);
-    };
-  }, []);
+    return () => clearInterval(interval);
+  }, [isRealMode]);
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="outline" size="sm" onClick={() => navigate('/')}>
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Voltar
-        </Button>
-        <div className="flex-1">
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <TrendingUp className="h-8 w-8 text-primary" />
-            Arbitragem Cross-Over
-            <Badge className="ml-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white border-none">
-              🚀 MODO HÍBRIDO
-            </Badge>
-          </h1>
-          <p className="text-muted-foreground">Monitoramento em tempo real + Execução automática de arbitragens cross-exchange</p>
-        </div>
-        <Button 
-          onClick={() => navigate('/auto-bot')}
-          className="flex items-center gap-2"
-          variant="default"
-        >
-          <Bot className="h-4 w-4" />
-          Bot Automático
-        </Button>
-      </div>
-
-      {/* Status Card - Sistema Híbrido */}
-      <Card className="border-2 border-primary/20 bg-gradient-to-r from-primary/5 to-purple-500/5">
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="h-3 w-3 rounded-full bg-green-500 animate-pulse" />
-              <div>
-                <p className="font-semibold text-sm">Sistema de Monitoramento Ativo</p>
-                <p className="text-xs text-muted-foreground">
-                  {opportunities.length} oportunidades detectadas | 
-                  Modo: {isRealMode ? ' Real Trading 🔴' : ' Simulação 🟡'} | 
-                  APIs: {hasCredentials ? ' Configuradas ✅' : ' Pendentes ⚠️'}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge 
-                variant="outline" 
-                className={`${
-                  latency === null 
-                    ? 'bg-gray-50 text-gray-700 border-gray-200'
-                    : latency < 100 
-                    ? 'bg-green-50 text-green-700 border-green-200' 
-                    : latency < 300 
-                    ? 'bg-yellow-50 text-yellow-700 border-yellow-200'
-                    : 'bg-red-50 text-red-700 border-red-200'
-                }`}
-              >
-                <Zap className="h-3 w-3 mr-1" />
-                Latência: {latency === null ? '...' : `${latency}ms`}
-              </Badge>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => loadOpportunities()}
-                disabled={isLoading}
-              >
-                <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+    <SidebarProvider>
+      <div className="min-h-screen flex w-full bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900">
+        <ArbitrageSidebar activeTab={activeTab} onTabChange={setActiveTab} />
+        
+        <div className="flex-1 flex flex-col">
+          <header className="h-12 flex items-center border-b border-white/10 bg-background/50 backdrop-blur-sm sticky top-0 z-10 px-4">
+            <SidebarTrigger className="mr-4" />
+            <div className="flex items-center gap-4 flex-1">
+              <Button variant="outline" size="sm" onClick={() => navigate('/')}>
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Voltar
               </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {!hasCredentials && isRealMode && (
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-start gap-4">
-              <div className="w-2 h-12 bg-red-500 rounded-full"></div>
-              <div>
-                <h3 className="font-medium text-red-800">Credenciais API Necessárias para Modo Real</h3>
-                <p className="text-sm text-red-700 mt-1">
-                  Para operar em modo real, configure suas credenciais API na página inicial. 
-                  Certifique-se de que as APIs tenham permissões "Enable Reading" e "Spot & Margin Trading".
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Card do Bot Automático */}
-      <Card className="border-blue-200 bg-gradient-to-r from-blue-50 to-purple-50">
-        <CardContent className="p-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-blue-600 rounded-lg">
-                <Bot className="h-8 w-8 text-white" />
-              </div>
-              <div>
-                <h3 className="text-lg font-bold text-blue-900">Bot Automático de Arbitragem</h3>
-                <p className="text-sm text-blue-700 mt-1">
-                  Automação contínua de execução de arbitragens com reinvestimento inteligente
-                  e crescimento exponencial de lucros
-                </p>
-                <div className="flex gap-2 mt-2">
-                  <Badge variant="secondary" className="bg-blue-100 text-blue-700">
-                    <Zap className="h-3 w-3 mr-1" />
-                    Execução automática
-                  </Badge>
-                  <Badge variant="secondary" className="bg-purple-100 text-purple-700">
-                    <TrendingUp className="h-3 w-3 mr-1" />
-                    Compounding
-                  </Badge>
-                </div>
-              </div>
+              <h1 className="text-xl font-semibold flex items-center gap-2">
+                <TrendingUp className="h-6 w-6 text-primary" />
+                Arbitragem Cross-Over
+                <Badge className="ml-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white border-none">
+                  🚀 MODO HÍBRIDO
+                </Badge>
+              </h1>
             </div>
             <Button 
               onClick={() => navigate('/auto-bot')}
-              size="lg"
-              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+              className="flex items-center gap-2"
+              variant="default"
+              size="sm"
             >
-              <Bot className="h-5 w-5 mr-2" />
-              Configurar Bot
+              <Bot className="h-4 w-4" />
+              Bot Automático
             </Button>
-          </div>
-        </CardContent>
-      </Card>
+          </header>
 
-
-      <Tabs defaultValue="status" className="w-full">
-        <TabsList className="grid w-full grid-cols-14">
-          <TabsTrigger value="status">
-            <CheckCircle className="h-4 w-4 mr-2" />
-            Status APIs
-          </TabsTrigger>
-          <TabsTrigger value="diagnostic">
-            <Play className="h-4 w-4 mr-2" />
-            Diagnóstico
-          </TabsTrigger>
-          <TabsTrigger value="balances">
-            <Wallet className="h-4 w-4 mr-2" />
-            Meus Saldos
-          </TabsTrigger>
-          <TabsTrigger value="dashboard">
-            <Activity className="h-4 w-4 mr-2" />
-            Dashboard
-          </TabsTrigger>
-          <TabsTrigger value="real-mode">
-            <Power className="h-4 w-4 mr-2" />
-            Modo Real
-          </TabsTrigger>
-          <TabsTrigger value="opportunities">Oportunidades</TabsTrigger>
-          <TabsTrigger value="auto-config">
-            <Bot className="h-4 w-4 mr-2" />
-            Config Auto
-          </TabsTrigger>
-          <TabsTrigger value="cross-automation">
-            <Zap className="h-4 w-4 mr-2" />
-            Automação Cross
-          </TabsTrigger>
-          <TabsTrigger value="api-config">
-            <Settings className="h-4 w-4 mr-2" />
-            APIs
-          </TabsTrigger>
-          <TabsTrigger value="whitelist">IP Whitelist</TabsTrigger>
-          <TabsTrigger value="transfers">Transferências</TabsTrigger>
-          <TabsTrigger value="conversions">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Conversões
-          </TabsTrigger>
-          <TabsTrigger value="n8n">🔗 n8n</TabsTrigger>
-          <TabsTrigger value="blockchain">⛓️ Blockchain</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="status" className="space-y-4">
-          <CredentialsValidator />
-        </TabsContent>
-
-        <TabsContent value="diagnostic" className="space-y-4">
-          <SystemHealthCheck />
-        </TabsContent>
-
-        <TabsContent value="balances" className="space-y-6">
-          {/* Cards de Saldo por Exchange e Total */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Saldo Binance */}
-            <ExchangeBalanceCard 
-              exchange="binance"
-              baseline={100}
-              onBalanceChange={setBinanceBalance}
-              otherExchangePrice={okxPrice}
-              onPriceUpdate={setBinancePrice}
-              selectedToken={selectedToken}
-              onTokenChange={setSelectedToken}
-            />
-            
-            {/* Saldo OKX */}
-            <ExchangeBalanceCard 
-              exchange="okx"
-              baseline={100}
-              onBalanceChange={setOkxBalance}
-              otherExchangePrice={binancePrice}
-              onPriceUpdate={setOkxPrice}
-              selectedToken={selectedToken}
-              onTokenChange={setSelectedToken}
-            />
-            
-            {/* Saldo Total */}
-            <TotalBalanceCard 
-              binanceBalance={binanceBalance} 
-              okxBalance={okxBalance}
-              totalBaseline={200}
-              selectedToken={selectedToken}
-            />
-          </div>
-
-          {/* Cancelar Ordens Abertas */}
-          <UnlockBalances />
-
-          {/* Rebalanceamento Inteligente */}
-          <SmartBalanceRebalancer />
-        </TabsContent>
-
-        <TabsContent value="dashboard" className="space-y-6">
-          {/* Dashboard content aqui */}
-        </TabsContent>
-
-        <TabsContent value="real-mode" className="space-y-4">
-          <RealModeActivator />
-        </TabsContent>
-
-        <TabsContent value="opportunities" className="space-y-4">
-          {/* Alerta de Oportunidades de Alto Lucro */}
-          {opportunities.some(o => o.potential > 2) && (
-            <Card className="border-2 border-green-500 bg-green-50">
+          <main className="flex-1 p-4 md:p-8 space-y-6 overflow-auto">
+            {/* Status Card */}
+            <Card className="border-2 border-primary/20 bg-gradient-to-r from-primary/5 to-purple-500/5">
               <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <AlertTriangle className="h-5 w-5 text-green-600 animate-pulse" />
-                  <div>
-                    <p className="font-semibold text-green-900">
-                      {opportunities.filter(o => o.potential > 2).length} Oportunidades de Alto Lucro Detectadas!
-                    </p>
-                    <p className="text-sm text-green-700">
-                      Lucro potencial acima de $2.00 - Clique em "Executar" para aproveitar
-                    </p>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="h-3 w-3 rounded-full bg-green-500 animate-pulse" />
+                    <div>
+                      <p className="font-semibold text-sm">Sistema de Monitoramento Ativo</p>
+                      <p className="text-xs text-muted-foreground">
+                        {opportunities.length} oportunidades detectadas | 
+                        Modo: {isRealMode ? ' Real Trading 🔴' : ' Simulação 🟡'} | 
+                        APIs: {hasCredentials ? ' Configuradas ✅' : ' Pendentes ⚠️'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge 
+                      variant="outline" 
+                      className={`${
+                        latency === null 
+                          ? 'bg-gray-50 text-gray-700 border-gray-200'
+                          : latency < 100 
+                          ? 'bg-green-50 text-green-700 border-green-200' 
+                          : latency < 300 
+                          ? 'bg-yellow-50 text-yellow-700 border-yellow-200'
+                          : 'bg-red-50 text-red-700 border-red-200'
+                      }`}
+                    >
+                      <Zap className="h-3 w-3 mr-1" />
+                      Latência: {latency === null ? '...' : `${latency}ms`}
+                    </Badge>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => loadOpportunities()}
+                      disabled={isLoading}
+                    >
+                      <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                    </Button>
                   </div>
                 </div>
               </CardContent>
             </Card>
-          )}
 
-          {/* Layout em Grid: Saldos à esquerda, Tabela à direita */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Coluna Esquerda: Cards de Saldo */}
-            <div className="lg:col-span-1 space-y-4">
-              {/* Saldo Binance */}
-              <ExchangeBalanceCard 
-                exchange="binance"
-                baseline={100}
-                onBalanceChange={setBinanceBalance}
-                otherExchangePrice={okxPrice}
-                onPriceUpdate={setBinancePrice}
-                selectedToken={selectedToken}
-                onTokenChange={setSelectedToken}
-              />
-              
-              {/* Saldo OKX */}
-              <ExchangeBalanceCard 
-                exchange="okx"
-                baseline={100}
-                onBalanceChange={setOkxBalance}
-                otherExchangePrice={binancePrice}
-                onPriceUpdate={setOkxPrice}
-                selectedToken={selectedToken}
-                onTokenChange={setSelectedToken}
-              />
-              
-              {/* Saldo Total */}
-              <TotalBalanceCard 
-                binanceBalance={binanceBalance} 
-                okxBalance={okxBalance}
-                totalBaseline={200}
-                selectedToken={selectedToken}
-              />
-              
-              {/* Rebalanceamento Inteligente */}
-              <SmartBalanceRebalancer />
-            </div>
-
-            {/* Coluna Direita: Tabela de Oportunidades */}
-            <div className="lg:col-span-2">
+            {!hasCredentials && isRealMode && (
               <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5" />
-                    Oportunidades Cross-Over em Tempo Real
-                  </CardTitle>
-                  <CardDescription>
-                    {opportunities.length} oportunidades ativas | Atualização contínua a cada 30s
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {opportunities.length > 0 ? (
-                    <div className="overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Símbolo</TableHead>
-                            <TableHead>Comprar</TableHead>
-                            <TableHead>Vender</TableHead>
-                            <TableHead>Spread</TableHead>
-                            <TableHead>Potencial</TableHead>
-                            <TableHead>Risco</TableHead>
-                            <TableHead className="text-center">Ação</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {opportunities.map((opportunity) => {
-                            const isHighProfit = opportunity.potential > 2;
-                            return (
-                              <TableRow 
-                                key={opportunity.id}
-                                className={isHighProfit ? 'bg-green-50/50 hover:bg-green-100/50' : ''}
-                              >
-                                <TableCell className="font-medium">
-                                  <div className="flex items-center gap-2">
-                                    {opportunity.symbol}
-                                    {isHighProfit && (
-                                      <Badge className="bg-green-600 text-white">
-                                        🔥 HOT
-                                      </Badge>
-                                    )}
-                                  </div>
-                                </TableCell>
-                                <TableCell>
-                                  <div className="text-sm">
-                                    <div className="font-medium">{opportunity.buy_exchange}</div>
-                                    <div className="text-muted-foreground">{formatCurrency(opportunity.buy_price)}</div>
-                                  </div>
-                                </TableCell>
-                                <TableCell>
-                                  <div className="text-sm">
-                                    <div className="font-medium">{opportunity.sell_exchange}</div>
-                                    <div className="text-muted-foreground">{formatCurrency(opportunity.sell_price)}</div>
-                                  </div>
-                                </TableCell>
-                                <TableCell>
-                                  <Badge variant={opportunity.spread > 1.0 ? "default" : "secondary"}>
-                                    {opportunity.spread.toFixed(3)}%
-                                  </Badge>
-                                </TableCell>
-                                <TableCell>
-                                  <span className={isHighProfit ? 'font-bold text-green-600' : ''}>
-                                    {formatCurrency(opportunity.potential)}
-                                  </span>
-                                </TableCell>
-                                <TableCell>
-                                  <Badge variant="outline" className={getRiskColor(opportunity.risk_level)}>
-                                    {opportunity.risk_level}
-                                  </Badge>
-                                </TableCell>
-                                <TableCell className="text-center">
-                                  <Button
-                                    size="sm"
-                                    onClick={() => openExecutionModal(opportunity)}
-                                    disabled={executingIds.has(opportunity.id)}
-                                    className={`min-w-[100px] ${isHighProfit ? 'bg-green-600 hover:bg-green-700' : ''}`}
-                                  >
-                                    {executingIds.has(opportunity.id) ? (
-                                      <>
-                                        <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
-                                        Executando...
-                                      </>
-                                    ) : (
-                                      <>
-                                        <Play className="h-3 w-3 mr-1" />
-                                        Executar
-                                      </>
-                                    )}
-                                  </Button>
-                                </TableCell>
-                              </TableRow>
-                            );
-                          })}
-                        </TableBody>
-                      </Table>
+                <CardContent className="p-4">
+                  <div className="flex items-start gap-4">
+                    <div className="w-2 h-12 bg-red-500 rounded-full"></div>
+                    <div>
+                      <h3 className="font-medium text-red-800">Credenciais API Necessárias para Modo Real</h3>
+                      <p className="text-sm text-red-700 mt-1">
+                        Para operar em modo real, configure suas credenciais API na página inicial. 
+                        Certifique-se de que as APIs tenham permissões "Enable Reading" e "Spot & Margin Trading".
+                      </p>
                     </div>
-                  ) : (
-                    <div className="text-center py-8 text-muted-foreground">
-                      {isLoading ? 'Carregando oportunidades...' : 'Nenhuma oportunidade encontrada no momento'}
-                    </div>
-                  )}
+                  </div>
                 </CardContent>
               </Card>
-            </div>
-          </div>
-        </TabsContent>
+            )}
 
-        <TabsContent value="auto-config" className="space-y-4">
-          <AutoArbitrageConfig />
-        </TabsContent>
-
-        <TabsContent value="cross-automation" className="space-y-4">
-          <AutoCrossExchangeConfig />
-        </TabsContent>
-
-        <TabsContent value="api-config" className="space-y-4">
-          <APIConfiguration />
-        </TabsContent>
-
-        <TabsContent value="whitelist" className="space-y-4">
-          <DirectIPConnectionTest />
-          <IPWhitelistGuide />
-        </TabsContent>
-
-        <TabsContent value="transfers" className="space-y-4">
-          <SmartTransferDashboard />
-        </TabsContent>
-
-        <TabsContent value="conversions" className="space-y-4">
-          <ConversionHistory />
-        </TabsContent>
-
-        <TabsContent value="history" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Histórico de Operações</CardTitle>
-              <CardDescription>Últimas 10 operações executadas</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {recentTrades.length > 0 ? (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Data</TableHead>
-                      <TableHead>Símbolo</TableHead>
-                      <TableHead>Tipo</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Lucro</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {recentTrades.map((trade) => (
-                      <TableRow key={trade.id}>
-                        <TableCell>{new Date(trade.executed_at || trade.created_at).toLocaleString('pt-BR')}</TableCell>
-                        <TableCell className="font-medium">{trade.symbol}</TableCell>
-                        <TableCell>{trade.buy_exchange} → {trade.sell_exchange}</TableCell>
-                        <TableCell>
-                          <Badge variant={trade.status === 'completed' ? 'default' : 'secondary'}>
-                            {trade.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className={trade.net_profit > 0 ? 'text-green-600' : 'text-red-600'}>
-                          {formatCurrency(trade.net_profit || 0)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  Nenhuma operação executada ainda
+            {/* Card do Bot Automático */}
+            <Card className="border-blue-200 bg-gradient-to-r from-blue-50 to-purple-50">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-blue-600 rounded-lg">
+                      <Bot className="h-8 w-8 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-blue-900">Bot Automático de Arbitragem</h3>
+                      <p className="text-sm text-blue-700 mt-1">
+                        Automação contínua de execução de arbitragens com reinvestimento inteligente
+                      </p>
+                      <div className="flex gap-2 mt-2">
+                        <Badge variant="secondary" className="bg-blue-100 text-blue-700">
+                          <Zap className="h-3 w-3 mr-1" />
+                          Execução automática
+                        </Badge>
+                        <Badge variant="secondary" className="bg-purple-100 text-purple-700">
+                          <TrendingUp className="h-3 w-3 mr-1" />
+                          Compounding
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+                  <Button 
+                    onClick={() => navigate('/auto-bot')}
+                    size="lg"
+                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                  >
+                    <Bot className="h-5 w-5 mr-2" />
+                    Configurar Bot
+                  </Button>
                 </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+              </CardContent>
+            </Card>
 
-        <TabsContent value="n8n" className="space-y-4">
-          <N8NIntegration />
-        </TabsContent>
+            {/* Conteúdo dinâmico baseado na aba ativa */}
+            {activeTab === 'status' && (
+              <div className="space-y-4">
+                <CredentialsValidator />
+              </div>
+            )}
 
-        <TabsContent value="blockchain" className="space-y-4">
-          <BlockchainTransferHub />
-        </TabsContent>
-      </Tabs>
+            {activeTab === 'diagnostic' && (
+              <div className="space-y-4">
+                <SystemHealthCheck />
+              </div>
+            )}
+
+            {activeTab === 'balances' && (
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <ExchangeBalanceCard 
+                    exchange="binance"
+                    baseline={100}
+                    onBalanceChange={setBinanceBalance}
+                    otherExchangePrice={okxPrice}
+                    onPriceUpdate={setBinancePrice}
+                    selectedToken={selectedToken}
+                    onTokenChange={setSelectedToken}
+                  />
+                  
+                  <ExchangeBalanceCard 
+                    exchange="okx"
+                    baseline={100}
+                    onBalanceChange={setOkxBalance}
+                    otherExchangePrice={binancePrice}
+                    onPriceUpdate={setOkxPrice}
+                    selectedToken={selectedToken}
+                    onTokenChange={setSelectedToken}
+                  />
+                  
+                  <TotalBalanceCard 
+                    binanceBalance={binanceBalance} 
+                    okxBalance={okxBalance}
+                    totalBaseline={200}
+                    selectedToken={selectedToken}
+                  />
+                </div>
+
+                <UnlockBalances />
+                <SmartBalanceRebalancer />
+              </div>
+            )}
+
+            {activeTab === 'dashboard' && (
+              <div className="space-y-6">
+                {/* Dashboard content aqui */}
+              </div>
+            )}
+
+            {activeTab === 'real-mode' && (
+              <div className="space-y-4">
+                <RealModeActivator />
+              </div>
+            )}
+
+            {activeTab === 'opportunities' && (
+              <div className="space-y-4">
+                {opportunities.some(o => o.potential > 2) && (
+                  <Card className="border-2 border-green-500 bg-green-50">
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-3">
+                        <AlertTriangle className="h-5 w-5 text-green-600 animate-pulse" />
+                        <div>
+                          <p className="font-semibold text-green-900">
+                            {opportunities.filter(o => o.potential > 2).length} Oportunidades de Alto Lucro Detectadas!
+                          </p>
+                          <p className="text-sm text-green-700">
+                            Aproveite estas oportunidades enquanto estão disponíveis
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <TrendingUp className="h-5 w-5" />
+                      Oportunidades em Tempo Real
+                    </CardTitle>
+                    <CardDescription>
+                      {opportunities.length} oportunidades ativas
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {opportunities.length > 0 ? (
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Símbolo</TableHead>
+                              <TableHead>Comprar</TableHead>
+                              <TableHead>Vender</TableHead>
+                              <TableHead>Spread</TableHead>
+                              <TableHead>Potencial</TableHead>
+                              <TableHead>Risco</TableHead>
+                              <TableHead className="text-center">Ação</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {opportunities.map((opportunity) => {
+                              const isHighProfit = opportunity.potential > 2;
+                              return (
+                                <TableRow 
+                                  key={opportunity.id}
+                                  className={isHighProfit ? 'bg-green-50/50 hover:bg-green-100/50' : ''}
+                                >
+                                  <TableCell className="font-medium">
+                                    <div className="flex items-center gap-2">
+                                      {opportunity.symbol}
+                                      {isHighProfit && (
+                                        <Badge className="bg-green-600 text-white">
+                                          🔥 HOT
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="text-sm">
+                                      <div className="font-medium">{opportunity.buy_exchange}</div>
+                                      <div className="text-muted-foreground">{formatCurrency(opportunity.buy_price)}</div>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="text-sm">
+                                      <div className="font-medium">{opportunity.sell_exchange}</div>
+                                      <div className="text-muted-foreground">{formatCurrency(opportunity.sell_price)}</div>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Badge variant={opportunity.spread > 1.0 ? "default" : "secondary"}>
+                                      {opportunity.spread.toFixed(3)}%
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell>
+                                    <span className={isHighProfit ? 'font-bold text-green-600' : ''}>
+                                      {formatCurrency(opportunity.potential)}
+                                    </span>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Badge variant="outline" className={getRiskColor(opportunity.risk_level)}>
+                                      {opportunity.risk_level}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell className="text-center">
+                                    <Button
+                                      size="sm"
+                                      onClick={() => openExecutionModal(opportunity)}
+                                      disabled={executingIds.has(opportunity.id)}
+                                      className={`min-w-[100px] ${isHighProfit ? 'bg-green-600 hover:bg-green-700' : ''}`}
+                                    >
+                                      {executingIds.has(opportunity.id) ? (
+                                        <>
+                                          <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                                          Executando...
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Play className="h-3 w-3 mr-1" />
+                                          Executar
+                                        </>
+                                      )}
+                                    </Button>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground">
+                        {isLoading ? 'Carregando oportunidades...' : 'Nenhuma oportunidade encontrada'}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {activeTab === 'auto-config' && (
+              <div className="space-y-4">
+                <AutoArbitrageConfig />
+              </div>
+            )}
+
+            {activeTab === 'cross-automation' && (
+              <div className="space-y-4">
+                <AutoCrossExchangeConfig />
+              </div>
+            )}
+
+            {activeTab === 'api-config' && (
+              <div className="space-y-4">
+                <APIConfiguration />
+              </div>
+            )}
+
+            {activeTab === 'whitelist' && (
+              <div className="space-y-4">
+                <DirectIPConnectionTest />
+                <IPWhitelistGuide />
+              </div>
+            )}
+
+            {activeTab === 'transfers' && (
+              <div className="space-y-4">
+                <SmartTransferDashboard />
+              </div>
+            )}
+
+            {activeTab === 'conversions' && (
+              <div className="space-y-4">
+                <ConversionHistory />
+              </div>
+            )}
+
+            {activeTab === 'n8n' && (
+              <div className="space-y-4">
+                <N8NIntegration />
+              </div>
+            )}
+
+            {activeTab === 'blockchain' && (
+              <div className="space-y-4">
+                <BlockchainTransferHub />
+              </div>
+            )}
+          </main>
+        </div>
+      </div>
 
       {isModalOpen && selectedOpportunity && (
         <ArbitrageExecutionModal
@@ -1061,6 +860,6 @@ export default function ArbitrageControl() {
           </div>
         </div>
       )}
-    </div>
+    </SidebarProvider>
   );
 }
