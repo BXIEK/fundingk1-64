@@ -245,9 +245,15 @@ export const N8NIntegration = () => {
               value={webhookUrl}
               onChange={(e) => setWebhookUrl(e.target.value)}
             />
-            <p className="text-sm text-muted-foreground">
-              Cole a URL do webhook do seu workflow n8n
-            </p>
+            <Alert className="mt-2">
+              <AlertDescription className="text-sm">
+                ⚠️ <strong>Atenção:</strong> Cole aqui a URL do webhook gerada pelo n8n.io, 
+                NÃO use a URL do Supabase. A URL deve ser algo como: 
+                <code className="block mt-1 p-1 bg-muted rounded text-xs">
+                  https://seu-n8n.app.n8n.cloud/webhook/seu-webhook-id
+                </code>
+              </AlertDescription>
+            </Alert>
           </div>
 
           <div className="flex gap-2">

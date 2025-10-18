@@ -33,11 +33,24 @@ serve(async (req) => {
         const { userId, webhookUrl, webhookType }: N8NWebhookConfig = data;
 
         // Validar webhook URL
-        if (!webhookUrl.includes('n8n') && !webhookUrl.includes('webhook')) {
+        if (webhookUrl.includes('supabase.co')) {
           return new Response(
             JSON.stringify({
               success: false,
-              error: 'URL de webhook inválida'
+              error: '❌ URL incorreta! Use a URL do webhook do n8n.io (ex: https://seu-n8n.app.n8n.cloud/webhook/...), não a URL do Supabase.'
+            }),
+            { 
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            }
+          );
+        }
+
+        if (!webhookUrl.includes('webhook')) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: '❌ URL de webhook inválida. Certifique-se de usar a URL completa do webhook do n8n.'
             }),
             { 
               status: 400,
