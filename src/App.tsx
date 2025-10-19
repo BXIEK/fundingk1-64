@@ -17,6 +17,7 @@ const BalanceDashboard = lazy(() => import("./pages/BalanceDashboard"));
 const AutoBot = lazy(() => import("./pages/AutoBot"));
 const HFTTrading = lazy(() => import("./pages/HFTTrading"));
 const TriangularArbitrage = lazy(() => import("./pages/TriangularArbitrage"));
+const BlockchainArbitrage = lazy(() => import("./pages/BlockchainArbitrage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
@@ -42,6 +43,7 @@ const App = () => (
               <Route path="/auto-bot" element={<ProtectedRoute><AutoBot /></ProtectedRoute>} />
               <Route path="/hft-trading" element={<ProtectedRoute><HFTTrading /></ProtectedRoute>} />
               <Route path="/triangular-arbitrage" element={<ProtectedRoute><TriangularArbitrage /></ProtectedRoute>} />
+              <Route path="/blockchain-arbitrage" element={<ProtectedRoute><BlockchainArbitrage /></ProtectedRoute>} />
               
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
