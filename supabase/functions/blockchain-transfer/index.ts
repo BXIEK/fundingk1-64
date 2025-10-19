@@ -15,6 +15,15 @@ interface BlockchainTransferRequest {
   network: string;
   privateKey?: string;
   n8nWebhook?: string;
+  operationType?: 'arbitrage' | 'transfer';
+  arbitrageDetails?: {
+    tokenIn: string;
+    tokenOut: string;
+    amountIn: string;
+    buyDex: string;
+    sellDex: string;
+    minProfit: string;
+  };
 }
 
 serve(async (req) => {
@@ -36,7 +45,9 @@ serve(async (req) => {
       token,
       network,
       privateKey,
-      n8nWebhook
+      n8nWebhook,
+      operationType,
+      arbitrageDetails
     }: BlockchainTransferRequest = await req.json();
 
     console.log('🔗 Iniciando transferência blockchain:', {
@@ -51,16 +62,39 @@ serve(async (req) => {
     if (n8nWebhook) {
       console.log('📡 Delegando para n8n.io...');
       
-      const n8nPayload = {
+      // Construir payload baseado no tipo de operação
+      let n8nPayload: any = {
         userId,
-        fromAddress,
-        toAddress,
-        amount,
-        token,
         network,
-        timestamp: new Date().toISOString(),
-        action: 'blockchain_transfer'
+        timestamp: new Date().toISOString()
       };
+
+      if (operationType === 'arbitrage' && arbitrageDetails) {
+        // Payload específico para arbitragem
+        console.log('💰 Operação de Arbitragem detectada');
+        n8nPayload = {
+          ...n8nPayload,
+          action: 'arbitrage_execution',
+          tokenIn: arbitrageDetails.tokenIn,
+          tokenOut: arbitrageDetails.tokenOut,
+          amountIn: arbitrageDetails.amountIn,
+          buyDex: arbitrageDetails.buyDex,
+          sellDex: arbitrageDetails.sellDex,
+          minProfit: arbitrageDetails.minProfit
+        };
+      } else {
+        // Payload para transferência normal
+        n8nPayload = {
+          ...n8nPayload,
+          action: 'blockchain_transfer',
+          fromAddress,
+          toAddress,
+          amount,
+          token
+        };
+      }
+
+      console.log('📤 Enviando para n8n:', { ...n8nPayload, userId: '***' });
 
       const n8nResponse = await fetch(n8nWebhook, {
         method: 'POST',
@@ -71,27 +105,36 @@ serve(async (req) => {
       });
 
       if (!n8nResponse.ok) {
-        throw new Error(`n8n webhook falhou: ${n8nResponse.statusText}`);
+        const errorText = await n8nResponse.text();
+        throw new Error(`n8n webhook falhou: ${n8nResponse.statusText} - ${errorText}`);
       }
 
       const n8nResult = await n8nResponse.json();
-      console.log('✅ n8n processou transferência:', n8nResult);
+      console.log('✅ n8n processou operação:', {
+        success: n8nResult.success,
+        transactionHash: n8nResult.transactionHash,
+        profit: n8nResult.profit
+      });
 
-      // Registrar transferência no banco
+      // Registrar transferência no banco com detalhes apropriados
+      const transferRecord: any = {
+        user_id: userId,
+        from_address: operationType === 'arbitrage' ? arbitrageDetails?.tokenIn : fromAddress,
+        to_address: operationType === 'arbitrage' ? arbitrageDetails?.tokenOut : toAddress,
+        amount: parseFloat(operationType === 'arbitrage' ? (arbitrageDetails?.amountIn || '0') : amount),
+        token: operationType === 'arbitrage' ? arbitrageDetails?.tokenIn : token,
+        network,
+        status: n8nResult.success ? 'completed' : 'failed',
+        tx_hash: n8nResult.transactionHash || null,
+        block_number: n8nResult.blockNumber || null,
+        gas_used: n8nResult.gasUsed?.toString() || null,
+        error_message: n8nResult.error || null,
+        created_at: new Date().toISOString()
+      };
+
       const { error: insertError } = await supabase
         .from('blockchain_transfers')
-        .insert({
-          user_id: userId,
-          from_address: fromAddress,
-          to_address: toAddress,
-          amount: parseFloat(amount),
-          token,
-          network,
-          status: 'processing',
-          tx_hash: n8nResult.txHash || null,
-          n8n_execution_id: n8nResult.executionId || null,
-          created_at: new Date().toISOString()
-        });
+        .insert(transferRecord);
 
       if (insertError) {
         console.error('❌ Erro ao registrar transferência:', insertError);
@@ -99,10 +142,14 @@ serve(async (req) => {
 
       return new Response(
         JSON.stringify({
-          success: true,
-          message: 'Transferência delegada para n8n.io',
-          n8nResult,
-          note: 'A transferência será processada pelo n8n workflow'
+          success: n8nResult.success || true,
+          message: operationType === 'arbitrage' 
+            ? 'Arbitragem executada via n8n.io' 
+            : 'Transferência delegada para n8n.io',
+          result: n8nResult,
+          note: operationType === 'arbitrage'
+            ? `Lucro: ${n8nResult.profit || 'calculando...'}`
+            : 'A transferência está sendo processada'
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );

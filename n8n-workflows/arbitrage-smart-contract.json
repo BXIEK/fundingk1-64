@@ -1,0 +1,221 @@
+{
+  "name": "SAAT - Arbitrage Smart Contract Executor",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "arbitrage-execute",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Arbitrage",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "arbitrage-webhook"
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "tokenIn",
+              "value": "={{ $json.body.tokenIn }}"
+            },
+            {
+              "name": "tokenOut",
+              "value": "={{ $json.body.tokenOut }}"
+            },
+            {
+              "name": "amountIn",
+              "value": "={{ $json.body.amountIn }}"
+            },
+            {
+              "name": "buyDex",
+              "value": "={{ $json.body.buyDex }}"
+            },
+            {
+              "name": "sellDex",
+              "value": "={{ $json.body.sellDex }}"
+            },
+            {
+              "name": "minProfit",
+              "value": "={{ $json.body.minProfit }}"
+            },
+            {
+              "name": "userId",
+              "value": "={{ $json.body.userId }}"
+            },
+            {
+              "name": "network",
+              "value": "={{ $json.body.network || 'ethereum' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "extract-params",
+      "name": "Extract Parameters",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.tokenIn }}",
+              "operation": "isNotEmpty"
+            },
+            {
+              "value1": "={{ $json.tokenOut }}",
+              "operation": "isNotEmpty"
+            },
+            {
+              "value1": "={{ $json.amountIn }}",
+              "operation": "isNotEmpty"
+            }
+          ]
+        }
+      },
+      "id": "validate-params",
+      "name": "Validate Parameters",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Simular arbitragem primeiro usando Web3\nconst Web3 = require('web3');\n\n// Configurar RPC baseado na network\nconst networkRPCs = {\n  ethereum: 'https://eth.llamarpc.com',\n  bsc: 'https://bsc-dataseed.binance.org/',\n  polygon: 'https://polygon-rpc.com'\n};\n\nconst network = $input.first().json.network;\nconst rpcUrl = networkRPCs[network] || networkRPCs.ethereum;\nconst web3 = new Web3(rpcUrl);\n\n// Contract ABI (apenas funções que precisamos)\nconst contractABI = [\n  {\n    \"inputs\": [\n      {\"internalType\": \"address\", \"name\": \"tokenIn\", \"type\": \"address\"},\n      {\"internalType\": \"address\", \"name\": \"tokenOut\", \"type\": \"address\"},\n      {\"internalType\": \"uint256\", \"name\": \"amountIn\", \"type\": \"uint256\"},\n      {\"internalType\": \"string\", \"name\": \"buyDexName\", \"type\": \"string\"},\n      {\"internalType\": \"string\", \"name\": \"sellDexName\", \"type\": \"string\"}\n    ],\n    \"name\": \"simulateArbitrage\",\n    \"outputs\": [\n      {\"internalType\": \"uint256\", \"name\": \"expectedProfit\", \"type\": \"uint256\"},\n      {\"internalType\": \"bool\", \"name\": \"profitable\", \"type\": \"bool\"}\n    ],\n    \"stateMutability\": \"view\",\n    \"type\": \"function\"\n  }\n];\n\n// Endereço do contrato (substitua após deploy)\nconst contractAddresses = {\n  ethereum: '0xYOUR_CONTRACT_ADDRESS_ETHEREUM',\n  bsc: '0xYOUR_CONTRACT_ADDRESS_BSC',\n  polygon: '0xYOUR_CONTRACT_ADDRESS_POLYGON'\n};\n\nconst contractAddress = contractAddresses[network];\nconst contract = new web3.eth.Contract(contractABI, contractAddress);\n\ntry {\n  const params = $input.first().json;\n  \n  // Converter amount para Wei\n  const amountInWei = web3.utils.toWei(params.amountIn, 'ether');\n  \n  // Simular arbitragem\n  const result = await contract.methods.simulateArbitrage(\n    params.tokenIn,\n    params.tokenOut,\n    amountInWei,\n    params.buyDex,\n    params.sellDex\n  ).call();\n  \n  const expectedProfit = web3.utils.fromWei(result.expectedProfit, 'ether');\n  const profitable = result.profitable;\n  \n  return {\n    json: {\n      simulation: {\n        expectedProfit,\n        profitable,\n        amountIn: params.amountIn,\n        network,\n        contractAddress\n      },\n      params\n    }\n  };\n  \n} catch (error) {\n  throw new Error('Simulation failed: ' + error.message);\n}"
+              },
+              "id": "simulate-arbitrage",
+              "name": "Simulate Arbitrage (Web3)",
+              "type": "n8n-nodes-base.function",
+              "typeVersion": 1,
+              "position": [850, 200]
+            },
+            {
+              "parameters": {
+                "conditions": {
+                  "boolean": [
+                    {
+                      "value1": "={{ $json.simulation.profitable }}",
+                      "value2": true
+                    }
+                  ]
+                }
+              },
+              "id": "check-profitability",
+              "name": "Is Profitable?",
+              "type": "n8n-nodes-base.if",
+              "typeVersion": 1,
+              "position": [1050, 200]
+            },
+            {
+              "parameters": {
+                "functionCode": "// Executar arbitragem usando Web3\nconst Web3 = require('web3');\n\n// Configurar RPC e Private Key\nconst networkRPCs = {\n  ethereum: 'https://eth.llamarpc.com',\n  bsc: 'https://bsc-dataseed.binance.org/',\n  polygon: 'https://polygon-rpc.com'\n};\n\nconst network = $input.first().json.params.network;\nconst rpcUrl = networkRPCs[network] || networkRPCs.ethereum;\nconst web3 = new Web3(rpcUrl);\n\n// IMPORTANTE: Private key deve estar nas credenciais do n8n\nconst privateKey = $credentials.web3PrivateKey;\nconst account = web3.eth.accounts.privateKeyToAccount(privateKey);\nweb3.eth.accounts.wallet.add(account);\n\n// Contract ABI para execução\nconst contractABI = [\n  {\n    \"inputs\": [\n      {\"internalType\": \"address\", \"name\": \"tokenIn\", \"type\": \"address\"},\n      {\"internalType\": \"address\", \"name\": \"tokenOut\", \"type\": \"address\"},\n      {\"internalType\": \"uint256\", \"name\": \"amountIn\", \"type\": \"uint256\"},\n      {\"internalType\": \"string\", \"name\": \"buyDexName\", \"type\": \"string\"},\n      {\"internalType\": \"string\", \"name\": \"sellDexName\", \"type\": \"string\"},\n      {\"internalType\": \"uint256\", \"name\": \"minProfit\", \"type\": \"uint256\"}\n    ],\n    \"name\": \"executeArbitrage\",\n    \"outputs\": [\n      {\"internalType\": \"uint256\", \"name\": \"profit\", \"type\": \"uint256\"}\n    ],\n    \"stateMutability\": \"nonpayable\",\n    \"type\": \"function\"\n  }\n];\n\nconst contractAddresses = {\n  ethereum: '0xYOUR_CONTRACT_ADDRESS_ETHEREUM',\n  bsc: '0xYOUR_CONTRACT_ADDRESS_BSC',\n  polygon: '0xYOUR_CONTRACT_ADDRESS_POLYGON'\n};\n\nconst contractAddress = contractAddresses[network];\nconst contract = new web3.eth.Contract(contractABI, contractAddress);\n\ntry {\n  const params = $input.first().json.params;\n  const simulation = $input.first().json.simulation;\n  \n  // Converter valores para Wei\n  const amountInWei = web3.utils.toWei(params.amountIn, 'ether');\n  const minProfitWei = web3.utils.toWei(params.minProfit, 'ether');\n  \n  // Estimar gas\n  const gasEstimate = await contract.methods.executeArbitrage(\n    params.tokenIn,\n    params.tokenOut,\n    amountInWei,\n    params.buyDex,\n    params.sellDex,\n    minProfitWei\n  ).estimateGas({ from: account.address });\n  \n  // Executar transação\n  const tx = contract.methods.executeArbitrage(\n    params.tokenIn,\n    params.tokenOut,\n    amountInWei,\n    params.buyDex,\n    params.sellDex,\n    minProfitWei\n  );\n  \n  const gas = Math.floor(gasEstimate * 1.2); // 20% buffer\n  const gasPrice = await web3.eth.getGasPrice();\n  \n  const receipt = await tx.send({\n    from: account.address,\n    gas: gas,\n    gasPrice: gasPrice\n  });\n  \n  // Extrair profit do evento\n  const profitEvent = receipt.events.ArbitrageExecuted;\n  const profitWei = profitEvent.returnValues.profit;\n  const profit = web3.utils.fromWei(profitWei, 'ether');\n  \n  return {\n    json: {\n      success: true,\n      transactionHash: receipt.transactionHash,\n      blockNumber: receipt.blockNumber,\n      gasUsed: receipt.gasUsed,\n      profit: profit,\n      expectedProfit: simulation.expectedProfit,\n      network: network,\n      timestamp: new Date().toISOString()\n    }\n  };\n  \n} catch (error) {\n  return {\n    json: {\n      success: false,\n      error: error.message,\n      timestamp: new Date().toISOString()\n    }\n  };\n}"
+              },
+              "id": "execute-arbitrage",
+              "name": "Execute Arbitrage (Web3)",
+              "type": "n8n-nodes-base.function",
+              "typeVersion": 1,
+              "position": [1250, 100]
+            },
+            {
+              "parameters": {
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "url": "https://uxhcsjlfwkhwkvhfacho.supabase.co/rest/v1/blockchain_transfers",
+                "method": "POST",
+                "jsonParameters": true,
+                "options": {},
+                "bodyParametersJson": "={\n  \"user_id\": \"{{ $json.params.userId }}\",\n  \"from_address\": \"{{ $json.params.tokenIn }}\",\n  \"to_address\": \"{{ $json.params.tokenOut }}\",\n  \"amount\": {{ $json.params.amountIn }},\n  \"token\": \"{{ $json.params.tokenIn }}\",\n  \"network\": \"{{ $json.params.network }}\",\n  \"status\": \"{{ $json.success ? 'completed' : 'failed' }}\",\n  \"tx_hash\": \"{{ $json.transactionHash }}\",\n  \"block_number\": {{ $json.blockNumber || 0 }},\n  \"gas_used\": \"{{ $json.gasUsed }}\",\n  \"error_message\": \"{{ $json.error || null }}\"\n}"
+              },
+              "id": "save-to-supabase",
+              "name": "Save to Supabase",
+              "type": "n8n-nodes-base.httpRequest",
+              "typeVersion": 3,
+              "position": [1450, 100],
+              "credentials": {
+                "httpHeaderAuth": {
+                  "id": "supabase-auth",
+                  "name": "Supabase Header Auth"
+                }
+              }
+            },
+            {
+              "parameters": {
+                "respondWith": "json",
+                "responseBody": "={{ $json }}"
+              },
+              "id": "respond-success",
+              "name": "Respond Success",
+              "type": "n8n-nodes-base.respondToWebhook",
+              "typeVersion": 1,
+              "position": [1650, 100]
+            },
+            {
+              "parameters": {
+                "respondWith": "json",
+                "responseCode": 400,
+                "responseBody": "={\n  \"success\": false,\n  \"error\": \"Trade not profitable\",\n  \"simulation\": {{ $json.simulation }}\n}"
+              },
+              "id": "respond-not-profitable",
+              "name": "Respond Not Profitable",
+              "type": "n8n-nodes-base.respondToWebhook",
+              "typeVersion": 1,
+              "position": [1250, 300]
+            },
+            {
+              "parameters": {
+                "respondWith": "json",
+                "responseCode": 400,
+                "responseBody": "={\n  \"success\": false,\n  \"error\": \"Invalid parameters\",\n  \"required\": [\"tokenIn\", \"tokenOut\", \"amountIn\", \"buyDex\", \"sellDex\"]\n}"
+              },
+              "id": "respond-invalid",
+              "name": "Respond Invalid",
+              "type": "n8n-nodes-base.respondToWebhook",
+              "typeVersion": 1,
+              "position": [850, 400]
+            }
+          ],
+          "connections": {
+            "Webhook Arbitrage": {
+              "main": [[{ "node": "Extract Parameters", "type": "main", "index": 0 }]]
+            },
+            "Extract Parameters": {
+              "main": [[{ "node": "Validate Parameters", "type": "main", "index": 0 }]]
+            },
+            "Validate Parameters": {
+              "main": [
+                [{ "node": "Simulate Arbitrage (Web3)", "type": "main", "index": 0 }],
+                [{ "node": "Respond Invalid", "type": "main", "index": 0 }]
+              ]
+            },
+            "Simulate Arbitrage (Web3)": {
+              "main": [[{ "node": "Is Profitable?", "type": "main", "index": 0 }]]
+            },
+            "Is Profitable?": {
+              "main": [
+                [{ "node": "Execute Arbitrage (Web3)", "type": "main", "index": 0 }],
+                [{ "node": "Respond Not Profitable", "type": "main", "index": 0 }]
+              ]
+            },
+            "Execute Arbitrage (Web3)": {
+              "main": [[{ "node": "Save to Supabase", "type": "main", "index": 0 }]]
+            },
+            "Save to Supabase": {
+              "main": [[{ "node": "Respond Success", "type": "main", "index": 0 }]]
+            }
+          },
+          "settings": {
+            "executionOrder": "v1"
+          },
+          "staticData": null,
+          "tags": [],
+          "triggerCount": 1,
+          "updatedAt": "2025-01-12T00:00:00.000Z",
+          "versionId": "1"
+        }
