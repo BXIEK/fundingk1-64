@@ -1,0 +1,36 @@
+{
+  "name": "saat-arbitrage-bot-contracts",
+  "version": "1.0.0",
+  "description": "Smart contracts Solidity para arbitragem cross-DEX automatizada",
+  "main": "index.js",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "deploy:mainnet": "hardhat run deploy.js --network mainnet",
+    "deploy:bsc": "hardhat run deploy.js --network bsc",
+    "deploy:polygon": "hardhat run deploy.js --network polygon",
+    "deploy:testnet": "hardhat run deploy.js --network goerli",
+    "verify": "hardhat verify --network",
+    "node": "hardhat node",
+    "clean": "hardhat clean"
+  },
+  "keywords": [
+    "arbitrage",
+    "defi",
+    "solidity",
+    "smart-contracts",
+    "dex",
+    "uniswap",
+    "pancakeswap"
+  ],
+  "author": "SAAT",
+  "license": "MIT",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "hardhat": "^2.19.0",
+    "dotenv": "^16.3.1"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.0.1"
+  }
+}

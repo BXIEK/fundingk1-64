@@ -1,0 +1,36 @@
+# Hardhat files
+cache/
+artifacts/
+
+# Node modules
+node_modules/
+
+# Environment variables (NUNCA faça commit!)
+.env
+.env.local
+.env.*.local
+
+# Deployment info (pode conter endereços sensíveis)
+deployment-*.json
+
+# TypeScript
+*.tsbuildinfo
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Hardhat
+typechain/
+typechain-types/
