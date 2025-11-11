@@ -1175,6 +1175,75 @@ export type Database = {
         }
         Relationships: []
       }
+      cluster_hedge_pairs: {
+        Row: {
+          analysis_date: string | null
+          avg_volatility_diff: number | null
+          backtest_roi: number | null
+          backtest_win_rate: number | null
+          backtested: boolean | null
+          beta_difference: number | null
+          cluster1_id: number
+          cluster2_id: number
+          created_at: string | null
+          expires_at: string | null
+          id: string
+          inter_cluster_correlation: number
+          is_active: boolean | null
+          mx_pair_bonus: number | null
+          opportunity_score: number
+          recommendation: string
+          token1: string
+          token2: string
+          updated_at: string | null
+          volume_ratio: number | null
+        }
+        Insert: {
+          analysis_date?: string | null
+          avg_volatility_diff?: number | null
+          backtest_roi?: number | null
+          backtest_win_rate?: number | null
+          backtested?: boolean | null
+          beta_difference?: number | null
+          cluster1_id: number
+          cluster2_id: number
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          inter_cluster_correlation: number
+          is_active?: boolean | null
+          mx_pair_bonus?: number | null
+          opportunity_score: number
+          recommendation: string
+          token1: string
+          token2: string
+          updated_at?: string | null
+          volume_ratio?: number | null
+        }
+        Update: {
+          analysis_date?: string | null
+          avg_volatility_diff?: number | null
+          backtest_roi?: number | null
+          backtest_win_rate?: number | null
+          backtested?: boolean | null
+          beta_difference?: number | null
+          cluster1_id?: number
+          cluster2_id?: number
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          inter_cluster_correlation?: number
+          is_active?: boolean | null
+          mx_pair_bonus?: number | null
+          opportunity_score?: number
+          recommendation?: string
+          token1?: string
+          token2?: string
+          updated_at?: string | null
+          volume_ratio?: number | null
+        }
+        Relationships: []
+      }
       conversion_history: {
         Row: {
           conversion_type: string
@@ -1217,6 +1286,156 @@ export type Database = {
           to_amount?: number
           to_token?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      correlation_alerts: {
+        Row: {
+          alert_type: string
+          correlation_delta: number | null
+          created_at: string
+          exchange: string
+          expires_at: string | null
+          id: string
+          is_active: boolean | null
+          is_read: boolean | null
+          message: string
+          new_correlation: number | null
+          old_correlation: number | null
+          opportunity_score: number | null
+          pair: string
+          recommended_action: string | null
+          severity: string
+          timeframe: string
+          token1: string
+          token2: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          alert_type: string
+          correlation_delta?: number | null
+          created_at?: string
+          exchange: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_read?: boolean | null
+          message: string
+          new_correlation?: number | null
+          old_correlation?: number | null
+          opportunity_score?: number | null
+          pair: string
+          recommended_action?: string | null
+          severity?: string
+          timeframe: string
+          token1: string
+          token2: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          alert_type?: string
+          correlation_delta?: number | null
+          created_at?: string
+          exchange?: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_read?: boolean | null
+          message?: string
+          new_correlation?: number | null
+          old_correlation?: number | null
+          opportunity_score?: number | null
+          pair?: string
+          recommended_action?: string | null
+          severity?: string
+          timeframe?: string
+          token1?: string
+          token2?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      correlation_history: {
+        Row: {
+          calculated_at: string
+          correlation_1h: number | null
+          correlation_24h: number | null
+          correlation_4h: number | null
+          correlation_7d: number | null
+          correlation_delta: number | null
+          created_at: string
+          exchange: string
+          id: string
+          opportunity_score: number | null
+          pair: string
+          recommended_strategy: string | null
+          regime_change: boolean | null
+          regime_change_type: string | null
+          signal_1h: string | null
+          signal_24h: string | null
+          signal_4h: string | null
+          signal_7d: string | null
+          token1: string
+          token2: string
+          volatility_1h: number | null
+          volatility_24h: number | null
+          volatility_4h: number | null
+          volatility_7d: number | null
+        }
+        Insert: {
+          calculated_at?: string
+          correlation_1h?: number | null
+          correlation_24h?: number | null
+          correlation_4h?: number | null
+          correlation_7d?: number | null
+          correlation_delta?: number | null
+          created_at?: string
+          exchange: string
+          id?: string
+          opportunity_score?: number | null
+          pair: string
+          recommended_strategy?: string | null
+          regime_change?: boolean | null
+          regime_change_type?: string | null
+          signal_1h?: string | null
+          signal_24h?: string | null
+          signal_4h?: string | null
+          signal_7d?: string | null
+          token1: string
+          token2: string
+          volatility_1h?: number | null
+          volatility_24h?: number | null
+          volatility_4h?: number | null
+          volatility_7d?: number | null
+        }
+        Update: {
+          calculated_at?: string
+          correlation_1h?: number | null
+          correlation_24h?: number | null
+          correlation_4h?: number | null
+          correlation_7d?: number | null
+          correlation_delta?: number | null
+          created_at?: string
+          exchange?: string
+          id?: string
+          opportunity_score?: number | null
+          pair?: string
+          recommended_strategy?: string | null
+          regime_change?: boolean | null
+          regime_change_type?: string | null
+          signal_1h?: string | null
+          signal_24h?: string | null
+          signal_4h?: string | null
+          signal_7d?: string | null
+          token1?: string
+          token2?: string
+          volatility_1h?: number | null
+          volatility_24h?: number | null
+          volatility_4h?: number | null
+          volatility_7d?: number | null
         }
         Relationships: []
       }
@@ -2107,7 +2326,7 @@ export type Database = {
           moniker: string | null
           node_config_id: string | null
           peer_id: string
-          remote_ip: unknown | null
+          remote_ip: unknown
         }
         Insert: {
           connection_status?: string | null
@@ -2117,7 +2336,7 @@ export type Database = {
           moniker?: string | null
           node_config_id?: string | null
           peer_id: string
-          remote_ip?: unknown | null
+          remote_ip?: unknown
         }
         Update: {
           connection_status?: string | null
@@ -2127,7 +2346,7 @@ export type Database = {
           moniker?: string | null
           node_config_id?: string | null
           peer_id?: string
-          remote_ip?: unknown | null
+          remote_ip?: unknown
         }
         Relationships: [
           {
@@ -2173,6 +2392,983 @@ export type Database = {
             columns: ["node_config_id"]
             isOneToOne: false
             referencedRelation: "gaia_node_config"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hedge_benchmarks: {
+        Row: {
+          avg_peak_first5_cycles: number
+          close_pnl: number
+          close_time: string
+          close_trigger: string
+          created_at: string
+          cycles_to_close: number
+          entry_time: string
+          id: string
+          peak_pnl_cycle1: number | null
+          peak_pnl_cycle2: number | null
+          peak_pnl_cycle3: number | null
+          peak_pnl_cycle4: number | null
+          peak_pnl_cycle5: number | null
+          token1: string
+          token2: string
+          total_profit_usdt: number | null
+          user_id: string
+        }
+        Insert: {
+          avg_peak_first5_cycles: number
+          close_pnl: number
+          close_time: string
+          close_trigger: string
+          created_at?: string
+          cycles_to_close: number
+          entry_time: string
+          id?: string
+          peak_pnl_cycle1?: number | null
+          peak_pnl_cycle2?: number | null
+          peak_pnl_cycle3?: number | null
+          peak_pnl_cycle4?: number | null
+          peak_pnl_cycle5?: number | null
+          token1: string
+          token2: string
+          total_profit_usdt?: number | null
+          user_id: string
+        }
+        Update: {
+          avg_peak_first5_cycles?: number
+          close_pnl?: number
+          close_time?: string
+          close_trigger?: string
+          created_at?: string
+          cycles_to_close?: number
+          entry_time?: string
+          id?: string
+          peak_pnl_cycle1?: number | null
+          peak_pnl_cycle2?: number | null
+          peak_pnl_cycle3?: number | null
+          peak_pnl_cycle4?: number | null
+          peak_pnl_cycle5?: number | null
+          token1?: string
+          token2?: string
+          total_profit_usdt?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      hedge_bot_config: {
+        Row: {
+          created_at: string
+          daily_trade_limit: number
+          id: string
+          is_active: boolean
+          is_paper_trading: boolean
+          max_concurrent_positions: number
+          max_daily_loss: number
+          max_position_size: number
+          min_correlation: number
+          min_opportunity_score: number
+          monitor_interval_minutes: number
+          preferred_strategy: string | null
+          stop_loss_percentage: number
+          take_profit_percentage: number
+          update_interval_seconds: number
+          updated_at: string
+          use_kmeans_pairs: boolean
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          daily_trade_limit?: number
+          id?: string
+          is_active?: boolean
+          is_paper_trading?: boolean
+          max_concurrent_positions?: number
+          max_daily_loss?: number
+          max_position_size?: number
+          min_correlation?: number
+          min_opportunity_score?: number
+          monitor_interval_minutes?: number
+          preferred_strategy?: string | null
+          stop_loss_percentage?: number
+          take_profit_percentage?: number
+          update_interval_seconds?: number
+          updated_at?: string
+          use_kmeans_pairs?: boolean
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          daily_trade_limit?: number
+          id?: string
+          is_active?: boolean
+          is_paper_trading?: boolean
+          max_concurrent_positions?: number
+          max_daily_loss?: number
+          max_position_size?: number
+          min_correlation?: number
+          min_opportunity_score?: number
+          monitor_interval_minutes?: number
+          preferred_strategy?: string | null
+          stop_loss_percentage?: number
+          take_profit_percentage?: number
+          update_interval_seconds?: number
+          updated_at?: string
+          use_kmeans_pairs?: boolean
+          user_id?: string
+        }
+        Relationships: []
+      }
+      hedge_bot_configs: {
+        Row: {
+          analysis_correlation_filter: string | null
+          analysis_lookback_hours: number | null
+          analysis_sort_by: string | null
+          analysis_strength_filter: string | null
+          analysis_volatility_filter: string | null
+          check_interval_minutes: number | null
+          created_at: string | null
+          daily_pnl: number | null
+          enable_kmeans_pairs: boolean | null
+          enabled_exchanges: string[] | null
+          exchange: string
+          id: string
+          initial_capital: number
+          is_active: boolean | null
+          last_execution_at: string | null
+          leverage: number | null
+          max_concurrent_positions: number | null
+          max_daily_loss: number | null
+          max_daily_trades: number | null
+          max_duration_minutes: number | null
+          max_positions: number | null
+          min_correlation_score: number | null
+          min_opportunity_score: number | null
+          momentum_detection_enabled: boolean | null
+          momentum_lookback_hours: number | null
+          momentum_position_multiplier: number | null
+          momentum_threshold_percent: number | null
+          momentum_trailing_stop_percent: number | null
+          position_size_usd: number | null
+          preferred_conversion_token: string | null
+          preferred_strategy: string | null
+          prioritize_mx_pairs: boolean | null
+          stop_loss_percent: number | null
+          take_profit_percent: number | null
+          trades_executed_today: number | null
+          trading_mode: string
+          updated_at: string | null
+          use_high_confidence_strategy: boolean | null
+          user_id: string
+        }
+        Insert: {
+          analysis_correlation_filter?: string | null
+          analysis_lookback_hours?: number | null
+          analysis_sort_by?: string | null
+          analysis_strength_filter?: string | null
+          analysis_volatility_filter?: string | null
+          check_interval_minutes?: number | null
+          created_at?: string | null
+          daily_pnl?: number | null
+          enable_kmeans_pairs?: boolean | null
+          enabled_exchanges?: string[] | null
+          exchange: string
+          id?: string
+          initial_capital: number
+          is_active?: boolean | null
+          last_execution_at?: string | null
+          leverage?: number | null
+          max_concurrent_positions?: number | null
+          max_daily_loss?: number | null
+          max_daily_trades?: number | null
+          max_duration_minutes?: number | null
+          max_positions?: number | null
+          min_correlation_score?: number | null
+          min_opportunity_score?: number | null
+          momentum_detection_enabled?: boolean | null
+          momentum_lookback_hours?: number | null
+          momentum_position_multiplier?: number | null
+          momentum_threshold_percent?: number | null
+          momentum_trailing_stop_percent?: number | null
+          position_size_usd?: number | null
+          preferred_conversion_token?: string | null
+          preferred_strategy?: string | null
+          prioritize_mx_pairs?: boolean | null
+          stop_loss_percent?: number | null
+          take_profit_percent?: number | null
+          trades_executed_today?: number | null
+          trading_mode?: string
+          updated_at?: string | null
+          use_high_confidence_strategy?: boolean | null
+          user_id: string
+        }
+        Update: {
+          analysis_correlation_filter?: string | null
+          analysis_lookback_hours?: number | null
+          analysis_sort_by?: string | null
+          analysis_strength_filter?: string | null
+          analysis_volatility_filter?: string | null
+          check_interval_minutes?: number | null
+          created_at?: string | null
+          daily_pnl?: number | null
+          enable_kmeans_pairs?: boolean | null
+          enabled_exchanges?: string[] | null
+          exchange?: string
+          id?: string
+          initial_capital?: number
+          is_active?: boolean | null
+          last_execution_at?: string | null
+          leverage?: number | null
+          max_concurrent_positions?: number | null
+          max_daily_loss?: number | null
+          max_daily_trades?: number | null
+          max_duration_minutes?: number | null
+          max_positions?: number | null
+          min_correlation_score?: number | null
+          min_opportunity_score?: number | null
+          momentum_detection_enabled?: boolean | null
+          momentum_lookback_hours?: number | null
+          momentum_position_multiplier?: number | null
+          momentum_threshold_percent?: number | null
+          momentum_trailing_stop_percent?: number | null
+          position_size_usd?: number | null
+          preferred_conversion_token?: string | null
+          preferred_strategy?: string | null
+          prioritize_mx_pairs?: boolean | null
+          stop_loss_percent?: number | null
+          take_profit_percent?: number | null
+          trades_executed_today?: number | null
+          trading_mode?: string
+          updated_at?: string | null
+          use_high_confidence_strategy?: boolean | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      hedge_bot_history: {
+        Row: {
+          created_at: string
+          errors: Json | null
+          executed_at: string
+          execution_time_ms: number | null
+          execution_type: string
+          id: string
+          opportunities_found: number | null
+          positions_closed: number | null
+          positions_opened: number | null
+          positions_updated: number | null
+          success_rate: number | null
+          total_pnl: number | null
+          user_id: string
+          warnings: Json | null
+        }
+        Insert: {
+          created_at?: string
+          errors?: Json | null
+          executed_at?: string
+          execution_time_ms?: number | null
+          execution_type: string
+          id?: string
+          opportunities_found?: number | null
+          positions_closed?: number | null
+          positions_opened?: number | null
+          positions_updated?: number | null
+          success_rate?: number | null
+          total_pnl?: number | null
+          user_id: string
+          warnings?: Json | null
+        }
+        Update: {
+          created_at?: string
+          errors?: Json | null
+          executed_at?: string
+          execution_time_ms?: number | null
+          execution_type?: string
+          id?: string
+          opportunities_found?: number | null
+          positions_closed?: number | null
+          positions_opened?: number | null
+          positions_updated?: number | null
+          success_rate?: number | null
+          total_pnl?: number | null
+          user_id?: string
+          warnings?: Json | null
+        }
+        Relationships: []
+      }
+      hedge_bot_logs: {
+        Row: {
+          config_id: string | null
+          created_at: string | null
+          details: Json | null
+          id: string
+          level: string | null
+          message: string
+          user_id: string | null
+        }
+        Insert: {
+          config_id?: string | null
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          level?: string | null
+          message: string
+          user_id?: string | null
+        }
+        Update: {
+          config_id?: string | null
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          level?: string | null
+          message?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hedge_bot_logs_config_id_fkey"
+            columns: ["config_id"]
+            isOneToOne: false
+            referencedRelation: "hedge_bot_configs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hedge_bot_trades: {
+        Row: {
+          config_id: string | null
+          correlation_at_entry: number | null
+          created_at: string | null
+          entry_capital: number
+          exchange: string
+          executed_at: string | null
+          exit_capital: number | null
+          id: string
+          position_id: string | null
+          profit_loss: number | null
+          profit_loss_percent: number | null
+          reason: string | null
+          strategy_used: string | null
+          token1: string
+          token2: string
+          trade_type: string
+          user_id: string
+        }
+        Insert: {
+          config_id?: string | null
+          correlation_at_entry?: number | null
+          created_at?: string | null
+          entry_capital: number
+          exchange: string
+          executed_at?: string | null
+          exit_capital?: number | null
+          id?: string
+          position_id?: string | null
+          profit_loss?: number | null
+          profit_loss_percent?: number | null
+          reason?: string | null
+          strategy_used?: string | null
+          token1: string
+          token2: string
+          trade_type: string
+          user_id: string
+        }
+        Update: {
+          config_id?: string | null
+          correlation_at_entry?: number | null
+          created_at?: string | null
+          entry_capital?: number
+          exchange?: string
+          executed_at?: string | null
+          exit_capital?: number | null
+          id?: string
+          position_id?: string | null
+          profit_loss?: number | null
+          profit_loss_percent?: number | null
+          reason?: string | null
+          strategy_used?: string | null
+          token1?: string
+          token2?: string
+          trade_type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hedge_bot_trades_config_id_fkey"
+            columns: ["config_id"]
+            isOneToOne: false
+            referencedRelation: "hedge_bot_configs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hedge_bot_trades_position_id_fkey"
+            columns: ["position_id"]
+            isOneToOne: false
+            referencedRelation: "hedge_positions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hedge_notifications: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_read: boolean | null
+          message: string
+          metadata: Json | null
+          notification_type: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          message: string
+          metadata?: Json | null
+          notification_type: string
+          title: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          message?: string
+          metadata?: Json | null
+          notification_type?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      hedge_pair_backtests: {
+        Row: {
+          avg_profit_percent: number
+          backtest_days: number
+          created_at: string | null
+          exchange: string
+          id: string
+          initial_capital: number
+          losing_trades: number
+          max_drawdown_percent: number
+          ml_score: number
+          recommendation: string
+          status: string
+          tested_at: string | null
+          token1: string
+          token2: string
+          total_pnl_usd: number
+          total_trades: number
+          trade_details: Json | null
+          updated_at: string | null
+          user_id: string
+          win_rate: number
+          winning_trades: number
+        }
+        Insert: {
+          avg_profit_percent?: number
+          backtest_days?: number
+          created_at?: string | null
+          exchange?: string
+          id?: string
+          initial_capital?: number
+          losing_trades?: number
+          max_drawdown_percent?: number
+          ml_score?: number
+          recommendation?: string
+          status?: string
+          tested_at?: string | null
+          token1: string
+          token2: string
+          total_pnl_usd?: number
+          total_trades?: number
+          trade_details?: Json | null
+          updated_at?: string | null
+          user_id: string
+          win_rate?: number
+          winning_trades?: number
+        }
+        Update: {
+          avg_profit_percent?: number
+          backtest_days?: number
+          created_at?: string | null
+          exchange?: string
+          id?: string
+          initial_capital?: number
+          losing_trades?: number
+          max_drawdown_percent?: number
+          ml_score?: number
+          recommendation?: string
+          status?: string
+          tested_at?: string | null
+          token1?: string
+          token2?: string
+          total_pnl_usd?: number
+          total_trades?: number
+          trade_details?: Json | null
+          updated_at?: string | null
+          user_id?: string
+          win_rate?: number
+          winning_trades?: number
+        }
+        Relationships: []
+      }
+      hedge_pair_simulations: {
+        Row: {
+          approved_at: string | null
+          correlation: number
+          created_at: string | null
+          current_cycle: number | null
+          cycle_history: Json | null
+          expires_at: string | null
+          id: string
+          position_id: string | null
+          simulated_fees_usd: number | null
+          simulated_net_pnl_usd: number | null
+          simulated_pnl_usd: number | null
+          status: string | null
+          strategy: string
+          token1: string
+          token1_initial_price: number | null
+          token2: string
+          token2_initial_price: number | null
+          total_cycles: number | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          approved_at?: string | null
+          correlation: number
+          created_at?: string | null
+          current_cycle?: number | null
+          cycle_history?: Json | null
+          expires_at?: string | null
+          id?: string
+          position_id?: string | null
+          simulated_fees_usd?: number | null
+          simulated_net_pnl_usd?: number | null
+          simulated_pnl_usd?: number | null
+          status?: string | null
+          strategy: string
+          token1: string
+          token1_initial_price?: number | null
+          token2: string
+          token2_initial_price?: number | null
+          total_cycles?: number | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          approved_at?: string | null
+          correlation?: number
+          created_at?: string | null
+          current_cycle?: number | null
+          cycle_history?: Json | null
+          expires_at?: string | null
+          id?: string
+          position_id?: string | null
+          simulated_fees_usd?: number | null
+          simulated_net_pnl_usd?: number | null
+          simulated_pnl_usd?: number | null
+          status?: string | null
+          strategy?: string
+          token1?: string
+          token1_initial_price?: number | null
+          token2?: string
+          token2_initial_price?: number | null
+          total_cycles?: number | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hedge_pair_simulations_position_id_fkey"
+            columns: ["position_id"]
+            isOneToOne: false
+            referencedRelation: "hedge_positions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hedge_position_pnl_history: {
+        Row: {
+          created_at: string
+          id: string
+          position_id: string
+          recorded_at: string
+          token1_pnl: number
+          token1_price: number
+          token2_pnl: number
+          token2_price: number
+          total_pnl_percent: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          position_id: string
+          recorded_at?: string
+          token1_pnl: number
+          token1_price: number
+          token2_pnl: number
+          token2_price: number
+          total_pnl_percent: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          position_id?: string
+          recorded_at?: string
+          token1_pnl?: number
+          token1_price?: number
+          token2_pnl?: number
+          token2_price?: number
+          total_pnl_percent?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hedge_position_pnl_history_position_id_fkey"
+            columns: ["position_id"]
+            isOneToOne: false
+            referencedRelation: "hedge_positions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hedge_positions: {
+        Row: {
+          analyzed_at: string | null
+          benchmark_avg_target: number | null
+          benchmark_close_enabled: boolean | null
+          closed_at: string | null
+          config_id: string | null
+          conversion_cost_usd: number | null
+          correlation: number
+          created_at: string | null
+          exchange: string
+          has_momentum: boolean | null
+          id: string
+          is_benchmark: boolean | null
+          ml_analysis: Json | null
+          ml_score: number | null
+          momentum_gain_percent: number | null
+          momentum_token: string | null
+          opened_at: string | null
+          peak_pnl_cycle1: number | null
+          peak_pnl_cycle2: number | null
+          peak_pnl_cycle3: number | null
+          peak_pnl_cycle4: number | null
+          peak_pnl_cycle5: number | null
+          peak_price: number | null
+          simulation_id: string | null
+          status: string | null
+          stop_loss_price: number | null
+          strategy: string
+          take_profit_price: number | null
+          token1: string
+          token1_current_price: number | null
+          token1_entry_fee_usd: number | null
+          token1_entry_price: number
+          token1_exit_fee_usd: number | null
+          token1_order_id: string | null
+          token1_pnl: number | null
+          token1_quantity: number
+          token1_value_usd: number | null
+          token2: string
+          token2_current_price: number | null
+          token2_entry_fee_usd: number | null
+          token2_entry_price: number
+          token2_exit_fee_usd: number | null
+          token2_order_id: string | null
+          token2_pnl: number | null
+          token2_quantity: number
+          token2_value_usd: number | null
+          total_fees_usd: number | null
+          total_investment_usd: number | null
+          total_pnl: number | null
+          total_pnl_percent: number | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          analyzed_at?: string | null
+          benchmark_avg_target?: number | null
+          benchmark_close_enabled?: boolean | null
+          closed_at?: string | null
+          config_id?: string | null
+          conversion_cost_usd?: number | null
+          correlation: number
+          created_at?: string | null
+          exchange: string
+          has_momentum?: boolean | null
+          id?: string
+          is_benchmark?: boolean | null
+          ml_analysis?: Json | null
+          ml_score?: number | null
+          momentum_gain_percent?: number | null
+          momentum_token?: string | null
+          opened_at?: string | null
+          peak_pnl_cycle1?: number | null
+          peak_pnl_cycle2?: number | null
+          peak_pnl_cycle3?: number | null
+          peak_pnl_cycle4?: number | null
+          peak_pnl_cycle5?: number | null
+          peak_price?: number | null
+          simulation_id?: string | null
+          status?: string | null
+          stop_loss_price?: number | null
+          strategy: string
+          take_profit_price?: number | null
+          token1: string
+          token1_current_price?: number | null
+          token1_entry_fee_usd?: number | null
+          token1_entry_price: number
+          token1_exit_fee_usd?: number | null
+          token1_order_id?: string | null
+          token1_pnl?: number | null
+          token1_quantity: number
+          token1_value_usd?: number | null
+          token2: string
+          token2_current_price?: number | null
+          token2_entry_fee_usd?: number | null
+          token2_entry_price: number
+          token2_exit_fee_usd?: number | null
+          token2_order_id?: string | null
+          token2_pnl?: number | null
+          token2_quantity: number
+          token2_value_usd?: number | null
+          total_fees_usd?: number | null
+          total_investment_usd?: number | null
+          total_pnl?: number | null
+          total_pnl_percent?: number | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          analyzed_at?: string | null
+          benchmark_avg_target?: number | null
+          benchmark_close_enabled?: boolean | null
+          closed_at?: string | null
+          config_id?: string | null
+          conversion_cost_usd?: number | null
+          correlation?: number
+          created_at?: string | null
+          exchange?: string
+          has_momentum?: boolean | null
+          id?: string
+          is_benchmark?: boolean | null
+          ml_analysis?: Json | null
+          ml_score?: number | null
+          momentum_gain_percent?: number | null
+          momentum_token?: string | null
+          opened_at?: string | null
+          peak_pnl_cycle1?: number | null
+          peak_pnl_cycle2?: number | null
+          peak_pnl_cycle3?: number | null
+          peak_pnl_cycle4?: number | null
+          peak_pnl_cycle5?: number | null
+          peak_price?: number | null
+          simulation_id?: string | null
+          status?: string | null
+          stop_loss_price?: number | null
+          strategy?: string
+          take_profit_price?: number | null
+          token1?: string
+          token1_current_price?: number | null
+          token1_entry_fee_usd?: number | null
+          token1_entry_price?: number
+          token1_exit_fee_usd?: number | null
+          token1_order_id?: string | null
+          token1_pnl?: number | null
+          token1_quantity?: number
+          token1_value_usd?: number | null
+          token2?: string
+          token2_current_price?: number | null
+          token2_entry_fee_usd?: number | null
+          token2_entry_price?: number
+          token2_exit_fee_usd?: number | null
+          token2_order_id?: string | null
+          token2_pnl?: number | null
+          token2_quantity?: number
+          token2_value_usd?: number | null
+          total_fees_usd?: number | null
+          total_investment_usd?: number | null
+          total_pnl?: number | null
+          total_pnl_percent?: number | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hedge_positions_config_id_fkey"
+            columns: ["config_id"]
+            isOneToOne: false
+            referencedRelation: "hedge_bot_configs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hedge_positions_simulation_id_fkey"
+            columns: ["simulation_id"]
+            isOneToOne: false
+            referencedRelation: "hedge_pair_simulations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hedge_reference_pairs: {
+        Row: {
+          avg_correlation: number
+          avg_pnl: number
+          avg_roi_percent: number
+          avg_spread_percent: number
+          avg_volatility: number
+          created_at: string
+          id: string
+          is_benchmark: boolean
+          quality_score: number
+          token1: string
+          token2: string
+          total_trades: number
+          updated_at: string
+          user_id: string
+          win_rate: number
+        }
+        Insert: {
+          avg_correlation?: number
+          avg_pnl?: number
+          avg_roi_percent?: number
+          avg_spread_percent?: number
+          avg_volatility?: number
+          created_at?: string
+          id?: string
+          is_benchmark?: boolean
+          quality_score?: number
+          token1: string
+          token2: string
+          total_trades?: number
+          updated_at?: string
+          user_id: string
+          win_rate?: number
+        }
+        Update: {
+          avg_correlation?: number
+          avg_pnl?: number
+          avg_roi_percent?: number
+          avg_spread_percent?: number
+          avg_volatility?: number
+          created_at?: string
+          id?: string
+          is_benchmark?: boolean
+          quality_score?: number
+          token1?: string
+          token2?: string
+          total_trades?: number
+          updated_at?: string
+          user_id?: string
+          win_rate?: number
+        }
+        Relationships: []
+      }
+      hedge_trades: {
+        Row: {
+          close_reason: string | null
+          closed_at: string | null
+          correlation: number | null
+          created_at: string
+          entry_price1: number
+          entry_price2: number
+          exchange_trade_id1: string | null
+          exchange_trade_id2: string | null
+          exit_price1: number | null
+          exit_price2: number | null
+          fees: number | null
+          hold_time_minutes: number | null
+          id: string
+          is_paper_trading: boolean
+          net_pnl: number | null
+          opened_at: string
+          opportunity_score: number | null
+          pair_name: string
+          pnl: number | null
+          pnl_percentage: number | null
+          position_id: string | null
+          position_size: number
+          status: string
+          strategy: string
+          token1: string
+          token2: string
+          trade_type: string
+          user_id: string
+        }
+        Insert: {
+          close_reason?: string | null
+          closed_at?: string | null
+          correlation?: number | null
+          created_at?: string
+          entry_price1: number
+          entry_price2: number
+          exchange_trade_id1?: string | null
+          exchange_trade_id2?: string | null
+          exit_price1?: number | null
+          exit_price2?: number | null
+          fees?: number | null
+          hold_time_minutes?: number | null
+          id?: string
+          is_paper_trading?: boolean
+          net_pnl?: number | null
+          opened_at: string
+          opportunity_score?: number | null
+          pair_name: string
+          pnl?: number | null
+          pnl_percentage?: number | null
+          position_id?: string | null
+          position_size: number
+          status?: string
+          strategy: string
+          token1: string
+          token2: string
+          trade_type: string
+          user_id: string
+        }
+        Update: {
+          close_reason?: string | null
+          closed_at?: string | null
+          correlation?: number | null
+          created_at?: string
+          entry_price1?: number
+          entry_price2?: number
+          exchange_trade_id1?: string | null
+          exchange_trade_id2?: string | null
+          exit_price1?: number | null
+          exit_price2?: number | null
+          fees?: number | null
+          hold_time_minutes?: number | null
+          id?: string
+          is_paper_trading?: boolean
+          net_pnl?: number | null
+          opened_at?: string
+          opportunity_score?: number | null
+          pair_name?: string
+          pnl?: number | null
+          pnl_percentage?: number | null
+          position_id?: string | null
+          position_size?: number
+          status?: string
+          strategy?: string
+          token1?: string
+          token2?: string
+          trade_type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hedge_trades_position_id_fkey"
+            columns: ["position_id"]
+            isOneToOne: false
+            referencedRelation: "hedge_positions"
             referencedColumns: ["id"]
           },
         ]
@@ -2354,6 +3550,54 @@ export type Database = {
           total_profit?: number | null
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      kmeans_analysis_history: {
+        Row: {
+          avg_silhouette_score: number | null
+          cluster_summary: Json | null
+          clusters_identified: number | null
+          created_at: string | null
+          excellent_pairs: number | null
+          execution_time_ms: number | null
+          good_pairs: number | null
+          id: string
+          inertia: number | null
+          lookback_days: number
+          n_clusters: number
+          n_tokens: number
+          pairs_recommended: number | null
+        }
+        Insert: {
+          avg_silhouette_score?: number | null
+          cluster_summary?: Json | null
+          clusters_identified?: number | null
+          created_at?: string | null
+          excellent_pairs?: number | null
+          execution_time_ms?: number | null
+          good_pairs?: number | null
+          id?: string
+          inertia?: number | null
+          lookback_days: number
+          n_clusters: number
+          n_tokens: number
+          pairs_recommended?: number | null
+        }
+        Update: {
+          avg_silhouette_score?: number | null
+          cluster_summary?: Json | null
+          clusters_identified?: number | null
+          created_at?: string | null
+          excellent_pairs?: number | null
+          execution_time_ms?: number | null
+          good_pairs?: number | null
+          id?: string
+          inertia?: number | null
+          lookback_days?: number
+          n_clusters?: number
+          n_tokens?: number
+          pairs_recommended?: number | null
         }
         Relationships: []
       }
@@ -3266,6 +4510,66 @@ export type Database = {
         }
         Relationships: []
       }
+      pre_calculated_correlations: {
+        Row: {
+          calculated_at: string
+          correlation: number
+          created_at: string
+          exchange: string
+          expires_at: string
+          id: string
+          lookback_hours: number
+          mode: string
+          pair: string
+          signal: string
+          strength: number
+          token1: string
+          token1_change: number
+          token1_volatility: number
+          token2: string
+          token2_change: number
+          token2_volatility: number
+        }
+        Insert: {
+          calculated_at?: string
+          correlation: number
+          created_at?: string
+          exchange: string
+          expires_at: string
+          id?: string
+          lookback_hours: number
+          mode: string
+          pair: string
+          signal: string
+          strength: number
+          token1: string
+          token1_change: number
+          token1_volatility: number
+          token2: string
+          token2_change: number
+          token2_volatility: number
+        }
+        Update: {
+          calculated_at?: string
+          correlation?: number
+          created_at?: string
+          exchange?: string
+          expires_at?: string
+          id?: string
+          lookback_hours?: number
+          mode?: string
+          pair?: string
+          signal?: string
+          strength?: number
+          token1?: string
+          token1_change?: number
+          token1_volatility?: number
+          token2?: string
+          token2_change?: number
+          token2_volatility?: number
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string | null
@@ -3596,7 +4900,7 @@ export type Database = {
           description: string
           details: Json | null
           id: string
-          ip_address: unknown | null
+          ip_address: unknown
           resolved: boolean
           resolved_at: string | null
           severity: string
@@ -3608,7 +4912,7 @@ export type Database = {
           description: string
           details?: Json | null
           id?: string
-          ip_address?: unknown | null
+          ip_address?: unknown
           resolved?: boolean
           resolved_at?: string | null
           severity: string
@@ -3620,7 +4924,7 @@ export type Database = {
           description?: string
           details?: Json | null
           id?: string
-          ip_address?: unknown | null
+          ip_address?: unknown
           resolved?: boolean
           resolved_at?: string | null
           severity?: string
@@ -3634,7 +4938,7 @@ export type Database = {
           details: Json | null
           event_type: string
           id: string
-          ip_address: unknown | null
+          ip_address: unknown
           severity: string
           user_agent: string | null
           wallet_address: string | null
@@ -3645,7 +4949,7 @@ export type Database = {
           details?: Json | null
           event_type: string
           id?: string
-          ip_address?: unknown | null
+          ip_address?: unknown
           severity?: string
           user_agent?: string | null
           wallet_address?: string | null
@@ -3656,7 +4960,7 @@ export type Database = {
           details?: Json | null
           event_type?: string
           id?: string
-          ip_address?: unknown | null
+          ip_address?: unknown
           severity?: string
           user_agent?: string | null
           wallet_address?: string | null
@@ -4539,6 +5843,219 @@ export type Database = {
         }
         Relationships: []
       }
+      temporal_cluster_summaries: {
+        Row: {
+          analysis_id: string
+          avg_silhouette_score: number | null
+          best_cluster_id: number | null
+          best_cluster_score: number | null
+          calculated_at: string | null
+          clusters: Json
+          created_at: string | null
+          exchange: string | null
+          expires_at: string | null
+          id: string
+          inertia: number | null
+          lookback_hours: number | null
+          n_clusters: number
+          total_pairs: number
+          updated_at: string | null
+        }
+        Insert: {
+          analysis_id: string
+          avg_silhouette_score?: number | null
+          best_cluster_id?: number | null
+          best_cluster_score?: number | null
+          calculated_at?: string | null
+          clusters: Json
+          created_at?: string | null
+          exchange?: string | null
+          expires_at?: string | null
+          id?: string
+          inertia?: number | null
+          lookback_hours?: number | null
+          n_clusters: number
+          total_pairs: number
+          updated_at?: string | null
+        }
+        Update: {
+          analysis_id?: string
+          avg_silhouette_score?: number | null
+          best_cluster_id?: number | null
+          best_cluster_score?: number | null
+          calculated_at?: string | null
+          clusters?: Json
+          created_at?: string | null
+          exchange?: string | null
+          expires_at?: string | null
+          id?: string
+          inertia?: number | null
+          lookback_hours?: number | null
+          n_clusters?: number
+          total_pairs?: number
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      temporal_correlation_clusters: {
+        Row: {
+          analysis_id: string
+          calculated_at: string | null
+          cluster_distance: number | null
+          cluster_id: number
+          correlation_1h: number | null
+          correlation_24h: number | null
+          correlation_4h: number | null
+          correlation_7d: number | null
+          correlation_avg: number | null
+          correlation_stability: number | null
+          created_at: string | null
+          exchange: string | null
+          expires_at: string | null
+          hedge_effectiveness: number | null
+          id: string
+          momentum_1h: number | null
+          momentum_24h: number | null
+          opportunity_score: number | null
+          pair: string
+          recommendation: string | null
+          regime_changes_7d: number | null
+          regime_stability_score: number | null
+          silhouette_score: number | null
+          token1: string
+          token2: string
+          trend_strength: number | null
+          updated_at: string | null
+          volatility_1h: number | null
+          volatility_24h: number | null
+          volatility_avg: number | null
+        }
+        Insert: {
+          analysis_id: string
+          calculated_at?: string | null
+          cluster_distance?: number | null
+          cluster_id: number
+          correlation_1h?: number | null
+          correlation_24h?: number | null
+          correlation_4h?: number | null
+          correlation_7d?: number | null
+          correlation_avg?: number | null
+          correlation_stability?: number | null
+          created_at?: string | null
+          exchange?: string | null
+          expires_at?: string | null
+          hedge_effectiveness?: number | null
+          id?: string
+          momentum_1h?: number | null
+          momentum_24h?: number | null
+          opportunity_score?: number | null
+          pair: string
+          recommendation?: string | null
+          regime_changes_7d?: number | null
+          regime_stability_score?: number | null
+          silhouette_score?: number | null
+          token1: string
+          token2: string
+          trend_strength?: number | null
+          updated_at?: string | null
+          volatility_1h?: number | null
+          volatility_24h?: number | null
+          volatility_avg?: number | null
+        }
+        Update: {
+          analysis_id?: string
+          calculated_at?: string | null
+          cluster_distance?: number | null
+          cluster_id?: number
+          correlation_1h?: number | null
+          correlation_24h?: number | null
+          correlation_4h?: number | null
+          correlation_7d?: number | null
+          correlation_avg?: number | null
+          correlation_stability?: number | null
+          created_at?: string | null
+          exchange?: string | null
+          expires_at?: string | null
+          hedge_effectiveness?: number | null
+          id?: string
+          momentum_1h?: number | null
+          momentum_24h?: number | null
+          opportunity_score?: number | null
+          pair?: string
+          recommendation?: string | null
+          regime_changes_7d?: number | null
+          regime_stability_score?: number | null
+          silhouette_score?: number | null
+          token1?: string
+          token2?: string
+          trend_strength?: number | null
+          updated_at?: string | null
+          volatility_1h?: number | null
+          volatility_24h?: number | null
+          volatility_avg?: number | null
+        }
+        Relationships: []
+      }
+      token_clusters: {
+        Row: {
+          analysis_date: string | null
+          avg_correlation: number | null
+          avg_volatility: number | null
+          avg_volume: number | null
+          beta_to_btc: number | null
+          cluster_avg_correlation: number | null
+          cluster_avg_volatility: number | null
+          cluster_id: number
+          cluster_name: string
+          cluster_size: number | null
+          created_at: string | null
+          expires_at: string | null
+          id: string
+          market_trend_btc: number | null
+          silhouette_score: number | null
+          token: string
+          updated_at: string | null
+        }
+        Insert: {
+          analysis_date?: string | null
+          avg_correlation?: number | null
+          avg_volatility?: number | null
+          avg_volume?: number | null
+          beta_to_btc?: number | null
+          cluster_avg_correlation?: number | null
+          cluster_avg_volatility?: number | null
+          cluster_id: number
+          cluster_name: string
+          cluster_size?: number | null
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          market_trend_btc?: number | null
+          silhouette_score?: number | null
+          token: string
+          updated_at?: string | null
+        }
+        Update: {
+          analysis_date?: string | null
+          avg_correlation?: number | null
+          avg_volatility?: number | null
+          avg_volume?: number | null
+          beta_to_btc?: number | null
+          cluster_avg_correlation?: number | null
+          cluster_avg_volatility?: number | null
+          cluster_id?: number
+          cluster_name?: string
+          cluster_size?: number | null
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          market_trend_btc?: number | null
+          silhouette_score?: number | null
+          token?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       triangular_arbitrage_executions: {
         Row: {
           actual_profit: number | null
@@ -4877,6 +6394,33 @@ export type Database = {
           user_email?: string
           user_id?: string
           user_name?: string | null
+        }
+        Relationships: []
+      }
+      user_exchange_settings: {
+        Row: {
+          created_at: string
+          exchange: string
+          id: string
+          is_enabled: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          exchange: string
+          id?: string
+          is_enabled?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          exchange?: string
+          id?: string
+          is_enabled?: boolean
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -5248,6 +6792,34 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      calculate_hedge_opportunity_score: {
+        Args: {
+          p_correlation: number
+          p_preferred_strategy: string
+          p_volatility1: number
+          p_volatility2: number
+        }
+        Returns: number
+      }
+      calculate_ml_score: {
+        Args: {
+          p_avg_profit: number
+          p_max_drawdown: number
+          p_total_trades: number
+          p_win_rate: number
+        }
+        Returns: number
+      }
+      calculate_pair_similarity: {
+        Args: {
+          p_correlation: number
+          p_token1: string
+          p_token2: string
+          p_user_id: string
+          p_volatility: number
+        }
+        Returns: number
+      }
       calculate_subscription_end_date: {
         Args: { plan_name: string; start_date?: string }
         Returns: string
@@ -5280,18 +6852,18 @@ export type Database = {
         }
         Returns: boolean
       }
-      cleanup_expired_opportunities: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
-      cleanup_expired_triangular_opportunities: {
-        Args: Record<PropertyKey, never>
-        Returns: number
-      }
-      deactivate_expired_trial_users: {
-        Args: Record<PropertyKey, never>
-        Returns: number
-      }
+      cleanup_expired_clusters: { Args: never; Returns: number }
+      cleanup_expired_correlation_alerts: { Args: never; Returns: number }
+      cleanup_expired_correlations: { Args: never; Returns: number }
+      cleanup_expired_opportunities: { Args: never; Returns: undefined }
+      cleanup_expired_simulations: { Args: never; Returns: number }
+      cleanup_expired_temporal_clusters: { Args: never; Returns: number }
+      cleanup_expired_triangular_opportunities: { Args: never; Returns: number }
+      cleanup_old_correlation_history: { Args: never; Returns: number }
+      cleanup_old_hedge_bot_logs: { Args: never; Returns: number }
+      cleanup_old_notifications: { Args: never; Returns: undefined }
+      cleanup_old_pnl_history: { Args: never; Returns: number }
+      deactivate_expired_trial_users: { Args: never; Returns: number }
       enable_realtime_trading: {
         Args: {
           p_amount: number
@@ -5304,24 +6876,22 @@ export type Database = {
         Returns: Json
       }
       generate_fresh_arbitrage_opportunities: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: undefined
       }
-      generate_unique_password: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
-      get_demo_user_id: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
+      generate_unique_password: { Args: never; Returns: string }
+      get_demo_user_id: { Args: never; Returns: string }
       get_exchange_symbol_stats: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           exchange: string
           last_updated: string
           symbol_count: number
         }[]
+      }
+      get_recommendation_from_score: {
+        Args: { p_score: number }
+        Returns: string
       }
       get_user_roles: {
         Args: { _user_id: string }
@@ -5329,10 +6899,7 @@ export type Database = {
           role: Database["public"]["Enums"]["app_role"]
         }[]
       }
-      has_active_access: {
-        Args: { user_uuid: string }
-        Returns: boolean
-      }
+      has_active_access: { Args: { user_uuid: string }; Returns: boolean }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -5340,18 +6907,9 @@ export type Database = {
         }
         Returns: boolean
       }
-      has_saat_lite_access: {
-        Args: { _user_id: string }
-        Returns: boolean
-      }
-      has_triangular_access: {
-        Args: { _user_id: string }
-        Returns: boolean
-      }
-      is_trial_active: {
-        Args: { user_uuid: string }
-        Returns: boolean
-      }
+      has_saat_lite_access: { Args: { _user_id: string }; Returns: boolean }
+      has_triangular_access: { Args: { _user_id: string }; Returns: boolean }
+      is_trial_active: { Args: { user_uuid: string }; Returns: boolean }
       log_security_event: {
         Args: {
           p_details?: Json
@@ -5364,14 +6922,8 @@ export type Database = {
         }
         Returns: string
       }
-      process_automatic_payouts: {
-        Args: Record<PropertyKey, never>
-        Returns: number
-      }
-      process_block_rewards: {
-        Args: { block_id: string }
-        Returns: undefined
-      }
+      process_automatic_payouts: { Args: never; Returns: number }
+      process_block_rewards: { Args: { block_id: string }; Returns: undefined }
       sync_real_balances: {
         Args: { p_balances: Json; p_exchange: string; p_user_id: string }
         Returns: undefined
@@ -5405,25 +6957,26 @@ export type Database = {
         }
         Returns: undefined
       }
-      update_pool_statistics: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
-      update_portfolio_balance: {
-        Args:
-          | {
+      update_pool_statistics: { Args: never; Returns: undefined }
+      update_portfolio_balance:
+        | {
+            Args: {
               p_amount_change: number
               p_exchange?: string
               p_symbol: string
               p_user_id: string
             }
-          | { p_amount_change: number; p_symbol: string; p_user_id: string }
-        Returns: undefined
-      }
-      validate_access_code: {
-        Args: { input_code: string }
-        Returns: boolean
-      }
+            Returns: undefined
+          }
+        | {
+            Args: {
+              p_amount_change: number
+              p_symbol: string
+              p_user_id: string
+            }
+            Returns: undefined
+          }
+      validate_access_code: { Args: { input_code: string }; Returns: boolean }
       validate_mining_share: {
         Args: {
           p_difficulty: number
